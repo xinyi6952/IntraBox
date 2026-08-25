@@ -1,0 +1,35 @@
+﻿<UserControl x:Class="IntraBox.Modules.RegBrowse.RegBrowseView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+                   Foreground="{DynamicResource WarningBrush}"
+                   Text="注册表含系统与策略相关配置。本工具只读浏览，仍请勿在未授权环境下翻查敏感键；部分键需要管理员权限才能读取。"/>
+        <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+            <Button Content="复制路径" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Copy_Click"/>
+            <TextBlock x:Name="PathText" VerticalAlignment="Center" Margin="8,4,0,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+        </WrapPanel>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TreeView x:Name="KeyTree" SelectedItemChanged="KeyTree_SelectedItemChanged"/>
+            <GridSplitter Grid.Column="1" Width="8"/>
+            <DataGrid x:Name="ValGrid" Grid.Column="2" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="160"/>
+                    <DataGridTextColumn Header="类型" Binding="{Binding Kind}" Width="90"/>
+                    <DataGridTextColumn Header="数据" Binding="{Binding Data}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+    </Grid>
+</UserControl>

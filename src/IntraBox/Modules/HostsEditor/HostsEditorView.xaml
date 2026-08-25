@@ -1,0 +1,47 @@
+﻿<UserControl x:Class="IntraBox.Modules.HostsEditor.HostsEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+                   Foreground="{DynamicResource WarningBrush}"
+                   Text="修改 Hosts 需要管理员权限，并可能影响本机域名解析与组织网络策略。请仅用于本机开发调试。"/>
+        <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+            <Button Content="重新加载" Margin="0,4,8,4" Click="Reload_Click"/>
+            <Button Content="添加" Margin="0,4,8,4" Click="Add_Click"/>
+            <Button Content="删除选中" Margin="0,4,8,4" Click="Delete_Click"/>
+            <Button Content="切换注释" Margin="0,4,8,4" Click="Toggle_Click"/>
+            <Button Content="保存" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Save_Click"/>
+            <Button x:Name="UndoBtn" Content="撤销上次保存" Margin="0,4,8,4" Click="Undo_Click" IsEnabled="False"
+                    ToolTip="把 Hosts 恢复到上一份已保存的内容，可连续撤销"/>
+            <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+        </WrapPanel>
+        <DataGrid x:Name="HostGrid" Grid.Row="2" AutoGenerateColumns="False" CanUserAddRows="False"
+                  SelectionMode="Single" SelectionUnit="FullRow"
+                  EnableRowVirtualization="False" EnableColumnVirtualization="False"
+                  VirtualizingPanel.IsVirtualizing="False">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="启用" Width="50">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      IsChecked="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Click="EnableCheck_Click"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="IP" Binding="{Binding Ip}" Width="140"/>
+                <DataGridTextColumn Header="域名" Binding="{Binding Host}" Width="*"/>
+                <DataGridTextColumn Header="注释" Binding="{Binding Comment}" Width="180"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock x:Name="PathHint" Grid.Row="3" Margin="0,8,0,0" TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

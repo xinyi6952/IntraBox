@@ -1,0 +1,19 @@
+﻿<UserControl x:Class="IntraBox.Modules.Screenshot.ScreenshotView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="4">
+        <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+            <TextBlock Text="快捷键截屏" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"
+                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,12"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="按下全局热键（默认 Ctrl+Alt+A，可在设置中修改）或下方按钮进入全屏框选。松手后拖边角调整选区。默认工具是「移动/选择」。用图标工具栏标注后可复制、保存、钉在桌面或 OCR 识别图中文字。"/>
+            <WrapPanel Margin="0,0,0,12">
+                <Button Content="开始截屏" Style="{StaticResource PrimaryButton}" Click="Start_Click" Margin="0,0,8,8"/>
+                <TextBlock x:Name="HotkeyHint" VerticalAlignment="Center" Margin="4,0,0,8"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </WrapPanel>
+            <TextBlock x:Name="MsgText" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

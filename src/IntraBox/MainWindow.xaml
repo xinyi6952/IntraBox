@@ -1,0 +1,124 @@
+﻿<Window x:Class="IntraBox.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="IntraBox"
+        Icon="app.ico"
+        Height="720" Width="1100"
+        MinHeight="480" MinWidth="800"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource WindowBgBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+    <DockPanel>
+        <StatusBar DockPanel.Dock="Bottom" Background="{DynamicResource NavBgBrush}"
+                   Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusText" Text="就绪" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock x:Name="MemoryText" Text="" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="NavCol" Width="224"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid x:Name="NavPanel" Grid.Column="0" Background="{DynamicResource NavBgBrush}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid x:Name="NavHeader" Grid.Row="0" Margin="8,14,8,8">
+                    <TextBlock x:Name="NavTitle" Text="IntraBox"
+                               HorizontalAlignment="Left" VerticalAlignment="Center"
+                               Margin="8,0,40,0"
+                               Foreground="{DynamicResource AccentBrush}"
+                               FontWeight="Bold" FontSize="16"/>
+                    <Button x:Name="NavToggleBtn" HorizontalAlignment="Right"
+                            Content="«" Padding="8,4" MinHeight="28" MinWidth="32"
+                            ToolTip="折叠导航" Click="NavToggle_Click"/>
+                </Grid>
+                <ListBox x:Name="NavList"
+                         Grid.Row="1"
+                         Style="{x:Null}"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         SelectionChanged="NavList_SelectionChanged">
+                    <ListBox.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"
+                                               FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               Margin="18,14,0,4"/>
+                                </DataTemplate>
+                            </GroupStyle.HeaderTemplate>
+                        </GroupStyle>
+                    </ListBox.GroupStyle>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                            <Setter Property="Margin" Value="8,1"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="bd" Background="Transparent" CornerRadius="4" Padding="12,8">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource NavHoverBrush}"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource NavSelectedBrush}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayName}" FontSize="13"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Border x:Name="SettingsNavWrap" Grid.Row="2"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                        Padding="8,8,8,12">
+                    <Border x:Name="SettingsNavBtn" Background="Transparent" CornerRadius="4" Padding="12,8"
+                            Cursor="Hand" MouseLeftButtonUp="SettingsNav_Click"
+                            MouseEnter="SettingsNav_MouseEnter" MouseLeave="SettingsNav_MouseLeave">
+                        <TextBlock x:Name="SettingsNavText" Text="设置" FontSize="13"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Border>
+                </Border>
+            </Grid>
+
+            <Border Grid.Column="1" Width="1" Background="{DynamicResource BorderBrush}"/>
+
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Background="{DynamicResource PanelBgBrush}" Padding="20,14"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                    <TextBlock x:Name="ModuleTitle"
+                               Text="请从左侧选择一个工具"
+                               FontWeight="SemiBold" FontSize="16"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </Border>
+                <ContentControl x:Name="WorkspaceHost" Grid.Row="1" Margin="16"/>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>

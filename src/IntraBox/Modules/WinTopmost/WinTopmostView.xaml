@@ -1,0 +1,19 @@
+﻿<UserControl x:Class="IntraBox.Modules.WinTopmost.WinTopmostView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <WrapPanel Margin="0,0,0,8">
+            <Button Content="刷新窗口" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Refresh_Click"/>
+            <Button Content="置顶" Margin="0,4,8,4" Click="Top_Click"/>
+            <Button Content="取消置顶" Margin="0,4,8,4" Click="Untop_Click"/>
+            <CheckBox x:Name="SelfCheck" Content="包含本工具窗口" Margin="8,4,8,4"/>
+            <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+        </WrapPanel>
+        <ListBox x:Name="WinList" Grid.Row="1" DisplayMemberPath="Title"/>
+    </Grid>
+</UserControl>

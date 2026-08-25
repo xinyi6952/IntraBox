@@ -1,0 +1,36 @@
+﻿<UserControl x:Class="IntraBox.Modules.TxtToExcel.TxtToExcelView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:IntraBox.Controls">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="1.5*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="2*"/>
+        </Grid.RowDefinitions>
+
+        <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="分隔符" VerticalAlignment="Center" Margin="0,4,8,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <ComboBox x:Name="SepCombo" MinWidth="110" Margin="0,4,8,4" SelectedIndex="0" SelectionChanged="OnOptionChanged">
+                <ComboBoxItem Content="自动检测"/>
+                <ComboBoxItem Content="逗号"/>
+                <ComboBoxItem Content="制表符"/>
+                <ComboBoxItem Content="分号"/>
+                <ComboBoxItem Content="自定义"/>
+            </ComboBox>
+            <TextBox x:Name="CustomSepBox" Width="56" Margin="0,4,12,4" Visibility="Collapsed" TextChanged="OnOptionChanged"/>
+            <Button Content="选文件" Margin="0,4,8,4" Click="LoadFile_Click"/>
+            <Button Content="导出 Excel" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Export_Click"/>
+            <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+        </WrapPanel>
+
+        <controls:CodeEditor x:Name="InputBox" Grid.Row="1"/>
+
+        <TextBlock Grid.Row="2" Text="预览" Margin="0,8,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <DataGrid x:Name="PreviewGrid" Grid.Row="3" AutoGenerateColumns="True" IsReadOnly="True"
+                  HeadersVisibility="Column" CanUserAddRows="False" BorderThickness="1" FontSize="12"/>
+    </Grid>
+</UserControl>

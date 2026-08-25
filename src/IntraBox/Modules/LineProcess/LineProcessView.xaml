@@ -1,0 +1,33 @@
+﻿<UserControl x:Class="IntraBox.Modules.LineProcess.LineProcessView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:IntraBox.Controls">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <WrapPanel Margin="0,0,0,8">
+            <Button Content="去重(保序)" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Dedup_Click"/>
+            <Button Content="去重后排序" Margin="0,4,8,4" Click="DedupSort_Click"/>
+            <Button Content="升序" Margin="0,4,8,4" Click="Asc_Click"/>
+            <Button Content="降序" Margin="0,4,8,4" Click="Desc_Click"/>
+            <Button Content="自然序" Margin="0,4,8,4" Click="Natural_Click"/>
+            <Button Content="删空行" Margin="0,4,8,4" Click="Blank_Click"/>
+            <Button Content="删首尾空白" Margin="0,4,8,4" Click="Trim_Click"/>
+            <TextBlock Text="前缀" VerticalAlignment="Center" Margin="8,4,4,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBox x:Name="PrefixBox" Width="80" Margin="0,4,8,4"/>
+            <TextBlock Text="后缀" VerticalAlignment="Center" Margin="0,4,4,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBox x:Name="SuffixBox" Width="80" Margin="0,4,8,4"/>
+            <Button Content="加前后缀" Margin="0,4,8,4" Click="Affix_Click"/>
+            <Button Content="复制结果" Margin="0,4,8,4" Click="Copy_Click"/>
+            <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+        </WrapPanel>
+        <controls:CodeEditor x:Name="InputBox" Grid.Row="1"/>
+        <TextBlock Grid.Row="2" Text="输出" Margin="0,8,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <controls:CodeEditor x:Name="OutputBox" Grid.Row="3" IsReadOnly="True" CanMaximize="True"/>
+    </Grid>
+</UserControl>

@@ -1,0 +1,31 @@
+﻿<Window x:Class="IntraBox.WelcomeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="欢迎使用 IntraBox" Width="520" Height="420"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{DynamicResource WindowBgBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+    <DockPanel Margin="24">
+        <Button DockPanel.Dock="Bottom" Content="开始使用" MinWidth="120" HorizontalAlignment="Right"
+                Style="{StaticResource PrimaryButton}" IsDefault="True" Click="Ok_Click"/>
+        <StackPanel>
+            <TextBlock Text="IntraBox（内聚）" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,8"
+                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,12" FontSize="14"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="面向内网与开发者的绿色免安装效率工具箱。"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextPrimaryBrush}"
+                       Text="• 截屏标注 / OCR、文件整理与查找、文本比对与格式化"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextPrimaryBrush}"
+                       Text="• 剪贴板历史、Hosts、哈希、加解密、二维码等 40+ 本地工具"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,16" Foreground="{DynamicResource TextPrimaryBrush}"
+                       Text="• 关闭窗口会藏到托盘；从托盘「退出」才结束进程"/>
+            <TextBlock TextWrapping="Wrap" FontWeight="SemiBold"
+                       Foreground="{DynamicResource AccentBrush}"
+                       Text="纯本地运行 · 无遥测 · 无网络请求 · 兼容 Windows 7 SP1 及以上"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,16,0,0" FontSize="12"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="可在「设置」里再次打开本引导。"/>
+        </StackPanel>
+    </DockPanel>
+</Window>

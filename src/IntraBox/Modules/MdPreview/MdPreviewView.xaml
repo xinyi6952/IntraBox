@@ -1,0 +1,52 @@
+﻿<UserControl x:Class="IntraBox.Modules.MdPreview.MdPreviewView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:IntraBox.Controls">
+    <!-- WebBrowser 是 HWND，会盖住同格里的 WPF 按钮。放大按钮必须放在 WebBrowser 上方独立行。 -->
+    <Grid x:Name="RootGrid">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="8"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid x:Name="LeftPane">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <TextBlock x:Name="InputCaption" Text="Markdown" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Button Content="打开文件" Click="OpenBtn_Click" Margin="0,0,8,0" Padding="8,2" ToolTip="打开一个 Markdown/文本文件进行预览"/>
+                <Button Content="保存" Click="SaveBtn_Click" Margin="0,0,8,0" Padding="8,2" ToolTip="保存到当前文件（未打开过则另存为）"/>
+                <Button Content="重载" Click="ReloadBtn_Click" Margin="0,0,8,0" Padding="8,2" ToolTip="重新从当前文件加载"/>
+                <Button Content="清空" Click="ClearBtn_Click" Padding="8,2" ToolTip="清空输入与预览"/>
+            </StackPanel>
+            <controls:CodeEditor x:Name="InputBox" Grid.Row="1"/>
+        </Grid>
+        <GridSplitter x:Name="Splitter" Grid.Column="1" Width="8" HorizontalAlignment="Stretch"/>
+        <Grid x:Name="PreviewHost" Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid Margin="0,0,0,4">
+                <TextBlock x:Name="PreviewCaption" Text="预览" Foreground="{DynamicResource TextSecondaryBrush}"
+                           VerticalAlignment="Center"/>
+                <Button x:Name="MaxBtn" HorizontalAlignment="Right" Width="22" Height="22"
+                        MinWidth="22" MinHeight="22" Padding="0" Click="MaxBtn_Click"
+                        Background="Transparent" BorderThickness="0" ToolTip="最大化预览">
+                    <Grid Width="12" Height="12">
+                        <Path x:Name="IconExpand" Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Data="M2,10 L10,2 M5,2 L10,2 L10,7"/>
+                        <Path x:Name="IconRestore" Visibility="Collapsed"
+                              Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Data="M10,2 L2,10 M2,5 L2,10 L7,10"/>
+                    </Grid>
+                </Button>
+            </Grid>
+            <WebBrowser x:Name="Preview" Grid.Row="1"/>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,43 @@
+# ===== Git 元数据（git 本会自动忽略，此处显式声明）=====
+.git/
+
+# ===== 构建产物 =====
+[Bb]in/
+[Oo]bj/
+artifacts/
+TestResults/
+
+# ===== 发布与运行时（二进制走 GitHub Releases，不进源码仓库）=====
+dist/
+redist/
+
+# ===== AI 助手 / 编辑器本地配置（含个人路径，勿提交）=====
+.claude/
+.cursor/
+.cline/
+.windsurf/
+.continue/
+.aider*/
+.idea/
+.fleet/
+.vscode/
+
+# ===== Visual Studio =====
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.ncrunch*
+
+# ===== NuGet =====
+packages/
+*.nupkg
+*.snupkg
+
+# ===== 日志与临时文件 =====
+*.log
+*.tmp
+*.cache
+[Dd]esktop.ini
+Thumbs.db

@@ -1,0 +1,66 @@
+﻿<UserControl x:Class="IntraBox.Modules.Crypto.CryptoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:IntraBox.Controls">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <WrapPanel x:Name="ToolbarPanel" Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="算法" VerticalAlignment="Center" Margin="0,4,8,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <ComboBox x:Name="AlgoCombo" MinWidth="90" Margin="0,4,12,4" SelectedIndex="0"
+                      SelectionChanged="AlgoCombo_SelectionChanged">
+                <ComboBoxItem Content="AES"/>
+                <ComboBoxItem Content="DES"/>
+                <ComboBoxItem Content="RSA"/>
+            </ComboBox>
+            <Button Content="加密" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Encrypt_Click"/>
+            <Button Content="解密" Margin="0,4,8,4" Click="Decrypt_Click"/>
+            <Button x:Name="SignBtn" Content="签名" Margin="0,4,8,4" Click="Sign_Click"/>
+            <Button x:Name="VerifyBtn" Content="验签" Margin="0,4,8,4" Click="Verify_Click"/>
+            <Button Content="生成密钥" Margin="0,4,8,4" Click="GenKey_Click"/>
+            <Button Content="复制结果" Margin="0,4,8,4" Click="Copy_Click"/>
+            <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+        </WrapPanel>
+
+        <Grid x:Name="KeyRow" Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="KeyCaption" Text="密钥" VerticalAlignment="Top" Margin="0,4,8,0"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBox x:Name="KeyBox" Grid.Column="1" MinHeight="48" TextWrapping="Wrap"
+                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/>
+        </Grid>
+
+        <Grid x:Name="SignRow" Grid.Row="2" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="签名" VerticalAlignment="Center" Margin="0,4,8,0"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       ToolTip="RSA 验签时填写 Base64 签名"/>
+            <TextBox x:Name="SignBox" Grid.Column="1" MinHeight="28" TextWrapping="Wrap"
+                     FontFamily="Consolas"/>
+        </Grid>
+
+        <TextBlock x:Name="InputCaption" Grid.Row="3" Text="输入（明文或密文）" Margin="0,0,0,4"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <controls:CodeEditor x:Name="InputBox" Grid.Row="4"/>
+
+        <TextBlock x:Name="OutputCaption" Grid.Row="5" Text="输出" Margin="0,8,0,4"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <controls:CodeEditor x:Name="OutputBox" Grid.Row="6" IsReadOnly="True" CanMaximize="True"/>
+    </Grid>
+</UserControl>

@@ -1,0 +1,51 @@
+﻿<UserControl x:Class="IntraBox.Modules.FileSearch.FileSearchView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <WrapPanel Margin="0,0,0,8">
+            <TextBlock Text="目录" VerticalAlignment="Center" Margin="0,4,8,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBox x:Name="DirBox" Width="320" Margin="0,4,8,4"/>
+            <Button Content="浏览…" Click="Browse_Click" Margin="0,4,12,4"/>
+            <TextBlock Text="关键字" VerticalAlignment="Center" Margin="0,4,8,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBox x:Name="KeywordBox" Width="180" Margin="0,4,8,4"
+                     ToolTip="支持 * 与 ? 通配符，如 *.pdf 或 report*"/>
+            <CheckBox x:Name="SubDirCheck" Content="含子目录" IsChecked="True" VerticalAlignment="Center" Margin="0,4,12,4"/>
+            <Button Content="搜索" Style="{StaticResource PrimaryButton}" Click="Search_Click" Margin="0,4,8,4"/>
+        </WrapPanel>
+        <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+            <TextBlock Text="最小(MB)" VerticalAlignment="Center" Margin="0,4,6,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBox x:Name="MinSizeBox" Width="64" Margin="0,4,12,4"/>
+            <TextBlock Text="最大(MB)" VerticalAlignment="Center" Margin="0,4,6,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBox x:Name="MaxSizeBox" Width="64" Margin="0,4,12,4"/>
+            <TextBlock Text="修改自" VerticalAlignment="Center" Margin="0,4,6,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <DatePicker x:Name="FromDate" Width="130" Margin="0,4,12,4"/>
+            <TextBlock Text="至" VerticalAlignment="Center" Margin="0,4,6,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <DatePicker x:Name="ToDate" Width="130" Margin="0,4,12,4"/>
+            <Button Content="定位到文件夹" Click="Locate_Click" Margin="0,4,8,4"/>
+        </WrapPanel>
+        <DataGrid x:Name="ResultGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" HeadersVisibility="Column" BorderThickness="1"
+                  MouseDoubleClick="ResultGrid_MouseDoubleClick">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="文件名" Binding="{Binding Name}" Width="180"/>
+                <DataGridTextColumn Header="路径" Binding="{Binding Directory}" Width="*"/>
+                <DataGridTextColumn Header="大小" Binding="{Binding SizeText}" Width="90"/>
+                <DataGridTextColumn Header="修改时间" Binding="{Binding ModifiedText}" Width="150"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock x:Name="MsgText" Grid.Row="3" Margin="0,8,0,0" TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

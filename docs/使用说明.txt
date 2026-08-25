@@ -1,0 +1,143 @@
+IntraBox —— 内网效率聚合工具
+========================================
+项目地址：https://github.com/xinyi6952/IntraBox
+开发者：shuyuesheng
+
+一、产品简介
+面向内网工作者与开发者的绿色免安装聚合效率工具。
+纯本地运行、无网络依赖、无遥测、无自动更新，数据不出本机。
+
+二、系统要求与检查
+
+1. 操作系统
+   - Windows 7 SP1 及以上（Windows 10 / 11 均满足）
+
+2. .NET Framework 4.8
+   - Windows 10 1903 及以上：系统已预装，无需额外安装
+   - Windows 7：需自行安装 .NET Framework 4.8 运行时
+
+   【如何检查是否已具备】（任选其一）
+   · 最省事：直接双击 IntraBox.exe，能打开主窗口即已具备；若弹出
+     「此应用程序需要 .NET Framework 4.8，是否现在安装」的系统提示，即缺失。
+   · 命令行查询（在 cmd 中执行）：
+       reg query "HKLM\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" /v Release
+     返回的 Release 值 ≥ 528040（十六进制 0x80EA8）即已具备 4.8。
+
+   【缺失时如何安装】
+   · 到微软官网下载「.NET Framework 4.8 离线安装包」
+     （文件名 ndp48-x86-x64-allos-enu.exe，约 115MB），拷到目标机器双击安装即可，全程无需联网。
+     官方下载页：https://dotnet.microsoft.com/download/dotnet-framework/net48
+
+3. 截图 OCR 的额外依赖（可选）
+   - OCR 识别功能依赖 Visual C++ 2015-2019 运行库。
+   - 未安装时，截图、标注、保存、复制均不受影响，仅「OCR 识别文字」会失败。
+   - 到微软官网下载 VC++ 运行库（x86 约 13MB、x64 约 24MB）：
+       https://aka.ms/vs/17/release/vc_redist.x86.exe
+       https://aka.ms/vs/17/release/vc_redist.x64.exe
+     Win7 机器建议两个都装；Win10 / Win11 通常已预装，一般无需安装。
+
+4. Windows 7 安装 .NET Framework 4.8 的潜在前置更新（仅老 Win7 需注意）
+   - 若 Win7 机器很旧（未打过 2019 年之后的补丁），装 .NET Framework 4.8 可能失败，
+     需先安装 SHA-2 代码签名支持更新 KB4474419 与 Servicing Stack Update KB4490628。
+   - 已打过补丁的 Win7 可直接装 4.8，无需额外处理。
+
+三、使用方法（绿色免安装）
+1. 将本文件夹解压/复制到任意位置，无需安装
+2. 双击 IntraBox.exe 启动
+3. 启动后显示主窗口，同时驻留系统托盘
+4. 关闭主窗口 = 隐藏到托盘（不会退出）；在托盘图标上右键「退出」才真正退出
+
+四、已内置功能（共 40 个）
+
+【截图】
+- 快捷键截屏：Ctrl+Alt+A 框选、标注、复制/保存/钉住、OCR 识别文字
+- 屏幕标尺：全屏测量像素距离，可换算厘米/英寸
+
+【文件管理】
+- 桌面文件快速整理：按规则归类文件，预览确认后执行，可撤销
+- 文件快速查找：通配符搜索，按大小/时间过滤，定位到资源管理器
+- 批量重命名：前缀/后缀/序号/正则规则重命名，预览确认
+- 重复文件查找：按哈希找内容重复文件，可定位/删除
+
+【格式化】
+- 多格式格式化：JSON / YAML / XML / SQL / HTML / CSS / Markdown / Nginx
+
+【文本工具】
+- 文本快速比对：左右双栏差异高亮，合并与编辑支持撤销
+- 正则表达式测试：实时匹配
+- 命名转换：驼峰 / 下划线 / 帕斯卡 / 大小写互转
+- 行处理：去重、排序、去空行、加前后缀
+- 文本统计：字数 / 行数 / 词频 / 字符频率
+- Markdown 预览：编辑 + 本地实时预览
+- 正则可视化：正则结构中文解释 + 语法高亮
+
+【效率工具】
+- 剪贴板历史：文本与图片监听、搜索、固定、写回
+
+【编码转换】
+- Base64 编解码：文本与图片互转
+- URL/HTML/Unicode 编解码
+- URL 解析：拆协议/主机/端口/路径/query/hash/用户信息
+- Unicode 字符检查器：码点 / UTF-8 / UTF-16 / HTML 实体
+
+【转换工具】
+- 时间戳转换：Unix 秒/毫秒 ↔ 可读时间
+
+【安全工具】
+- 哈希计算：MD5 / SHA1 / SHA256 / SHA512
+- 加解密：AES/DES 对称 + RSA 非对称
+- X.509 证书解码
+
+【数据转换】
+- TXT 转 Excel：文本转表格导出 xlsx
+
+【网络工具】
+- IP 端口连通测试：TCP / Ping 检测
+- 端口占用查看：端口→进程映射，可结束进程
+
+【设计工具】
+- 颜色取色器：屏幕取色 + HEX/RGB/HSL
+- 色盲模拟：图片/颜色模拟色盲视角
+
+【生成器】
+- UUID/ULID/密码生成
+- JSON 转类：JSON 生成 C# / Java 模型类
+- 二维码：文本 ↔ 二维码
+
+【系统工具】
+- 本机详细信息：IP/MAC/主机名/系统版本
+- 文件占用查看：查看文件被哪个进程占用
+- Hosts 编辑器（需管理员）
+- 窗口置顶
+- 防止睡眠
+- 注册表只读浏览
+
+【开发工具】
+- Semver 版本比较
+- JSON Schema 验证
+
+【图片工具】
+- 图片压缩缩放转换：批量压缩/缩放/格式转换
+
+五、数据与安全
+- 配置保存在程序目录下 config.json，不写系统注册表、不产生系统级残留
+- 无任何网络请求
+
+六、文件完整性校验（SHA256）
+见同目录 checksums.txt
+
+七、运行环境依赖（Win7 需补齐）
+分发到内网 Win7 机器时，需自行补齐以下运行环境（Win10 / Win11 通常无需）：
+
+  .NET Framework 4.8 离线安装包（约 115MB）
+      https://dotnet.microsoft.com/download/dotnet-framework/net48
+  VC++ 2015-2019 运行库 32 位（约 13MB）
+      https://aka.ms/vs/17/release/vc_redist.x86.exe
+  VC++ 2015-2019 运行库 64 位（约 24MB）
+      https://aka.ms/vs/17/release/vc_redist.x64.exe
+
+八、开源与反馈
+- 开源协议：MIT License
+- 项目主页：https://github.com/xinyi6952/IntraBox
+- 开发者：shuyuesheng
+- 问题反馈：https://github.com/xinyi6952/IntraBox/issues

@@ -1,0 +1,40 @@
+﻿<Window x:Class="IntraBox.Modules.FileOrganize.OrganizePreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="整理预览" Width="860" Height="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBgBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+    <DockPanel Margin="16">
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"
+                   Foreground="{DynamicResource WarningBrush}"
+                   Text="默认全部不勾选。只有勾选的文件会被移动；未勾选的文件保持原位，不会改动磁盘。"/>
+        <TextBlock x:Name="CountHint" DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Text="已勾选 0 个文件。请先勾选要整理的目标，再点确认。"/>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="全选" MinWidth="72" Margin="0,0,8,0" Click="SelectAll_Click"/>
+            <Button Content="全不选" MinWidth="72" Margin="0,0,16,0" Click="SelectNone_Click"/>
+            <Button Content="取消" MinWidth="88" Margin="0,0,8,0" IsCancel="True"/>
+            <Button Content="确认整理勾选的文件" MinWidth="160" Style="{StaticResource PrimaryButton}" Click="Ok_Click"/>
+        </StackPanel>
+        <DataGrid x:Name="FileGrid" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False"
+                  HeadersVisibility="Column" SelectionMode="Extended" SelectionUnit="FullRow"
+                  EnableRowVirtualization="False">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="勾选" Width="52" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      IsChecked="{Binding Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Click="Check_Click"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="文件名" Binding="{Binding Name}" Width="160" IsReadOnly="True"/>
+                <DataGridTextColumn Header="目标目录" Binding="{Binding Folder}" Width="160" IsReadOnly="True"/>
+                <DataGridTextColumn Header="来源路径" Binding="{Binding FromPath}" Width="*" IsReadOnly="True"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

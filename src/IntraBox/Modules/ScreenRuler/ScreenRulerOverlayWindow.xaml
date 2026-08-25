@@ -1,0 +1,20 @@
+﻿<Window x:Class="IntraBox.Modules.ScreenRuler.ScreenRulerOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" Background="#01000000"
+        Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
+        Cursor="Cross" KeyDown="Window_KeyDown">
+    <Grid>
+        <Canvas x:Name="Layer" Background="#22000000"
+                MouseMove="Layer_MouseMove"
+                MouseLeftButtonDown="Layer_MouseDown"
+                MouseLeftButtonUp="Layer_MouseUp"/>
+        <TextBlock x:Name="HintText" HorizontalAlignment="Center" VerticalAlignment="Top"
+                   Margin="0,16,0,0" Foreground="White" FontSize="14"
+                   Text="H 水平 / V 垂直 / R 矩形 · 拖拽测量 · Esc 关闭"/>
+        <Border x:Name="Readout" HorizontalAlignment="Left" VerticalAlignment="Top"
+                Background="#E01E1E1E" Padding="10,6" CornerRadius="4" IsHitTestVisible="False">
+            <TextBlock x:Name="ReadoutText" Foreground="White" FontFamily="Consolas" FontSize="16"/>
+        </Border>
+    </Grid>
+</Window>

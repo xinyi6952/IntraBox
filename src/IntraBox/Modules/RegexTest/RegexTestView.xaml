@@ -1,0 +1,35 @@
+﻿<UserControl x:Class="IntraBox.Modules.RegexTest.RegexTestView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:IntraBox.Controls">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="1.2*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <WrapPanel>
+                <TextBlock Text="正则" VerticalAlignment="Center" Margin="0,4,8,4"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <TextBox x:Name="PatternBox" MinWidth="280" Margin="0,4,12,4" FontFamily="Consolas" TextChanged="PatternBox_TextChanged"/>
+                <Button Content="测试" Style="{StaticResource PrimaryButton}" Margin="0,4,12,4"
+                        Click="TestBtn_Click" ToolTip="按当前正则与标志执行匹配"/>
+                <CheckBox x:Name="IgnoreCaseCheck" Content="忽略大小写" Margin="0,4,12,4"/>
+                <CheckBox x:Name="MultilineCheck" Content="多行" Margin="0,4,12,4"/>
+                <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
+                           Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
+            </WrapPanel>
+            <TextBlock Margin="0,2,0,0" FontSize="11" TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="填写示例：手机号 ^1[3-9]\d{9}$　　邮箱 ^[\w.-]+@[\w.-]+\.[A-Za-z]{2,}$"/>
+        </StackPanel>
+
+        <controls:CodeEditor x:Name="TextEditor" Grid.Row="1"/>
+
+        <TextBlock Grid.Row="2" Text="匹配结果" Margin="0,8,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <ListBox x:Name="MatchList" Grid.Row="3" FontFamily="Consolas"/>
+    </Grid>
+</UserControl>

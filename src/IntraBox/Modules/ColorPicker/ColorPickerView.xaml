@@ -1,0 +1,39 @@
+﻿<UserControl x:Class="IntraBox.Modules.ColorPicker.ColorPickerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Margin="4">
+        <WrapPanel Margin="0,0,0,16">
+            <Button x:Name="PickBtn" Content="屏幕取色" Style="{StaticResource PrimaryButton}"
+                    Margin="0,4,12,4" Click="PickBtn_Click"/>
+            <Border x:Name="ColorPreview" Width="56" Height="40" CornerRadius="4"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,4,12,4"/>
+            <TextBlock x:Name="HintText" Text="点击「屏幕取色」后移动鼠标到目标颜色，左键确定"
+                       VerticalAlignment="Center" Margin="0,4,0,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+        </WrapPanel>
+
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="HEX" Width="44" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBox x:Name="HexBox" Width="140" Margin="8,0,0,0" FontFamily="Consolas" TextChanged="HexBox_TextChanged"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="RGB" Width="44" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBox x:Name="RBox" Width="56" Margin="8,0,0,0" FontFamily="Consolas" TextChanged="RgbBox_TextChanged"/>
+            <TextBox x:Name="GBox" Width="56" Margin="6,0,0,0" FontFamily="Consolas" TextChanged="RgbBox_TextChanged"/>
+            <TextBox x:Name="BBox" Width="56" Margin="6,0,0,0" FontFamily="Consolas" TextChanged="RgbBox_TextChanged"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+            <TextBlock Text="HSL" Width="44" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBox x:Name="HBox" Width="56" Margin="8,0,0,0" IsReadOnly="True" FontFamily="Consolas"/>
+            <TextBox x:Name="SBox" Width="56" Margin="6,0,0,0" IsReadOnly="True" FontFamily="Consolas"/>
+            <TextBox x:Name="LBox" Width="56" Margin="6,0,0,0" IsReadOnly="True" FontFamily="Consolas"/>
+        </StackPanel>
+
+        <WrapPanel>
+            <Button Content="复制 HEX" Margin="0,4,8,4" Click="CopyHex_Click"/>
+            <Button Content="复制 RGB" Margin="0,4,8,4" Click="CopyRgb_Click"/>
+        </WrapPanel>
+    </StackPanel>
+</UserControl>

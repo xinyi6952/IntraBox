@@ -1,0 +1,31 @@
+﻿<UserControl x:Class="IntraBox.Modules.DupFiles.DupFilesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <WrapPanel Margin="0,0,0,8">
+            <Button Content="选择目录" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Pick_Click"/>
+            <Button Content="开始查找" Margin="0,4,8,4" Click="Scan_Click"/>
+            <Button Content="定位" Margin="0,4,8,4" Click="Locate_Click"/>
+            <Button Content="删除选中" Margin="0,4,8,4" Click="Delete_Click"/>
+            <CheckBox x:Name="SubCheck" Content="含子目录" IsChecked="True" Margin="8,4,8,4"/>
+            <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+        </WrapPanel>
+        <ProgressBar x:Name="Bar" Grid.Row="1" Height="8" Margin="0,0,0,8" Minimum="0" Maximum="100"/>
+        <ListView x:Name="ResultList" Grid.Row="2">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="组" Width="50" DisplayMemberBinding="{Binding Group}"/>
+                    <GridViewColumn Header="大小" Width="90" DisplayMemberBinding="{Binding SizeText}"/>
+                    <GridViewColumn Header="哈希(前16)" Width="140" DisplayMemberBinding="{Binding HashShort}"/>
+                    <GridViewColumn Header="路径" Width="480" DisplayMemberBinding="{Binding Path}"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </Grid>
+</UserControl>

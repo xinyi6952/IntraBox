@@ -1,0 +1,36 @@
+﻿<UserControl x:Class="IntraBox.Modules.Hash.HashView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:IntraBox.Controls">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto" MinHeight="88"/>
+        </Grid.RowDefinitions>
+
+        <WrapPanel x:Name="ToolbarPanel" Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="算法" VerticalAlignment="Center" Margin="0,4,8,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <ComboBox x:Name="AlgoCombo" MinWidth="110" Margin="0,4,12,4" SelectedIndex="2">
+                <ComboBoxItem Content="MD5"/>
+                <ComboBoxItem Content="SHA1"/>
+                <ComboBoxItem Content="SHA256"/>
+                <ComboBoxItem Content="SHA512"/>
+            </ComboBox>
+            <Button Content="计算文本哈希" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="HashText_Click"/>
+            <Button Content="计算文件哈希" Margin="0,4,8,4" Click="HashFile_Click"/>
+            <Button Content="复制" Margin="0,4,8,4" Click="Copy_Click"/>
+            <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
+                       Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
+        </WrapPanel>
+
+        <TextBlock x:Name="InputCaption" Grid.Row="1" Text="输入文本" Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <controls:CodeEditor x:Name="InputBox" Grid.Row="2"/>
+
+        <TextBlock x:Name="OutputCaption" Grid.Row="3" Text="哈希结果（十六进制）" Margin="0,8,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <controls:CodeEditor x:Name="OutputBox" Grid.Row="4" IsReadOnly="True" MinHeight="80" CanMaximize="True"/>
+    </Grid>
+</UserControl>

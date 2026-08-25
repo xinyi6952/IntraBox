@@ -1,0 +1,20 @@
+﻿<Window x:Class="IntraBox.Modules.Screenshot.CaptureOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:IntraBox.Modules.Screenshot"
+        WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False"
+        Topmost="True" Background="Black" Cursor="Cross"
+        KeyDown="Window_KeyDown">
+    <Grid>
+        <Image x:Name="BgImage" Stretch="Fill" SnapsToDevicePixels="True"/>
+        <Canvas x:Name="Layer" Background="Transparent"
+                MouseLeftButtonDown="Layer_MouseDown"
+                MouseMove="Layer_MouseMove"
+                MouseLeftButtonUp="Layer_MouseUp"/>
+        <local:ScreenshotToolbar x:Name="Bar" Visibility="Collapsed"
+                                 HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        <TextBlock x:Name="HintText" HorizontalAlignment="Center" VerticalAlignment="Top"
+                   Margin="0,16,0,0" Foreground="White" FontSize="14"
+                   Text="拖拽选择区域 · 拖边角调整 · Esc 取消 · 双击全屏"/>
+    </Grid>
+</Window>

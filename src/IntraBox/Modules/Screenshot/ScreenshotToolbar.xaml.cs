@@ -1,10 +1,23 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace IntraBox.Modules.Screenshot
 {
+    public sealed class ToolbarDragDeltaEventArgs : EventArgs
+    {
+        public double Dx { get; private set; }
+        public double Dy { get; private set; }
+
+        public ToolbarDragDeltaEventArgs(double dx, double dy)
+        {
+            Dx = dx;
+            Dy = dy;
+        }
+    }
+
     /// <summary>截屏图标工具栏：工具 / 颜色 / 线宽 / 输出。钉住窗口可切换为「取消钉住」。</summary>
     public partial class ScreenshotToolbar : UserControl
     {
@@ -20,10 +33,17 @@ namespace IntraBox.Modules.Screenshot
         public event EventHandler PinClicked;
         public event EventHandler UnpinClicked;
         public event EventHandler OcrClicked;
+        /// <summary>左侧拖动手柄按下。钉住窗口用来 DragMove 整窗。</summary>
+        public event EventHandler GripDragStarted;
+        /// <summary>拖动手柄移动。截屏覆盖层用来挪工具条位置。</summary>
+        public event EventHandler<ToolbarDragDeltaEventArgs> GripDragDelta;
 
         public string Tool { get; private set; }
         public Color StrokeColor { get; private set; }
         public double StrokeWidth { get; private set; }
+
+        private bool _gripDragging;
+        private Point _gripLast;
 
         public ScreenshotToolbar()
         {
@@ -38,6 +58,49 @@ namespace IntraBox.Modules.Screenshot
         {
             BtnPin.Visibility = pinned ? Visibility.Collapsed : Visibility.Visible;
             BtnUnpin.Visibility = pinned ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void Grip_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton != MouseButton.Left) return;
+            e.Handled = true;
+            if (GripDragStarted != null)
+            {
+                GripDragStarted(this, EventArgs.Empty);
+                return;
+            }
+            _gripDragging = true;
+            _gripLast = e.GetPosition(null);
+            DragGrip.CaptureMouse();
+        }
+
+        private void Grip_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_gripDragging || e.LeftButton != MouseButtonState.Pressed) return;
+            var p = e.GetPosition(null);
+            double dx = p.X - _gripLast.X;
+            double dy = p.Y - _gripLast.Y;
+            if (dx == 0 && dy == 0) return;
+            _gripLast = p;
+            if (GripDragDelta != null)
+                GripDragDelta(this, new ToolbarDragDeltaEventArgs(dx, dy));
+        }
+
+        private void Grip_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            StopGripDrag();
+        }
+
+        private void Grip_LostCapture(object sender, MouseEventArgs e)
+        {
+            _gripDragging = false;
+        }
+
+        private void StopGripDrag()
+        {
+            _gripDragging = false;
+            if (DragGrip.IsMouseCaptured)
+                DragGrip.ReleaseMouseCapture();
         }
 
         private void Tool_Click(object sender, RoutedEventArgs e)

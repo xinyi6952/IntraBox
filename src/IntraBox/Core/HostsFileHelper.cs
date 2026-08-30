@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Text;
 
@@ -23,6 +24,17 @@ namespace IntraBox.Core
     /// </summary>
     public static class HostsFileHelper
     {
+        /// <summary>
+        /// 系统真正使用的 Hosts 路径。32 位进程在 64 位系统上要用 Sysnative，避免写到 SysWOW64 副本。
+        /// </summary>
+        public static string DefaultHostsPath()
+        {
+            string win = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess)
+                return Path.Combine(win, "Sysnative", "drivers", "etc", "hosts");
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "drivers", "etc", "hosts");
+        }
+
         public static List<HostsEntry> Parse(string text)
         {
             var list = new List<HostsEntry>();
@@ -107,10 +119,8 @@ namespace IntraBox.Core
                 }
             }
 
-            string indent = LeadingWs(e.Raw);
             var sb = new StringBuilder();
-            sb.Append(indent);
-            if (!e.Enabled) sb.Append("# ");
+            if (!e.Enabled) sb.Append('#');
             sb.Append(e.Ip ?? "").Append(' ').Append(e.Host ?? "");
             if (!string.IsNullOrWhiteSpace(e.Comment))
                 sb.Append(" # ").Append(e.Comment.Trim());
@@ -282,25 +292,14 @@ namespace IntraBox.Core
             if (raw == null) raw = "";
             int i = 0;
             while (i < raw.Length && IsWs(raw[i])) i++;
-            string lead = raw.Substring(0, i);
-            string rest = raw.Substring(i);
-            if (enabled)
+            if (i < raw.Length && raw[i] == '#')
             {
-                if (rest.Length > 0 && rest[0] == '#')
-                    rest = rest.Substring(1);
-                return lead + rest;
+                i++;
+                while (i < raw.Length && IsWs(raw[i])) i++;
             }
-            if (rest.Length > 0 && rest[0] == '#') return raw;
-            if (rest.Length > 0 && IsWs(rest[0])) return lead + "#" + rest;
-            return lead + "# " + rest;
-        }
-
-        private static string LeadingWs(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return "";
-            int i = 0;
-            while (i < s.Length && IsWs(s[i])) i++;
-            return s.Substring(0, i);
+            string content = raw.Substring(i);
+            if (enabled) return content;
+            return "#" + content;
         }
 
         private static bool IsWs(char c)

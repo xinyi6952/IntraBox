@@ -21,6 +21,18 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
+        public void ClampHistoryPersistDelayMs_夹取到300至1000()
+        {
+            Assert.AreEqual(300, AppSettings.ClampHistoryPersistDelayMs(0));
+            Assert.AreEqual(300, AppSettings.ClampHistoryPersistDelayMs(299));
+            Assert.AreEqual(300, AppSettings.ClampHistoryPersistDelayMs(300));
+            Assert.AreEqual(500, AppSettings.ClampHistoryPersistDelayMs(500));
+            Assert.AreEqual(1000, AppSettings.ClampHistoryPersistDelayMs(1000));
+            Assert.AreEqual(1000, AppSettings.ClampHistoryPersistDelayMs(1001));
+            Assert.AreEqual(1000, AppSettings.ClampHistoryPersistDelayMs(9999));
+        }
+
+        [TestMethod]
         public void HistoryGetInt_兼容long与double()
         {
             var map = new Dictionary<string, object>
@@ -48,6 +60,14 @@ namespace IntraBox.Tests
             Assert.IsTrue(HistoryManager.TryLoad("memopt-test", out loaded));
             Assert.AreEqual("ok", HistoryManager.GetString(loaded, "small"));
             Assert.AreEqual("", HistoryManager.GetString(loaded, "huge"));
+        }
+
+        [TestMethod]
+        public void ShouldSkipDuplicateImage_仅相同指纹跳过()
+        {
+            Assert.IsTrue(ClipboardStore.ShouldSkipDuplicateImage("same", "same"));
+            Assert.IsFalse(ClipboardStore.ShouldSkipDuplicateImage("a", "b"));
+            Assert.IsFalse(ClipboardStore.ShouldSkipDuplicateImage(null, "b"));
         }
 
         [TestMethod]

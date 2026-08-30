@@ -120,15 +120,23 @@ namespace IntraBox.Modules.ClipboardHistory
             {
                 if (item.IsImage && item.Thumb != null)
                 {
-                    ClipboardMonitor.MarkPasted(item);
-                    Clipboard.SetImage(item.Thumb);
+                    ClipboardStore.SuppressImageCapture = true;
+                    try
+                    {
+                        Clipboard.SetImage(item.Thumb);
+                        ClipboardMonitor.MarkPasted(item);
+                    }
+                    finally
+                    {
+                        ClipboardStore.SuppressImageCapture = false;
+                    }
                     MsgText.Text = "已写回剪贴板（图片为缩略图）";
                     return;
                 }
                 else if (!item.IsImage)
                 {
-                    ClipboardMonitor.MarkPasted(item);
                     Clipboard.SetText(item.Text);
+                    ClipboardMonitor.MarkPasted(item);
                 }
                 MsgText.Text = "已写回剪贴板";
             }

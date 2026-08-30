@@ -20,9 +20,21 @@
         </StackPanel>
         <DataGrid x:Name="FileGrid" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False"
                   HeadersVisibility="Column" SelectionMode="Extended" SelectionUnit="FullRow"
-                  EnableRowVirtualization="False">
+                  EnableRowVirtualization="False"
+                  CanUserResizeColumns="True" CanUserReorderColumns="True"
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                  ToolTipService.InitialShowDelay="300"
+                  ToolTipService.ShowDuration="60000">
+            <DataGrid.Resources>
+                <Style x:Key="PreviewCellText" TargetType="TextBlock">
+                    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                    <Setter Property="TextWrapping" Value="NoWrap"/>
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="勾选" Width="52" IsReadOnly="True">
+                <DataGridTemplateColumn Header="勾选" Width="52" MinWidth="44" CanUserResize="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -31,9 +43,48 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="文件名" Binding="{Binding Name}" Width="160" IsReadOnly="True"/>
-                <DataGridTextColumn Header="目标目录" Binding="{Binding Folder}" Width="160" IsReadOnly="True"/>
-                <DataGridTextColumn Header="来源路径" Binding="{Binding FromPath}" Width="*" IsReadOnly="True"/>
+                <DataGridTextColumn Header="文件名" Binding="{Binding Name}" Width="160" MinWidth="80" IsReadOnly="True"
+                                    ElementStyle="{StaticResource PreviewCellText}">
+                    <DataGridTextColumn.CellStyle>
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                            <Setter Property="ToolTip">
+                                <Setter.Value>
+                                    <ToolTip MaxWidth="640">
+                                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
+                                    </ToolTip>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </DataGridTextColumn.CellStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="目标目录" Binding="{Binding Folder}" Width="160" MinWidth="80" IsReadOnly="True"
+                                    ElementStyle="{StaticResource PreviewCellText}">
+                    <DataGridTextColumn.CellStyle>
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                            <Setter Property="ToolTip">
+                                <Setter.Value>
+                                    <ToolTip MaxWidth="640">
+                                        <TextBlock Text="{Binding Folder}" TextWrapping="Wrap"/>
+                                    </ToolTip>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </DataGridTextColumn.CellStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="来源路径" Binding="{Binding FromPath}" Width="*" MinWidth="120" IsReadOnly="True"
+                                    ElementStyle="{StaticResource PreviewCellText}">
+                    <DataGridTextColumn.CellStyle>
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                            <Setter Property="ToolTip">
+                                <Setter.Value>
+                                    <ToolTip MaxWidth="640">
+                                        <TextBlock Text="{Binding FromPath}" TextWrapping="Wrap"/>
+                                    </ToolTip>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </DataGridTextColumn.CellStyle>
+                </DataGridTextColumn>
             </DataGrid.Columns>
         </DataGrid>
     </DockPanel>

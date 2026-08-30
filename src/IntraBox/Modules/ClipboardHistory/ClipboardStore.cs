@@ -21,6 +21,14 @@ namespace IntraBox.Modules.ClipboardHistory
 
         public static string LastText;
         public static string LastImageSig;
+        /// <summary>写回图片期间为 true，避免 SetImage 重入监听时误记一条。</summary>
+        public static bool SuppressImageCapture;
+
+        /// <summary>指纹相同则视为写回回声，不入库。</summary>
+        public static bool ShouldSkipDuplicateImage(string sig, string lastSig)
+        {
+            return sig != null && sig == lastSig;
+        }
 
         /// <summary>插入成功返回 true；全固定且已满时返回 false。</summary>
         public static bool Add(ClipItem item)

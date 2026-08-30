@@ -37,8 +37,8 @@ namespace IntraBox.Modules.HostsEditor
 
         public void OnActivated()
         {
-            _path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"drivers\etc\hosts");
-            PathHint.Text = _path + (IsAdmin() ? "（已是管理员）" : "（保存需要管理员权限）");
+            _path = HostsFileHelper.DefaultHostsPath();
+            PathHint.Text = _path + (IsAdmin() ? "（已是管理员）" : "（当前不是管理员，保存会失败；请先退出托盘再以管理员运行）");
             LoadFile();
         }
 
@@ -199,6 +199,7 @@ namespace IntraBox.Modules.HostsEditor
             string summary = HostsFileHelper.DescribeChanges(_diskText, text);
             try
             {
+                ClearReadOnly(_path);
                 TextFileCodec.WriteAll(_path, text, _fileEnc);
                 PushUndo(_diskText, _fileEnc, summary);
                 _diskText = text;
@@ -209,7 +210,7 @@ namespace IntraBox.Modules.HostsEditor
             }
             catch (UnauthorizedAccessException)
             {
-                SetMsg("没有写入权限，请以管理员身份运行 IntraBox 后再保存。", true);
+                SetMsg(NoWritePermissionMessage(), true);
                 return false;
             }
             catch (Exception ex)
@@ -239,6 +240,7 @@ namespace IntraBox.Modules.HostsEditor
 
             try
             {
+                ClearReadOnly(_path);
                 TextFileCodec.WriteAll(_path, snap.Text, snap.Enc);
                 _undo.RemoveAt(_undo.Count - 1);
                 _fileEnc = snap.Enc;
@@ -251,7 +253,7 @@ namespace IntraBox.Modules.HostsEditor
             }
             catch (UnauthorizedAccessException)
             {
-                SetMsg("没有写入权限，请以管理员身份运行 IntraBox 后再撤销。", true);
+                SetMsg(NoWritePermissionMessage(), true);
             }
             catch (Exception ex)
             {
@@ -278,6 +280,26 @@ namespace IntraBox.Modules.HostsEditor
             UndoBtn.ToolTip = _undo.Count == 0
                 ? "没有可撤销的保存"
                 : "撤销上次保存（还可连续撤销 " + _undo.Count + " 步）";
+        }
+
+        private static void ClearReadOnly(string path)
+        {
+            try
+            {
+                var info = new FileInfo(path);
+                if (info.Exists && info.IsReadOnly)
+                    info.IsReadOnly = false;
+            }
+            catch { }
+        }
+
+        private string NoWritePermissionMessage()
+        {
+            if (IsAdmin())
+                return "当前已是管理员，但仍无法写入 Hosts：\n" + _path
+                    + "\n请检查文件是否只读，或安全软件是否拦截。";
+            return "没有写入权限。当前进程不是管理员。"
+                + " IntraBox 关窗口后仍在托盘运行，请先右键托盘图标退出，再右键 IntraBox.exe 选择「以管理员身份运行」。\n路径：" + _path;
         }
 
         private static string DetectNewLine(string text)

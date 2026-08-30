@@ -35,6 +35,7 @@ namespace IntraBox.Core
                     if (string.IsNullOrEmpty(Settings.Theme)) Settings.Theme = "Dark";
                     Settings.MaxFileSizeMb = SizeLimits.ClampMb(Settings.MaxFileSizeMb);
                     Settings.ClipboardMaxItems = AppSettings.ClampClipboardMax(Settings.ClipboardMaxItems);
+                    Settings.HistoryPersistDelayMs = AppSettings.ClampHistoryPersistDelayMs(Settings.HistoryPersistDelayMs);
                 }
             }
             catch (Exception)

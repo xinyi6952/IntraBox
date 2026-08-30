@@ -41,8 +41,34 @@
     </UserControl.Resources>
     <Border Background="{DynamicResource PanelBgBrush}"
             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-            CornerRadius="6" Padding="6,4" Cursor="Arrow">
-        <StackPanel>
+            CornerRadius="6" Padding="4,4,6,4" Cursor="Arrow">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="18"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border x:Name="DragGrip" Grid.Column="0" Cursor="SizeAll" Background="Transparent"
+                    ToolTip="拖动工具条"
+                    PreviewMouseLeftButtonDown="Grip_MouseDown"
+                    MouseMove="Grip_MouseMove"
+                    PreviewMouseLeftButtonUp="Grip_MouseUp"
+                    LostMouseCapture="Grip_LostCapture">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,1">
+                        <Ellipse Width="3" Height="3" Margin="1" Fill="{DynamicResource TextSecondaryBrush}"/>
+                        <Ellipse Width="3" Height="3" Margin="1" Fill="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,1">
+                        <Ellipse Width="3" Height="3" Margin="1" Fill="{DynamicResource TextSecondaryBrush}"/>
+                        <Ellipse Width="3" Height="3" Margin="1" Fill="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,1">
+                        <Ellipse Width="3" Height="3" Margin="1" Fill="{DynamicResource TextSecondaryBrush}"/>
+                        <Ellipse Width="3" Height="3" Margin="1" Fill="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <StackPanel Grid.Column="1">
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="BtnSelect" Style="{StaticResource IconToolButton}" Tag="select"
                         ToolTip="移动/选择" Click="Tool_Click">
@@ -159,6 +185,7 @@
                     <ComboBoxItem Content="粗" Tag="8"/>
                 </ComboBox>
             </StackPanel>
-        </StackPanel>
+            </StackPanel>
+        </Grid>
     </Border>
 </UserControl>

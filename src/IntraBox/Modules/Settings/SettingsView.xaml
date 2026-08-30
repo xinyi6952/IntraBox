@@ -18,6 +18,20 @@
                 <ComboBoxItem Content="跟随系统"/>
             </ComboBox>
 
+            <TextBlock Text="状态记忆写入延迟" FontWeight="SemiBold" Margin="0,0,0,6"
+                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="所有工具切换后记住的输入，以及桌面整理规则，写入磁盘前的等待时间。到期后在后台线程序列化并写盘，不占用界面。缩短更及时，拉长可减少连续操作时的磁盘写入。范围 300–1000 毫秒。"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                <Slider x:Name="HistoryDelaySlider" Width="280"
+                        Minimum="300" Maximum="1000" TickFrequency="50"
+                        IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                        ValueChanged="HistoryDelaySlider_ValueChanged"/>
+                <TextBlock x:Name="HistoryDelayLabel" Margin="12,0,0,0" VerticalAlignment="Center"
+                           FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+            </StackPanel>
+
             <TextBlock Text="文件大小上限" FontWeight="SemiBold" Margin="0,0,0,6"
                        Foreground="{DynamicResource TextPrimaryBrush}"/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"

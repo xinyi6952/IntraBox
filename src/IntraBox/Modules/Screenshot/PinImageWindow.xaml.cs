@@ -50,6 +50,11 @@ namespace IntraBox.Modules.Screenshot
             Bar.CancelClicked += (s, e) => Close();
             Bar.UnpinClicked += (s, e) => Close();
             Bar.OcrClicked += (s, e) => RunOcr();
+            Bar.GripDragStarted += (s, e) =>
+            {
+                try { DragMove(); }
+                catch { }
+            };
         }
 
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)

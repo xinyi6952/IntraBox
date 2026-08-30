@@ -21,7 +21,7 @@ jobs:
         run: ./tools/check-bom.ps1
 
       - name: Restore + Build
-        run: msbuild IntraBox.sln /t:Restore;Build /p:Configuration=Release /m
+        run: msbuild IntraBox.sln /t:Restore /t:Build /p:Configuration=Release /m
 
       - name: Run tests
         shell: pwsh

@@ -39,6 +39,7 @@ namespace IntraBox.Modules.Screenshot
         private AnnotationSession _anno;
         private bool _restoreMain;
         private Window _main;
+        private bool _toolbarUserMoved;
 
         public CaptureOverlayWindow()
         {
@@ -54,6 +55,7 @@ namespace IntraBox.Modules.Screenshot
             Bar.ConfirmClicked += (s, e) => CopyResult(true);
             Bar.CancelClicked += (s, e) => CloseAndDispose();
             Bar.PinClicked += (s, e) => Pin();
+            Bar.GripDragDelta += Bar_GripDragDelta;
             Bar.SetPinnedMode(false);
         }
 
@@ -255,7 +257,7 @@ namespace IntraBox.Modules.Screenshot
             {
                 _resizing = false;
                 _movingSel = false;
-                PlaceToolbar();
+                if (!_toolbarUserMoved) PlaceToolbar();
                 return;
             }
             if (_anno != null) _anno.OnMouseUp(p);
@@ -263,10 +265,29 @@ namespace IntraBox.Modules.Screenshot
 
         private void FinishSelect()
         {
+            _toolbarUserMoved = false;
             HintText.Visibility = Visibility.Collapsed;
             RedrawMask();
             PlaceToolbar();
             Bar.Visibility = Visibility.Visible;
+        }
+
+        private void Bar_GripDragDelta(object sender, ToolbarDragDeltaEventArgs e)
+        {
+            if (e == null) return;
+            _toolbarUserMoved = true;
+            Bar.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+            double tw = Bar.DesiredSize.Width;
+            double th = Bar.DesiredSize.Height;
+            if (tw < 10) tw = 480;
+            if (th < 10) th = 72;
+            double x = Bar.Margin.Left + e.Dx;
+            double y = Bar.Margin.Top + e.Dy;
+            if (x < 0) x = 0;
+            if (y < 0) y = 0;
+            if (x + tw > ActualWidth) x = Math.Max(0, ActualWidth - tw);
+            if (y + th > ActualHeight) y = Math.Max(0, ActualHeight - th);
+            Bar.Margin = new Thickness(x, y, 0, 0);
         }
 
         private void PlaceToolbar()

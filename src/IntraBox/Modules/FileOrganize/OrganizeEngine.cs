@@ -6,13 +6,20 @@ using System.Text.RegularExpressions;
 
 namespace IntraBox.Modules.FileOrganize
 {
-    /// <summary>一条整理规则：匹配条件 + 目标目录模板（支持 {ext}/{date}/{type}/{name}）。</summary>
+    /// <summary>一条整理规则：匹配条件 + 目标目录模板（支持 {ext}/{type}/{name}）。</summary>
     public sealed class OrganizeRule
     {
         /// <summary>0 扩展名 1 文件名包含 2 正则 3 大于指定大小(MB) 4 早于指定日期</summary>
         public int Kind { get; set; }
         public string Pattern { get; set; }
         public string TargetTemplate { get; set; }
+        /// <summary>未写入 JSON 时默认为启用，兼容旧规则。</summary>
+        public bool Enabled { get; set; }
+
+        public OrganizeRule()
+        {
+            Enabled = true;
+        }
     }
 
     public sealed class OrganizePlanItem
@@ -184,6 +191,7 @@ namespace IntraBox.Modules.FileOrganize
                 string note = "";
                 for (int i = 0; i < rules.Count; i++)
                 {
+                    if (rules[i] == null || !rules[i].Enabled) continue;
                     string n;
                     if (Matches(rules[i], path, out n))
                     {

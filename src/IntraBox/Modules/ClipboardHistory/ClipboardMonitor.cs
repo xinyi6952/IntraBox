@@ -51,8 +51,7 @@ namespace IntraBox.Modules.ClipboardHistory
         }
 
         /// <summary>
-        /// 写回剪贴板前更新去重签名，避免监听立刻再记一条。
-        /// 展示层只需调用本方法，不必知道指纹算法。
+        /// 写回剪贴板之后调用：记下剪贴板上的实际指纹，后续相同指纹不再入库。
         /// </summary>
         public static void MarkPasted(ClipItem item)
         {
@@ -61,6 +60,16 @@ namespace IntraBox.Modules.ClipboardHistory
             {
                 if (item.Thumb != null)
                     ClipboardStore.LastImageSig = GetImageSignature(item.Thumb);
+                try
+                {
+                    if (Clipboard.ContainsImage())
+                    {
+                        var img = Clipboard.GetImage();
+                        if (img != null)
+                            ClipboardStore.LastImageSig = GetImageSignature(img);
+                    }
+                }
+                catch { }
             }
             else
             {
@@ -106,7 +115,13 @@ namespace IntraBox.Modules.ClipboardHistory
                 var img = Clipboard.GetImage();
                 if (img == null) return;
                 var sig = GetImageSignature(img);
-                if (sig == ClipboardStore.LastImageSig) return;
+                if (ClipboardStore.SuppressImageCapture)
+                {
+                    ClipboardStore.LastImageSig = sig;
+                    return;
+                }
+                if (ClipboardStore.ShouldSkipDuplicateImage(sig, ClipboardStore.LastImageSig))
+                    return;
                 long bytes = (long)img.PixelWidth * img.PixelHeight * 4;
                 if (bytes > SizeLimits.MaxFileBytes)
                 {

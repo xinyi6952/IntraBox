@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Security.Principal;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
@@ -32,13 +33,24 @@ namespace IntraBox
 
             if (!createdNew)
             {
-                // 已有实例在运行：通知它显示窗口，然后退出本实例
-                try
+                // 已有实例在运行。管理员二次启动不会提升旧进程权限，不能只唤醒托盘里的非管理员实例。
+                if (ProcessIsAdmin())
                 {
-                    using (var ev = EventWaitHandle.OpenExisting(ShowSignalName))
-                        ev.Set();
+                    MessageBox.Show(
+                        "IntraBox 已经在托盘运行。再次以管理员打开，并不会让已有进程获得管理员权限，Hosts 仍然可能保存失败。\n\n请先右键托盘图标选择退出，再以管理员身份打开 IntraBox。",
+                        "IntraBox",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
                 }
-                catch { /* 已有实例可能尚未就绪，忽略 */ }
+                else
+                {
+                    try
+                    {
+                        using (var ev = EventWaitHandle.OpenExisting(ShowSignalName))
+                            ev.Set();
+                    }
+                    catch { /* 已有实例可能尚未就绪，忽略 */ }
+                }
                 Shutdown();
                 return;
             }
@@ -94,6 +106,8 @@ namespace IntraBox
             {
                 ClipboardMonitor.Stop();
                 KeepAwakeService.SetEnabled(false);
+                HistoryManager.Flush();
+                IntraBox.Modules.FileOrganize.FileOrganizeStore.Flush();
                 ConfigManager.Instance.Save();
                 HotkeyService.Uninstall();
                 if (_tray != null) { _tray.Dispose(); _tray = null; }
@@ -133,6 +147,18 @@ namespace IntraBox
             });
             t.IsBackground = true;
             t.Start();
+        }
+
+        private static bool ProcessIsAdmin()
+        {
+            try
+            {
+                return new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

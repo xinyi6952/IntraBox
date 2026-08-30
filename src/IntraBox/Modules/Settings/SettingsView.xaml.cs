@@ -19,6 +19,7 @@ namespace IntraBox.Modules.Settings
         private List<ToolVisItem> _toolItems;
         private int _loadedMb;
         private int _loadedClip;
+        private int _loadedHistoryDelay;
         private string _loadedVis = "";
 
         public SettingsView()
@@ -45,6 +46,9 @@ namespace IntraBox.Modules.Settings
             int clip = AppSettings.ClampClipboardMax(s.ClipboardMaxItems);
             ClipSlider.Value = clip;
             UpdateClipLabel(clip);
+            int delay = AppSettings.CurrentHistoryPersistDelayMs();
+            HistoryDelaySlider.Value = delay;
+            UpdateHistoryDelayLabel(delay);
             MsgText.Text = "";
             _loading = false;
             RememberClean();
@@ -57,7 +61,7 @@ namespace IntraBox.Modules.Settings
         public bool CanLeave()
         {
             if (!IsDirty()) return true;
-            var r = ConfirmHelper.Unsaved("设置有未保存的更改（文件大小上限或工具显隐），是否保存？", "未保存确认");
+            var r = ConfirmHelper.Unsaved("设置有未保存的更改，是否保存？", "未保存确认");
             if (r == MessageBoxResult.Cancel) return false;
             if (r == MessageBoxResult.Yes) return TryPersistSettings();
             return true;
@@ -80,6 +84,7 @@ namespace IntraBox.Modules.Settings
         {
             _loadedMb = SizeLimits.ClampMb((int)SizeSlider.Value);
             _loadedClip = AppSettings.ClampClipboardMax((int)ClipSlider.Value);
+            _loadedHistoryDelay = AppSettings.ClampHistoryPersistDelayMs((int)HistoryDelaySlider.Value);
             _loadedVis = CurrentVisKey();
         }
 
@@ -87,7 +92,8 @@ namespace IntraBox.Modules.Settings
         {
             int mb = SizeLimits.ClampMb((int)SizeSlider.Value);
             int clip = AppSettings.ClampClipboardMax((int)ClipSlider.Value);
-            return mb != _loadedMb || clip != _loadedClip || CurrentVisKey() != _loadedVis;
+            int delay = AppSettings.ClampHistoryPersistDelayMs((int)HistoryDelaySlider.Value);
+            return mb != _loadedMb || clip != _loadedClip || delay != _loadedHistoryDelay || CurrentVisKey() != _loadedVis;
         }
 
         private void LoadToolVisibility()
@@ -220,6 +226,17 @@ namespace IntraBox.Modules.Settings
             ClipLabel.Text = n + " 条";
         }
 
+        private void HistoryDelaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_loading || HistoryDelayLabel == null) return;
+            UpdateHistoryDelayLabel((int)HistoryDelaySlider.Value);
+        }
+
+        private void UpdateHistoryDelayLabel(int ms)
+        {
+            HistoryDelayLabel.Text = ms + " 毫秒";
+        }
+
         private void Welcome_Click(object sender, RoutedEventArgs e)
         {
             var w = new IntraBox.WelcomeWindow();
@@ -252,12 +269,16 @@ namespace IntraBox.Modules.Settings
 
             int mb = SizeLimits.ClampMb((int)SizeSlider.Value);
             int clip = AppSettings.ClampClipboardMax((int)ClipSlider.Value);
+            int delay = AppSettings.ClampHistoryPersistDelayMs((int)HistoryDelaySlider.Value);
             SizeSlider.Value = mb;
             ClipSlider.Value = clip;
+            HistoryDelaySlider.Value = delay;
             UpdateSizeLabel(mb);
             UpdateClipLabel(clip);
+            UpdateHistoryDelayLabel(delay);
             ConfigManager.Instance.Settings.MaxFileSizeMb = mb;
             ConfigManager.Instance.Settings.ClipboardMaxItems = clip;
+            ConfigManager.Instance.Settings.HistoryPersistDelayMs = delay;
             ConfigManager.Instance.Settings.VisibleToolKeys = visible.ToArray();
             ThemeManager.Apply(ThemeName(ThemeCombo.SelectedIndex));
             ConfigManager.Instance.Save();
@@ -267,7 +288,7 @@ namespace IntraBox.Modules.Settings
             var main = Application.Current != null ? Application.Current.MainWindow as MainWindow : null;
             if (main != null) main.ReloadNav();
 
-            MsgText.Text = "已保存。当前上限 " + mb + " MB，主题与工具显隐已记住。";
+            MsgText.Text = "已保存。状态记忆写入延迟 " + delay + " 毫秒，文件上限 " + mb + " MB，主题与工具显隐已记住。";
             return true;
         }
 

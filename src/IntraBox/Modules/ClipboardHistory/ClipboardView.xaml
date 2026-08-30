@@ -29,8 +29,10 @@
                  HorizontalContentAlignment="Stretch">
             <ListBox.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="查看" Click="ViewMenu_Click"/>
-                    <MenuItem Header="删除" Click="DeleteMenu_Click"/>
+                    <MenuItem Header="查看" Click="ViewMenu_Click" Icon="{x:Null}"
+                              Style="{StaticResource ContextMenuItemStyle}"/>
+                    <MenuItem Header="删除" Click="DeleteMenu_Click" Icon="{x:Null}"
+                              Style="{StaticResource ContextMenuItemStyle}"/>
                 </ContextMenu>
             </ListBox.ContextMenu>
             <ListBox.ItemTemplate>

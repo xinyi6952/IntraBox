@@ -71,6 +71,31 @@ namespace IntraBox.Core
             return Math.Max(1, Math.Min(200, n));
         }
 
+        public const int HistoryPersistDelayMinMs = 300;
+        public const int HistoryPersistDelayMaxMs = 1000;
+
+        /// <summary>所有工具状态记忆写入磁盘的延迟（毫秒）。默认 300，范围 300–1000。</summary>
+        [DataMember]
+        public int HistoryPersistDelayMs { get; set; } = HistoryPersistDelayMinMs;
+
+        public static int ClampHistoryPersistDelayMs(int n)
+        {
+            return Math.Max(HistoryPersistDelayMinMs, Math.Min(HistoryPersistDelayMaxMs, n));
+        }
+
+        /// <summary>当前生效的落盘延迟；配置未加载或越界时回落到 300–1000。</summary>
+        public static int CurrentHistoryPersistDelayMs()
+        {
+            try
+            {
+                return ClampHistoryPersistDelayMs(ConfigManager.Instance.Settings.HistoryPersistDelayMs);
+            }
+            catch
+            {
+                return HistoryPersistDelayMinMs;
+            }
+        }
+
         /// <summary>屏幕标尺热键 Ctrl。</summary>
         [DataMember]
         public bool RulerHotkeyCtrl { get; set; } = true;

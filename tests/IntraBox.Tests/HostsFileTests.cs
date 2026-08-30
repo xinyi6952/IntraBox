@@ -41,15 +41,67 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
-        public void 只切换启用_保留原间距()
+        public void 禁用已有行_只加井号不加空格()
         {
-            string src = "#    127.0.0.1    foo.local\r\n";
+            string src = "127.0.0.1 foo.local\r\n";
+            var lines = HostsFileHelper.Parse(src);
+            var maps = Mappings(lines);
+            maps[0].Enabled = false;
+            string outText = HostsFileHelper.Render(lines, maps, "\r\n");
+            Assert.AreEqual("#127.0.0.1 foo.local\r\n", outText);
+        }
+
+        [TestMethod]
+        public void 启用无空格注释行_只去掉井号()
+        {
+            string src = "#127.0.0.1 foo.local\r\n";
             var lines = HostsFileHelper.Parse(src);
             var maps = Mappings(lines);
             Assert.IsFalse(maps[0].Enabled);
             maps[0].Enabled = true;
             string outText = HostsFileHelper.Render(lines, maps, "\r\n");
-            Assert.AreEqual("    127.0.0.1    foo.local\r\n", outText);
+            Assert.AreEqual("127.0.0.1 foo.local\r\n", outText);
+        }
+
+        [TestMethod]
+        public void 新增禁用映射_井号后无空格()
+        {
+            string src = "# head\r\n";
+            var lines = HostsFileHelper.Parse(src);
+            var maps = new System.Collections.Generic.List<HostsEntry>();
+            maps.Add(new HostsEntry
+            {
+                IsMapping = true,
+                Enabled = false,
+                Ip = "10.0.0.1",
+                Host = "b.local",
+                Comment = ""
+            });
+            string outText = HostsFileHelper.Render(lines, maps, "\r\n");
+            Assert.AreEqual("# head\r\n#10.0.0.1 b.local\r\n", outText);
+        }
+
+        [TestMethod]
+        public void 启用_去掉行首空格和井号后空格_保留其余间距()
+        {
+            string src = "  #    127.0.0.1    foo.local   # keep\r\n";
+            var lines = HostsFileHelper.Parse(src);
+            var maps = Mappings(lines);
+            Assert.IsFalse(maps[0].Enabled);
+            maps[0].Enabled = true;
+            string outText = HostsFileHelper.Render(lines, maps, "\r\n");
+            Assert.AreEqual("127.0.0.1    foo.local   # keep\r\n", outText);
+        }
+
+        [TestMethod]
+        public void 禁用_去掉行首空格_井号后不加空格_保留其余间距()
+        {
+            string src = "  127.0.0.1\tlocalhost   # keep\r\n";
+            var lines = HostsFileHelper.Parse(src);
+            var maps = Mappings(lines);
+            maps[0].Enabled = false;
+            string outText = HostsFileHelper.Render(lines, maps, "\r\n");
+            Assert.AreEqual("#127.0.0.1\tlocalhost   # keep\r\n", outText);
         }
 
         [TestMethod]
@@ -120,6 +172,13 @@ namespace IntraBox.Tests
         {
             string t = "127.0.0.1 localhost\r\n";
             Assert.AreEqual("映射条目无增删改。", HostsFileHelper.DescribeChanges(t, t));
+        }
+
+        [TestMethod]
+        public void DefaultHostsPath_指向drivers_etc_hosts()
+        {
+            string p = HostsFileHelper.DefaultHostsPath();
+            Assert.IsTrue(p.IndexOf(@"drivers\etc\hosts", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         private static System.Collections.Generic.List<HostsEntry> Mappings(System.Collections.Generic.List<HostsEntry> lines)

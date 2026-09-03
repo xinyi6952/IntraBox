@@ -4,9 +4,12 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using IntraBox.Controls;
 using IntraBox.Core;
 using WinForms = System.Windows.Forms;
 
@@ -18,12 +21,21 @@ namespace IntraBox.Modules.FileSearch
     /// </summary>
     public partial class FileSearchView : UserControl, IModuleView
     {
+        private readonly AsyncTaskGate _gate = new AsyncTaskGate();
+
+        private void CancelPending()
+        {
+            _gate.Cancel();
+            LoadingOverlay.Hide(this);
+        }
+
         private readonly List<Hit> _hits = new List<Hit>();
 
         public FileSearchView()
         {
             InitializeComponent();
             ResultGrid.ItemsSource = _hits;
+            FilterBar.Attach(ResultGrid);
         }
 
         public void OnActivated()
@@ -42,6 +54,7 @@ namespace IntraBox.Modules.FileSearch
 
         public void OnDeactivated()
         {
+            CancelPending();
             HistoryManager.Save("filesearch", new Dictionary<string, object>
             {
                 { "dir", DirBox.Text ?? "" },
@@ -62,12 +75,12 @@ namespace IntraBox.Modules.FileSearch
             }
         }
 
-        private void Search_Click(object sender, RoutedEventArgs e)
+        private async void Search_Click(object sender, RoutedEventArgs e)
         {
-            _hits.Clear();
             string dir = (DirBox.Text ?? "").Trim();
             if (!Directory.Exists(dir))
             {
+                _hits.Clear();
                 MsgText.Text = "目录不存在。";
                 ResultGrid.Items.Refresh();
                 return;
@@ -83,43 +96,78 @@ namespace IntraBox.Modules.FileSearch
                 : DateTime.MaxValue;
             var option = SubDirCheck.IsChecked == true ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
 
-            int skipped = 0;
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            MsgText.Text = "搜索中…";
+            LoadingOverlay.Show(this, "搜索中…");
+
+            SearchResult result = null;
             try
             {
-                foreach (var path in Directory.EnumerateFiles(dir, "*", option))
-                {
-                    if (_hits.Count >= 2000)
-                    {
-                        MsgText.Text = "结果超过 2000 条，已截断。请缩小范围。";
-                        ResultGrid.Items.Refresh();
-                        return;
-                    }
-                    string name = Path.GetFileName(path);
-                    if (nameRx != null && !nameRx.IsMatch(name)) continue;
-                    FileInfo fi;
-                    try { fi = new FileInfo(path); }
-                    catch { skipped++; continue; }
-                    if (fi.Length < minB || fi.Length > maxB) continue;
-                    if (fi.LastWriteTime < from || fi.LastWriteTime >= to) continue;
-                    _hits.Add(new Hit
-                    {
-                        Name = name,
-                        Directory = fi.DirectoryName,
-                        FullPath = path,
-                        SizeText = SizeLimits.FormatBytes(fi.Length),
-                        ModifiedText = fi.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
-                    });
-                }
+                // 递归枚举目录放后台线程，大目录树不卡 UI
+                result = await Task.Run(() => DoSearch(dir, nameRx, minB, maxB, from, to, option, token), token);
             }
+            catch (OperationCanceledException) { return; }
             catch (Exception ex)
             {
-                MsgText.Text = "搜索失败：" + ex.Message;
-                ResultGrid.Items.Refresh();
+                if (version == _gate.Version)
+                {
+                    _hits.Clear();
+                    MsgText.Text = "搜索失败：" + ex.RootMessage();
+                    ResultGrid.Items.Refresh();
+                    LoadingOverlay.Hide(this);
+                }
                 return;
             }
-            MsgText.Text = "找到 " + _hits.Count + " 个文件"
-                + (skipped > 0 ? "，跳过 " + skipped + " 个无权限项" : "") + "。";
-            ResultGrid.Items.Refresh();
+
+            if (version != _gate.Version) return;
+
+            _hits.Clear();
+            _hits.AddRange(result.Hits);
+            MsgText.Text = result.Message;
+            LoadingOverlay.Hide(this);
+            FilterBar.Apply();
+        }
+
+        private static SearchResult DoSearch(string dir, Regex nameRx, long minB, long maxB, DateTime from, DateTime to, SearchOption option, CancellationToken token)
+        {
+            var hits = new List<Hit>();
+            int skipped = 0;
+            bool truncated = false;
+            foreach (var path in Directory.EnumerateFiles(dir, "*", option))
+            {
+                token.ThrowIfCancellationRequested();
+                if (hits.Count >= 2000) { truncated = true; break; }
+                string name = Path.GetFileName(path);
+                if (nameRx != null && !nameRx.IsMatch(name)) continue;
+                FileInfo fi;
+                try { fi = new FileInfo(path); }
+                catch { skipped++; continue; }
+                if (fi.Length < minB || fi.Length > maxB) continue;
+                if (fi.LastWriteTime < from || fi.LastWriteTime >= to) continue;
+                hits.Add(new Hit
+                {
+                    Name = name,
+                    Directory = fi.DirectoryName,
+                    FullPath = path,
+                    SizeText = SizeLimits.FormatBytes(fi.Length),
+                    ModifiedText = fi.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
+                });
+            }
+            string message = truncated
+                ? "结果超过 2000 条，已截断。请缩小范围。"
+                : "找到 " + hits.Count + " 个文件"
+                    + (skipped > 0 ? "，跳过 " + skipped + " 个无权限项" : "") + "。";
+            return new SearchResult { Hits = hits, Message = message };
+        }
+
+        private sealed class SearchResult
+        {
+            public List<Hit> Hits;
+            public string Message;
         }
 
         private void Locate_Click(object sender, RoutedEventArgs e)
@@ -146,7 +194,7 @@ namespace IntraBox.Modules.FileSearch
             }
             catch (Exception ex)
             {
-                MsgText.Text = "无法打开资源管理器：" + ex.Message;
+                MsgText.Text = "无法打开资源管理器：" + ex.RootMessage();
             }
         }
 

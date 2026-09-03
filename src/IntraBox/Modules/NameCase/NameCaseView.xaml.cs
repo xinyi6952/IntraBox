@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using IntraBox.Controls;
 using IntraBox.Core;
 
@@ -13,6 +14,9 @@ namespace IntraBox.Modules.NameCase
     /// </summary>
     public partial class NameCaseView : UserControl, IModuleView
     {
+        // 命名转换是纯内存字符串处理（微秒级），无需后台线程；同步执行避免「取消+版本号」误丢结果。
+        private readonly DispatcherTimer _debounce = new DispatcherTimer();
+
         public NameCaseView()
         {
             InitializeComponent();
@@ -22,7 +26,13 @@ namespace IntraBox.Modules.NameCase
                 InPlaceMaximize.Apply(on, OutputBox, 4, 5, ToolbarPanel, InputCaption, InputBox, OutputCaption);
                 OutputBox.IsMaximized = on;
             };
-            InputBox.TextChangedByUser += (s, e) => ConvertNow();
+            _debounce.Interval = TimeSpan.FromMilliseconds(300);
+            _debounce.Tick += (s, e) => { _debounce.Stop(); ConvertNow(); };
+            InputBox.TextChangedByUser += (s, e) =>
+            {
+                _debounce.Stop();
+                _debounce.Start();
+            };
         }
 
         private void ConvertNow()
@@ -34,7 +44,15 @@ namespace IntraBox.Modules.NameCase
                 MsgText.Text = "";
                 return;
             }
-            OutputBox.Text = NameCaseHelper.FormatAll(input);
+
+            try
+            {
+                OutputBox.Text = NameCaseHelper.FormatAll(input);
+            }
+            catch (Exception ex)
+            {
+                MsgText.Text = ex.RootMessage();
+            }
         }
 
         private void Copy_Click(object sender, RoutedEventArgs e)
@@ -63,6 +81,7 @@ namespace IntraBox.Modules.NameCase
 
         public void OnDeactivated()
         {
+            _debounce.Stop();
             HistoryManager.Save("namecase", new Dictionary<string, object>
             {
                 { "input", InputBox.Text ?? "" }

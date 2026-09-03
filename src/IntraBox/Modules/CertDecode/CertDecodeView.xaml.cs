@@ -8,7 +8,7 @@ using Microsoft.Win32;
 
 namespace IntraBox.Modules.CertDecode
 {
-    /// <summary>X.509 证书解码：选文件或粘贴 PEM 解析。解析与格式化纯逻辑已抽到 Core.CertDecodeHelper。</summary>
+    /// <summary>证书解析：选文件或粘贴 PEM 解析。解析与格式化纯逻辑已抽到 Core.CertDecodeHelper。</summary>
     public partial class CertDecodeView : UserControl, IModuleView
     {
         public CertDecodeView()
@@ -43,7 +43,7 @@ namespace IntraBox.Modules.CertDecode
             }
             catch (Exception ex)
             {
-                SetMsg("解析失败：" + ex.Message, true);
+                SetMsg("解析失败：" + ex.RootMessage(), true);
             }
         }
 

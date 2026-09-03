@@ -4,8 +4,11 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using IntraBox.Controls;
 using IntraBox.Core;
 using Microsoft.Win32;
 using WinForms = System.Windows.Forms;
@@ -14,12 +17,20 @@ namespace IntraBox.Modules.ImageConvert
 {
     public partial class ImageConvertView : UserControl, IModuleView
     {
+        private readonly AsyncTaskGate _gate = new AsyncTaskGate();
+
+        private void CancelPending()
+        {
+            _gate.Cancel();
+            LoadingOverlay.Hide(this);
+        }
+
         private readonly List<string> _files = new List<string>();
         private string _outDir;
 
         public ImageConvertView() { InitializeComponent(); }
         public void OnActivated() { }
-        public void OnDeactivated() { }
+        public void OnDeactivated() { CancelPending(); }
 
         private void Pick_Click(object sender, RoutedEventArgs e)
         {
@@ -55,7 +66,7 @@ namespace IntraBox.Modules.ImageConvert
             }
         }
 
-        private void Run_Click(object sender, RoutedEventArgs e)
+        private async void Run_Click(object sender, RoutedEventArgs e)
         {
             if (_files.Count == 0) { SetMsg("请先选图", true); return; }
             if (string.IsNullOrEmpty(_outDir) || !Directory.Exists(_outDir))
@@ -74,15 +85,43 @@ namespace IntraBox.Modules.ImageConvert
             if (fmt == "PNG") { ifmt = ImageFormat.Png; ext = ".png"; }
             else if (fmt == "BMP") { ifmt = ImageFormat.Bmp; ext = ".bmp"; }
             else if (fmt == "GIF") { ifmt = ImageFormat.Gif; ext = ".gif"; }
-            int ok = 0, skip = 0;
-            foreach (var src in _files)
+
+            string outDir = _outDir;
+            var files = new List<string>(_files);
+
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            SetBusy("转换中…");
+
+            ConvertResult result = null;
+            try
             {
+                // 多图重采样 + 保存放后台线程，覆盖确认通过 Dispatcher 切回 UI 线程弹框
+                result = await Task.Run(() => ConvertAll(files, outDir, scale, tw, th, q, ifmt, ext, token), token);
+            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("转换失败：" + ex.RootMessage(), true); return; }
+
+            if (version != _gate.Version) return;
+            SetMsg("完成：成功 " + result.Ok + "，跳过 " + result.Skip, result.Skip > 0);
+        }
+
+        private static ConvertResult ConvertAll(List<string> files, string outDir, int scale, int tw, int th, long q, ImageFormat ifmt, string ext, CancellationToken token)
+        {
+            int ok = 0, skip = 0;
+            foreach (var src in files)
+            {
+                token.ThrowIfCancellationRequested();
                 try
                 {
-                    string dest = Path.Combine(_outDir, Path.GetFileNameWithoutExtension(src) + ext);
+                    string dest = Path.Combine(outDir, Path.GetFileNameWithoutExtension(src) + ext);
                     if (File.Exists(dest))
                     {
-                        var r = MessageBox.Show("已存在，覆盖？\n" + dest, "覆盖确认", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                        var r = (MessageBoxResult)Application.Current.Dispatcher.Invoke(
+                            new Func<MessageBoxResult>(() => MessageBox.Show("已存在，覆盖？\n" + dest, "覆盖确认", MessageBoxButton.YesNoCancel, MessageBoxImage.Question)));
                         if (r == MessageBoxResult.Cancel) break;
                         if (r != MessageBoxResult.Yes) { skip++; continue; }
                     }
@@ -103,7 +142,13 @@ namespace IntraBox.Modules.ImageConvert
                 }
                 catch { skip++; }
             }
-            SetMsg("完成：成功 " + ok + "，跳过 " + skip, skip > 0);
+            return new ConvertResult { Ok = ok, Skip = skip };
+        }
+
+        private sealed class ConvertResult
+        {
+            public int Ok;
+            public int Skip;
         }
 
         private static void SaveJpeg(Bitmap bmp, string path, long quality)
@@ -125,6 +170,14 @@ namespace IntraBox.Modules.ImageConvert
         {
             MsgText.Foreground = FindResource(err ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
             MsgText.Text = t;
+            LoadingOverlay.Hide(this);
+        }
+
+        private void SetBusy(string text)
+        {
+            MsgText.Foreground = FindResource("TextSecondaryBrush") as System.Windows.Media.Brush;
+            MsgText.Text = text;
+            LoadingOverlay.Show(this, text);
         }
     }
 }

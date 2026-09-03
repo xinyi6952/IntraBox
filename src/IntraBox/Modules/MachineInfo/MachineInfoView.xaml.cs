@@ -10,7 +10,7 @@ using Microsoft.Win32;
 namespace IntraBox.Modules.MachineInfo
 {
     /// <summary>
-    /// 本机详细信息：主机/系统/CPU/内存/网卡 IP 与 MAC，纯本地读取。
+    /// 本机信息：主机/系统/CPU/内存/网卡 IP 与 MAC，纯本地读取。
     /// </summary>
     public partial class MachineInfoView : UserControl, IModuleView
     {
@@ -37,7 +37,7 @@ namespace IntraBox.Modules.MachineInfo
             }
             catch (Exception ex)
             {
-                MsgText.Text = "读取失败：" + ex.Message;
+                MsgText.Text = "读取失败：" + ex.RootMessage();
             }
         }
 

@@ -16,6 +16,7 @@ namespace IntraBox.Modules.FileLock
         public FileLockView()
         {
             InitializeComponent();
+            FilterBar.Attach(ProcGrid);
         }
 
         public void OnActivated() { }
@@ -49,12 +50,14 @@ namespace IntraBox.Modules.FileLock
                 if (list.Count == 0)
                     TryExclusive(out list);
                 ProcGrid.ItemsSource = list;
+                FilterBar.Apply();
                 SetMsg(list.Count == 0 ? "当前没有进程占用该文件" : "找到 " + list.Count + " 个占用进程", false);
             }
             else
             {
                 TryExclusive(out list);
                 ProcGrid.ItemsSource = list;
+                FilterBar.Apply();
                 SetMsg((err ?? "Restart Manager 不可用") + (list.Count == 0 ? "；独占打开成功，可能未被占用" : ""), list.Count > 0);
             }
         }
@@ -76,7 +79,7 @@ namespace IntraBox.Modules.FileLock
             }
             catch (Exception ex)
             {
-                list.Add(new LockingProcess { Pid = 0, Name = ex.Message });
+                list.Add(new LockingProcess { Pid = 0, Name = ex.RootMessage() });
             }
         }
 
@@ -98,7 +101,7 @@ namespace IntraBox.Modules.FileLock
             }
             catch (Exception ex)
             {
-                SetMsg("结束失败：" + ex.Message + "（可能需要管理员权限）", true);
+                SetMsg("结束失败：" + ex.RootMessage() + "（可能需要管理员权限）", true);
             }
         }
 

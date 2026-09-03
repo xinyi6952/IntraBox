@@ -157,7 +157,7 @@ namespace IntraBox.Modules.Generator
         public void OnActivated()
         {
             Dictionary<string, object> state;
-            if (!HistoryManager.TryLoad("generator", out state)) return;
+            if (!HistoryManager.TryLoad("idgenerator", out state)) return;
             var uuidCount = HistoryManager.GetString(state, "uuidCount");
             var pwdLength = HistoryManager.GetString(state, "pwdLength");
             var pwdCount = HistoryManager.GetString(state, "pwdCount");
@@ -180,7 +180,7 @@ namespace IntraBox.Modules.Generator
 
         public void OnDeactivated()
         {
-            HistoryManager.Save("generator", new Dictionary<string, object>
+            HistoryManager.Save("idgenerator", new Dictionary<string, object>
             {
                 { "uuidCount", UuidCountBox.Text ?? "" },
                 { "pwdLength", PwdLengthBox.Text ?? "" },

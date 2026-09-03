@@ -25,6 +25,10 @@
     <LangVersion>7.3</LangVersion>
     <!-- 应用图标：嵌入 exe，作为任务栏/桌面图标 -->
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <!-- 固定 64 位：32 位进程 ~2GB 地址空间装不下两个 AvalonEdit 编辑器各持一份大文本 + 格式化副本，
+         大文本格式化/比对会 OOM。64 位下地址空间到 ~8TB。Tesseract 已随包带 x64 原生 DLL，其余依赖全托管 AnyCPU。
+         代价：不再支持 32 位 Windows（已极少见）。 -->
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -35,7 +39,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>true</Prefer32Bit>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -45,7 +49,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>true</Prefer32Bit>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
 
   <ItemGroup>
@@ -103,6 +107,34 @@
 
   <ItemGroup>
     <Content Include="tessdata\*.traineddata">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Tesseract 原生运行时（x86/x64 的 leptonica/tesseract41）。
+       Tesseract.targets 用 None+PreserveNewest 复制它们，但 rebuild 删除 obj 后
+       Restore 走缓存资产、不重新注入这些 None 项，导致原生 DLL 漏拷、OCR 报
+       「调用的目标发生了异常」。这里用显式 Content + Link 兜底，保证 Rebuild 也复制。
+       注意 NuGetPackageRoot 在某些环境被改写到缓存目录，故直接用用户 packages 目录。 -->
+  <PropertyGroup>
+    <TesseractPkgDir Condition="Exists('$(UserProfile)\.nuget\packages\tesseract\4.1.1\x64\tesseract41.dll')">$(UserProfile)\.nuget\packages\tesseract\4.1.1</TesseractPkgDir>
+    <TesseractPkgDir Condition="'$(TesseractPkgDir)' == '' and Exists('$(NuGetPackageRoot)\tesseract\4.1.1\x64\tesseract41.dll')">$(NuGetPackageRoot)\tesseract\4.1.1</TesseractPkgDir>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TesseractPkgDir)' != ''">
+    <Content Include="$(TesseractPkgDir)\x86\leptonica-1.80.0.dll">
+      <Link>x86\leptonica-1.80.0.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(TesseractPkgDir)\x86\tesseract41.dll">
+      <Link>x86\tesseract41.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(TesseractPkgDir)\x64\leptonica-1.80.0.dll">
+      <Link>x64\leptonica-1.80.0.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(TesseractPkgDir)\x64\tesseract41.dll">
+      <Link>x64\tesseract41.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

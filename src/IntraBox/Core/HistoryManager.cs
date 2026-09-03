@@ -67,6 +67,30 @@ namespace IntraBox.Core
             }
         }
 
+        /// <summary>
+        /// 一次性迁移：历史里旧 key generator 改为 idgenerator（含 LRU 顺序），迁移后异步落盘。
+        /// </summary>
+        public static void MigrateGeneratorKey()
+        {
+            const string oldKey = "generator";
+            const string newKey = "idgenerator";
+            lock (_sync)
+            {
+                Dictionary<string, object> val;
+                if (_store.TryGetValue(oldKey, out val))
+                {
+                    _store.Remove(oldKey);
+                    _store[newKey] = val;
+                    for (int i = 0; i < _lru.Count; i++)
+                    {
+                        if (_lru[i] == oldKey) { _lru[i] = newKey; break; }
+                    }
+                    _generation++;
+                    SchedulePersistLocked();
+                }
+            }
+        }
+
         public static void Save(string moduleKey, Dictionary<string, object> fields)
         {
             if (string.IsNullOrEmpty(moduleKey) || fields == null) return;

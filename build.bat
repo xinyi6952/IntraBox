@@ -2,10 +2,18 @@
 REM ============================================================
 REM  IntraBox build script
 REM  Builds the .NET Framework 4.8 WPF project using MSBuild.
-REM  NOTE: keep this file ASCII-only (English) to avoid encoding
-REM  issues when cmd parses it under the GBK code page.
+REM  Deploy uses robocopy /MIR to mirror bin\Release into
+REM  dist\IntraBox, so added/removed dependencies stay in sync.
+REM  Every exit path pauses AND writes build.log, so a
+REM  double-clicked window never vanishes without a trace.
+REM  NOTE: keep this file ASCII-only (English); chcp 65001 makes
+REM  tool output (MSBuild/robocopy) render safely in the console.
 REM ============================================================
 setlocal
+cd /d "%~dp0"
+chcp 65001 >nul
+set "LOG=%~dp0build.log"
+echo ==== IntraBox build %DATE% %TIME% ==== > "%LOG%"
 
 set "MSBUILD="
 if exist "%ProgramFiles%\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" set "MSBUILD=%ProgramFiles%\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe"
@@ -15,53 +23,85 @@ if not defined MSBUILD if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\201
 
 if not defined MSBUILD (
     echo [ERROR] MSBuild not found. Please install Visual Studio or .NET Framework 4.8 Developer Pack.
-    pause
-    exit /b 1
+    echo [ERROR] MSBuild not found.>> "%LOG%"
+    goto :fail
 )
 
 echo Using MSBuild: %MSBUILD%
+echo Using MSBuild: %MSBUILD%>> "%LOG%"
 echo.
 
 REM IntraBox stays in the system tray: closing the window does NOT exit the process.
 REM If the old process is still running, it locks the exe and the new build cannot be written.
 tasklist /FI "IMAGENAME eq IntraBox.exe" | "%SystemRoot%\System32\find.exe" /I "IntraBox.exe" >nul
-if not errorlevel 1 (
-    echo [ERROR] IntraBox is still running. Right-click the tray icon and choose Exit first, then run this script again.
-    pause
-    exit /b 1
+set "RUNNING=%ERRORLEVEL%"
+if "%RUNNING%"=="0" (
+    echo ============================================================
+    echo [ERROR] IntraBox is STILL RUNNING - check the system tray.
+    echo         Right-click the tray icon and choose Exit first,
+    echo         then run this script again.
+    echo ============================================================
+    echo [ERROR] IntraBox still running, aborted.>> "%LOG%"
+    goto :fail
 )
 
-"%MSBUILD%" "src\IntraBox\IntraBox.csproj" /t:Restore;Build /p:Configuration=Release /m
-if errorlevel 1 (
-    echo.
-    echo [FAILED] Build failed. See the error messages above.
-    echo.
-    pause
-    exit /b 1
+echo Building... - this can take a minute.
+echo --- MSBuild --- >> "%LOG%"
+"%MSBUILD%" "src\IntraBox\IntraBox.csproj" /t:"Restore;Build" /p:Configuration=Release /m >> "%LOG%" 2>&1
+set "BUILDRC=%ERRORLEVEL%"
+if not "%BUILDRC%"=="0" (
+    echo [FAILED] Build failed.>> "%LOG%"
+    goto :buildfail
 )
 
-if exist "dist\IntraBox\" (
-    REM Clean old exe/dll first, so removed dependencies do not linger in dist.
-    if exist "dist\IntraBox\*.dll" del /Q "dist\IntraBox\*.dll" >nul
-    if exist "dist\IntraBox\*.exe" del /Q "dist\IntraBox\*.exe" >nul
-    copy /Y "src\IntraBox\bin\Release\IntraBox.exe" "dist\IntraBox\IntraBox.exe" >nul
-    if exist "src\IntraBox\bin\Release\IntraBox.exe.config" copy /Y "src\IntraBox\bin\Release\IntraBox.exe.config" "dist\IntraBox\IntraBox.exe.config" >nul
-    if exist "src\IntraBox\bin\Release\*.dll" copy /Y "src\IntraBox\bin\Release\*.dll" "dist\IntraBox\" >nul
-    if exist "src\IntraBox\bin\Release\tessdata\" xcopy /E /I /Y "src\IntraBox\bin\Release\tessdata" "dist\IntraBox\tessdata" >nul
-    if exist "src\IntraBox\bin\Release\x86\" xcopy /E /I /Y "src\IntraBox\bin\Release\x86" "dist\IntraBox\x86" >nul
-    if exist "src\IntraBox\bin\Release\x64\" xcopy /E /I /Y "src\IntraBox\bin\Release\x64" "dist\IntraBox\x64" >nul
-    REM Sync localization resource folders (from zxing/tesseract packages).
-    for %%d in (en es fr ja ko pt zh-Hans zh-Hant) do (
-        if exist "src\IntraBox\bin\Release\%%d\" xcopy /E /I /Y "src\IntraBox\bin\Release\%%d" "dist\IntraBox\%%d" >nul
-    )
-    copy /Y "docs\*.txt" "dist\IntraBox\" >nul
-    echo Synced to dist\IntraBox\
+REM Copy docs first so the mirror below does not treat them as extras to delete.
+copy /Y "docs\*.txt" "dist\IntraBox\" >> "%LOG%" 2>&1
+REM Mirror bin\Release into dist\IntraBox (copy + delete extras).
+REM /XF excludes: pdb + personal data (config/history/fileorganize/undo) + docs txt
+REM /XD excludes: the .claude working folder
+robocopy "src\IntraBox\bin\Release" "dist\IntraBox" /MIR /NFL /NDL /NJH /NP /R:2 /W:1 /XF *.pdb *.txt config.json history.json fileorganize.json fileorganize-undo.json /XD .claude >> "%LOG%" 2>&1
+set "RC=%ERRORLEVEL%"
+REM robocopy exit codes 0-7 = success, >=8 = failure
+REM cwd-in-dir does NOT block robocopy writes; the real risk is a RUNNING
+REM dist\IntraBox\IntraBox.exe locking its DLLs. Detect that directly.
+if %RC% GEQ 8 (
+    echo [ERROR] robocopy failed, code %RC%.>> "%LOG%"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "tools\find-locking-processes.ps1" -Path "%CD%\dist\IntraBox"
+    echo ============================================================
+    echo  [ERROR] Deploy to dist\IntraBox failed - files in use.
+    echo  If IntraBox is running from dist, exit it from the tray first.
+    echo ============================================================
+    goto :fail
 )
+echo Synced to dist\IntraBox\ - mirrored from bin\Release.
+echo [OK] Synced to dist.>> "%LOG%"
 
 echo.
+echo ============================================================
 echo [SUCCESS] Build completed.
 echo   Output : src\IntraBox\bin\Release\IntraBox.exe
 echo   Publish: dist\IntraBox\IntraBox.exe
+echo   Log    : build.log
+echo ============================================================
+echo [SUCCESS] Build completed.>> "%LOG%"
 echo.
 pause
 exit /b 0
+
+:buildfail
+echo.
+echo [FAILED] Build failed. Last lines of build.log:
+echo ----------------------------------------------------------
+powershell -NoProfile -Command "Get-Content -Tail 25 '%LOG%'"
+echo ----------------------------------------------------------
+echo Full log: %LOG%
+goto :fail
+
+:fail
+echo.
+echo ============================================================
+echo [FAILED] See messages above and build.log for details.
+echo ============================================================
+echo.
+pause
+exit /b 1

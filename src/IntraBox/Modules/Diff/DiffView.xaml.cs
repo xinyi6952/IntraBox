@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -17,7 +19,7 @@ using Microsoft.Win32;
 namespace IntraBox.Modules.Diff
 {
     /// <summary>
-    /// 文本快速比对：左右 AvalonEdit、自动比对、同类型约束、完整路径、编码、合并后写回。
+    /// 文本比对：左右 AvalonEdit、自动比对、同类型约束、完整路径、编码、合并后写回。
     /// </summary>
     public partial class DiffView : UserControl, IModuleView, ILeaveGuard
     {
@@ -42,6 +44,13 @@ namespace IntraBox.Modules.Diff
         private bool _rightMax;
         private ScrollViewer _leftSv;
         private ScrollViewer _rightSv;
+
+        // 比对/加载后台化：取消 + 版本号丢弃过期结果，大文本不卡 UI
+        private CancellationTokenSource _cmpCts;
+        private int _cmpVersion;
+        private int _loadVersion;
+        // 超过此字符数禁用语法高亮，保证超大文件加载/滚动/比对流畅
+        private const int HighlightMaxChars = 300 * 1000;
 
         public DiffView()
         {
@@ -78,7 +87,21 @@ namespace IntraBox.Modules.Diff
             };
             LeftEditor.SizeChanged += (s, e) => UpdateArrows();
             RightEditor.SizeChanged += (s, e) => UpdateArrows();
+            SearchBar.Attach(LeftEditor, RightEditor);
+            PreviewKeyDown += OnPreviewKeyDown;
             Loaded += (s, e) => { HookScroll(); UpdateArrows(); };
+        }
+
+        private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            // Ctrl+F 呼出搜索；最大化状态下先还原，再显示搜索条
+            if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                e.Handled = true;
+                if (_leftMax) SetPaneMaximized(true, false);
+                if (_rightMax) SetPaneMaximized(false, false);
+                SearchBar.Open();
+            }
         }
 
         private void OnThemeChanged(object sender, EventArgs e)
@@ -91,6 +114,23 @@ namespace IntraBox.Modules.Diff
         {
             _leftRenderer.Background = FindBrush("DiffDeleteBrush");
             _rightRenderer.Background = FindBrush("DiffInsertBrush");
+            // 当前差异块高亮：半透明强调色覆盖 + 实色左侧竖条，导航落点一眼可见
+            var accent = FindBrush("AccentBrush") ?? Brushes.Orange;
+            _leftRenderer.CurrentMarker = accent;
+            _rightRenderer.CurrentMarker = accent;
+            _leftRenderer.CurrentBackground = MakeOverlay(accent, 0.35);
+            _rightRenderer.CurrentBackground = MakeOverlay(accent, 0.35);
+        }
+
+        private static Brush MakeOverlay(Brush baseBrush, double opacity)
+        {
+            if (baseBrush is SolidColorBrush sc)
+            {
+                var c = sc.Color;
+                return new SolidColorBrush(Color.FromArgb(
+                    (byte)(opacity * 255), c.R, c.G, c.B));
+            }
+            return baseBrush;
         }
 
         private static Brush FindBrush(string key)
@@ -111,13 +151,15 @@ namespace IntraBox.Modules.Diff
             Compare();
         }
 
-        private void Compare()
+        private async void Compare()
         {
             bool leftFile = _leftFilePath != null;
             bool rightFile = _rightFilePath != null;
             if (leftFile != rightFile)
             {
+                CancelCompare();
                 SetStat("左右类型不一致：只允许「文本 ↔ 文本」或「文件 ↔ 文件」，请清空一侧或两侧都打开文件。", true);
+                ClearCurrentHighlight();
                 ClearHighlights();
                 _blocks.Clear();
                 ArrowCanvas.Children.Clear();
@@ -125,41 +167,96 @@ namespace IntraBox.Modules.Diff
                 return;
             }
 
-            var differ = new Differ();
-            var diff = differ.CreateLineDiffs(
-                LeftEditor.Text ?? "", RightEditor.Text ?? "",
-                IgnoreWhitespace.IsChecked == true,
-                IgnoreCase.IsChecked == true);
-            _blocks = diff.DiffBlocks.ToList();
+            string leftText = LeftEditor.Text ?? "";
+            string rightText = RightEditor.Text ?? "";
+            bool ignoreWs = IgnoreWhitespace.IsChecked == true;
+            bool ignoreCase = IgnoreCase.IsChecked == true;
 
-            var leftLines = new HashSet<int>();
-            var rightLines = new HashSet<int>();
-            int added = 0, deleted = 0, modified = 0;
-            foreach (var b in _blocks)
+            CancelCompare();
+            int version = ++_cmpVersion;
+            var cts = new CancellationTokenSource();
+            _cmpCts = cts;
+            var token = cts.Token;
+
+            DiffResult result = null;
+            try
             {
-                for (int i = b.DeleteStartA; i < b.DeleteStartA + b.DeleteCountA; i++) leftLines.Add(i + 1);
-                for (int j = b.InsertStartB; j < b.InsertStartB + b.InsertCountB; j++) rightLines.Add(j + 1);
-                if (b.DeleteCountA > 0 && b.InsertCountB > 0) modified++;
-                else
-                {
-                    added += b.InsertCountB;
-                    deleted += b.DeleteCountA;
-                }
+                // DiffPlex 行级 diff 是纯计算，放后台线程，避免大文本卡 UI
+                result = await Task.Run(() => RunDiff(leftText, rightText, ignoreWs, ignoreCase, token), token);
+            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex)
+            {
+                if (version == _cmpVersion) SetStat("比对失败：" + ex.RootMessage(), true);
+                return;
             }
 
-            _leftRenderer.SetDiffLines(leftLines);
-            _rightRenderer.SetDiffLines(rightLines);
+            if (version != _cmpVersion) return; // 过期结果丢弃
+
+            _blocks = result.Blocks;
+            _leftRenderer.SetDiffLines(result.LeftLines);
+            _rightRenderer.SetDiffLines(result.RightLines);
+            _currentDiff = -1;
+            ClearCurrentHighlight();
             LeftEditor.TextArea.TextView.Redraw();
             RightEditor.TextArea.TextView.Redraw();
 
             SetStat(
                 _blocks.Count == 0
                     ? "无差异"
-                    : "新增 " + added + " 行　删除 " + deleted + " 行　修改 " + modified + " 处　共 " + _blocks.Count + " 个差异块",
+                    : "新增 " + result.Added + " 行　删除 " + result.Deleted + " 行　修改 " + result.Modified + " 处　共 " + _blocks.Count + " 个差异块",
                 false);
 
             _currentDiff = -1;
             UpdateArrows();
+        }
+
+        /// <summary>后台线程执行的纯计算：行级 diff + 统计。</summary>
+        private static DiffResult RunDiff(string left, string right, bool ignoreWs, bool ignoreCase, CancellationToken token)
+        {
+            var result = new DiffResult
+            {
+                Blocks = new List<DiffPlex.Model.DiffBlock>(),
+                LeftLines = new HashSet<int>(),
+                RightLines = new HashSet<int>()
+            };
+            var differ = new Differ();
+            result.Blocks = differ.CreateLineDiffs(left, right, ignoreWs, ignoreCase).DiffBlocks.ToList();
+
+            foreach (var b in result.Blocks)
+            {
+                if (token.IsCancellationRequested) return result;
+                for (int i = b.DeleteStartA; i < b.DeleteStartA + b.DeleteCountA; i++) result.LeftLines.Add(i + 1);
+                for (int j = b.InsertStartB; j < b.InsertStartB + b.InsertCountB; j++) result.RightLines.Add(j + 1);
+                if (b.DeleteCountA > 0 && b.InsertCountB > 0) result.Modified++;
+                else
+                {
+                    result.Added += b.InsertCountB;
+                    result.Deleted += b.DeleteCountA;
+                }
+            }
+            return result;
+        }
+
+        private void CancelCompare()
+        {
+            _cmpVersion++;
+            if (_cmpCts != null)
+            {
+                _cmpCts.Cancel();
+                _cmpCts.Dispose();
+                _cmpCts = null;
+            }
+        }
+
+        private sealed class DiffResult
+        {
+            public List<DiffPlex.Model.DiffBlock> Blocks;
+            public HashSet<int> LeftLines;
+            public HashSet<int> RightLines;
+            public int Added;
+            public int Deleted;
+            public int Modified;
         }
 
         private void ClearHighlights()
@@ -184,50 +281,57 @@ namespace IntraBox.Modules.Diff
             LoadFile(dlg.FileName, isLeft, false);
         }
 
-        private void LoadFile(string path, bool isLeft, bool keepEncoding)
+        private async void LoadFile(string path, bool isLeft, bool keepEncoding)
         {
+            var choice = keepEncoding
+                ? (isLeft ? CurrentLeftChoice() : CurrentRightChoice())
+                : TextFileCodec.Auto;
+
+            int version = ++_loadVersion;
+
+            string text = null;
+            EncodingChoice used = TextFileCodec.Auto;
+            bool uncertain = false;
             try
             {
-                var choice = keepEncoding
-                    ? (isLeft ? CurrentLeftChoice() : CurrentRightChoice())
-                    : TextFileCodec.Auto;
-
-                EncodingChoice used;
-                bool uncertain;
-                string text = TextFileCodec.ReadAll(path, choice, MaxFileBytes, out used, out uncertain);
-                string warn = uncertain ? "未识别编码，已按 GBK 读取，可能乱码" : null;
-
-                _loading = true;
-                if (isLeft)
-                {
-                    SetEditorText(LeftEditor, text, true);
-                    _leftFilePath = path;
-                    _leftChoice = used;
-                    _leftEncWarn = warn;
-                    LeftEncCombo.SelectedItem = used;
-                    ApplySyntaxHighlighting(LeftEditor, path);
-                }
-                else
-                {
-                    SetEditorText(RightEditor, text, true);
-                    _rightFilePath = path;
-                    _rightChoice = used;
-                    _rightEncWarn = warn;
-                    RightEncCombo.SelectedItem = used;
-                    ApplySyntaxHighlighting(RightEditor, path);
-                }
-                _loading = false;
-                if (isLeft) _leftDirty = false;
-                else _rightDirty = false;
-                UpdatePathLabels();
-                Compare();
-                AppendEncodingWarn();
+                // 读盘 + 解码放后台线程，避免大文件卡 UI
+                text = await Task.Run(() => TextFileCodec.ReadAll(path, choice, MaxFileBytes, out used, out uncertain));
             }
             catch (Exception ex)
             {
-                _loading = false;
-                SetStat("读取失败：" + ex.Message + "。可切换编码后重试。", true);
+                if (version == _loadVersion) SetStat("读取失败：" + ex.RootMessage() + "。可切换编码后重试。", true);
+                return;
             }
+
+            if (version != _loadVersion) return; // 过期加载丢弃
+
+            string warn = uncertain ? "未识别编码，已按 GBK 读取，可能乱码" : null;
+
+            _loading = true;
+            if (isLeft)
+            {
+                SetEditorText(LeftEditor, text, true);
+                _leftFilePath = path;
+                _leftChoice = used;
+                _leftEncWarn = warn;
+                LeftEncCombo.SelectedItem = used;
+                ApplySyntaxHighlighting(LeftEditor, path, text.Length);
+            }
+            else
+            {
+                SetEditorText(RightEditor, text, true);
+                _rightFilePath = path;
+                _rightChoice = used;
+                _rightEncWarn = warn;
+                RightEncCombo.SelectedItem = used;
+                ApplySyntaxHighlighting(RightEditor, path, text.Length);
+            }
+            _loading = false;
+            if (isLeft) _leftDirty = false;
+            else _rightDirty = false;
+            UpdatePathLabels();
+            Compare();
+            AppendEncodingWarn();
         }
 
         private EncodingChoice CurrentLeftChoice()
@@ -289,8 +393,14 @@ namespace IntraBox.Modules.Diff
             return files != null && files.Length > 0 ? files[0] : null;
         }
 
-        private static void ApplySyntaxHighlighting(TextEditor editor, string path)
+        private static void ApplySyntaxHighlighting(TextEditor editor, string path, int textLength)
         {
+            if (editor == null) return;
+            if (textLength > HighlightMaxChars)
+            {
+                editor.SyntaxHighlighting = null; // 超大文本禁用高亮，保证流畅
+                return;
+            }
             try
             {
                 var ext = Path.GetExtension(path).ToLowerInvariant();
@@ -350,6 +460,7 @@ namespace IntraBox.Modules.Diff
             if (isLeft) _leftMax = on;
             else _rightMax = on;
 
+            if (on) SearchBar.Close(); // 进入最大化时关闭搜索条，避免遮挡
             DiffToolbar.Visibility = (_leftMax || _rightMax) ? Visibility.Collapsed : Visibility.Visible;
             ArrowCanvas.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
             if (isLeft)
@@ -412,11 +523,11 @@ namespace IntraBox.Modules.Diff
             }
             catch (IOException ex)
             {
-                SetStat("保存失败：文件被占用或无法写入。" + ex.Message, true);
+                SetStat("保存失败：文件被占用或无法写入。" + ex.RootMessage(), true);
             }
             catch (Exception ex)
             {
-                SetStat("保存失败：" + ex.Message, true);
+                SetStat("保存失败：" + ex.RootMessage(), true);
             }
         }
 
@@ -512,6 +623,7 @@ namespace IntraBox.Modules.Diff
             _rightDirty = false;
             _blocks.Clear();
             _currentDiff = -1;
+            ClearCurrentHighlight();
             ClearHighlights();
             ArrowCanvas.Children.Clear();
             UpdatePathLabels();
@@ -555,6 +667,32 @@ namespace IntraBox.Modules.Diff
                 RightEditor.ScrollToLine(b.InsertStartB + 1);
                 LeftEditor.ScrollToLine(Math.Max(1, b.DeleteStartA + 1));
             }
+            HighlightCurrentBlock(b);
+            SetStat("差异 " + (index + 1) + " / " + _blocks.Count, false);
+        }
+
+        /// <summary>把当前差异块覆盖的左右行号推给渲染器并重绘，导航落点高亮可见。</summary>
+        private void HighlightCurrentBlock(DiffPlex.Model.DiffBlock b)
+        {
+            if (b == null) { ClearCurrentHighlight(); return; }
+            var left = new List<int>();
+            for (int i = b.DeleteStartA; i < b.DeleteStartA + b.DeleteCountA; i++)
+                if (i >= 0) left.Add(i + 1);
+            var right = new List<int>();
+            for (int j = b.InsertStartB; j < b.InsertStartB + b.InsertCountB; j++)
+                if (j >= 0) right.Add(j + 1);
+            _leftRenderer.SetCurrentLines(left);
+            _rightRenderer.SetCurrentLines(right);
+            LeftEditor.TextArea.TextView.Redraw();
+            RightEditor.TextArea.TextView.Redraw();
+        }
+
+        private void ClearCurrentHighlight()
+        {
+            _leftRenderer.SetCurrentLines(null);
+            _rightRenderer.SetCurrentLines(null);
+            LeftEditor.TextArea.TextView.Redraw();
+            RightEditor.TextArea.TextView.Redraw();
         }
 
         private void UpdateArrows()
@@ -809,10 +947,10 @@ namespace IntraBox.Modules.Diff
             _loading = false;
             if (_leftFilePath != null && string.IsNullOrEmpty(LeftEditor.Text))
                 LoadFile(_leftFilePath, true, true);
-            else if (_leftFilePath != null) ApplySyntaxHighlighting(LeftEditor, _leftFilePath);
+            else if (_leftFilePath != null) ApplySyntaxHighlighting(LeftEditor, _leftFilePath, LeftEditor.Text.Length);
             if (_rightFilePath != null && string.IsNullOrEmpty(RightEditor.Text))
                 LoadFile(_rightFilePath, false, true);
-            else if (_rightFilePath != null) ApplySyntaxHighlighting(RightEditor, _rightFilePath);
+            else if (_rightFilePath != null) ApplySyntaxHighlighting(RightEditor, _rightFilePath, RightEditor.Text.Length);
             if (string.IsNullOrEmpty(HistoryManager.GetString(state, "leftText")) && _leftFilePath != null)
                 _leftDirty = false;
             else
@@ -829,6 +967,7 @@ namespace IntraBox.Modules.Diff
         public void OnDeactivated()
         {
             _debounce.Stop();
+            CancelCompare();
             ThemeManager.Changed -= OnThemeChanged;
             UnhookScroll();
             HistoryManager.Save("diff", new Dictionary<string, object>

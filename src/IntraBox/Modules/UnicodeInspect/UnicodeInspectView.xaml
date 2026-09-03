@@ -12,6 +12,7 @@
         <WrapPanel Margin="0,0,0,8">
             <Button Content="检查" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Run_Click"/>
             <Button Content="复制" Margin="0,4,8,4" Click="Copy_Click"/>
+            <controls:GridFilterBar x:Name="FilterBar" VerticalAlignment="Center" Margin="8,4,0,4"/>
             <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
         </WrapPanel>
         <TextBlock Grid.Row="1" Text="输入字符或字符串" Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>

@@ -60,5 +60,35 @@ namespace IntraBox.Core
                 // 保存失败（如目录无写权限）时静默，不阻断运行
             }
         }
+
+        /// <summary>
+        /// 一次性迁移：旧版本把生成器模块的 key 记为 generator，现改为 idgenerator。
+        /// 覆盖工具显隐（VisibleToolKeys）与上次工具（LastModuleKey），迁移后立即保存。
+        /// </summary>
+        public void MigrateGeneratorKey()
+        {
+            const string oldKey = "generator";
+            const string newKey = "idgenerator";
+            bool changed = false;
+
+            var s = Settings;
+            if (s.VisibleToolKeys != null)
+            {
+                for (int i = 0; i < s.VisibleToolKeys.Length; i++)
+                {
+                    if (s.VisibleToolKeys[i] == oldKey)
+                    {
+                        s.VisibleToolKeys[i] = newKey;
+                        changed = true;
+                    }
+                }
+            }
+            if (s.LastModuleKey == oldKey)
+            {
+                s.LastModuleKey = newKey;
+                changed = true;
+            }
+            if (changed) Save();
+        }
     }
 }

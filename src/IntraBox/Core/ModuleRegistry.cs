@@ -70,49 +70,49 @@ namespace IntraBox.Core
             // 安全工具
             Register("hash", "哈希计算", "安全工具", () => new HashView());
             Register("crypto", "加解密", "安全工具", () => new CryptoView());
-            Register("certdecode", "X.509 证书解码", "安全工具", () => new CertDecodeView());
+            Register("certdecode", "证书解析", "安全工具", () => new CertDecodeView());
 
             // 编码转换
             Register("base64", "Base64 编解码", "编码转换", () => new Base64View());
             Register("codec", "URL/HTML/Unicode 编解码", "编码转换", () => new CodecView());
             Register("urlparse", "URL 解析", "编码转换", () => new UrlParseView());
-            Register("unicodeinspect", "Unicode 字符检查器", "编码转换", () => new UnicodeInspectView());
+            Register("unicodeinspect", "Unicode 字符检查", "编码转换", () => new UnicodeInspectView());
 
             // 格式化
-            Register("formatter", "多格式格式化", "格式化", () => new FormatterView());
+            Register("formatter", "格式化", "格式化", () => new FormatterView());
 
             // 截图
-            Register("screenshot", "快捷键截屏", "截图", () => new ScreenshotView());
+            Register("screenshot", "屏幕截图", "截图", () => new ScreenshotView());
             Register("screenruler", "屏幕标尺", "截图", () => new ScreenRulerView());
 
             // 开发工具
             Register("jsonschema", "JSON Schema 验证", "开发工具", () => new JsonSchemaView());
-            Register("semver", "Semver 版本比较", "开发工具", () => new SemverView());
+            Register("semver", "SemVer 版本比较", "开发工具", () => new SemverView());
 
             // 设计工具
             Register("colorblind", "色盲模拟", "设计工具", () => new ColorBlindView());
-            Register("colorpicker", "颜色取色器", "设计工具", () => new ColorPickerView());
+            Register("colorpicker", "屏幕取色", "设计工具", () => new ColorPickerView());
 
             // 生成器
-            Register("qrcode", "二维码", "生成器", () => new QrCodeView());
-            Register("jsontoclass", "JSON 转类", "生成器", () => new JsonToClassView());
-            Register("generator", "UUID/ULID/密码生成", "生成器", () => new GeneratorView());
+            Register("qrcode", "二维码生成", "生成器", () => new QrCodeView());
+            Register("jsontoclass", "JSON 转实体类", "生成器", () => new JsonToClassView());
+            Register("idgenerator", "ID 与密码生成", "生成器", () => new GeneratorView());
 
             // 数据转换
-            Register("txt2excel", "TXT 转 Excel", "数据转换", () => new TxtToExcelView());
+            Register("txt2excel", "文本转 Excel", "数据转换", () => new TxtToExcelView());
 
             // 图片工具
             Register("imageconvert", "图片压缩缩放转换", "图片工具", () => new ImageConvertView());
 
             // 网络工具
             Register("portlist", "端口占用查看", "网络工具", () => new PortListView());
-            Register("porttest", "IP 端口测试", "网络工具", () => new PortTestView());
+            Register("porttest", "端口连通性测试", "网络工具", () => new PortTestView());
 
             // 文本工具
             Register("lineprocess", "行处理", "文本工具", () => new LineProcessView());
             Register("mdpreview", "Markdown 预览", "文本工具", () => new MdPreviewView());
             Register("namecase", "命名转换", "文本工具", () => new NameCaseView());
-            Register("diff", "文本快速比对", "文本工具", () => new DiffView());
+            Register("diff", "文本比对", "文本工具", () => new DiffView());
             Register("textstats", "文本统计", "文本工具", () => new TextStatsView());
             Register("regextest", "正则表达式测试", "文本工具", () => new RegexTestView());
             Register("regexviz", "正则可视化", "文本工具", () => new RegexVizView());
@@ -120,11 +120,11 @@ namespace IntraBox.Core
             // 文件管理
             Register("dupfiles", "重复文件查找", "文件管理", () => new DupFilesView());
             Register("batchrename", "批量重命名", "文件管理", () => new BatchRenameView());
-            Register("filesearch", "文件快速查找", "文件管理", () => new FileSearchView());
-            Register("fileorganize", "桌面文件快速整理", "文件管理", () => new FileOrganizeView());
+            Register("filesearch", "文件查找", "文件管理", () => new FileSearchView());
+            Register("fileorganize", "文件整理", "文件管理", () => new FileOrganizeView());
 
             // 系统工具
-            Register("machineinfo", "本机详细信息", "系统工具", () => new MachineInfoView());
+            Register("machineinfo", "本机信息", "系统工具", () => new MachineInfoView());
             Register("wintopmost", "窗口置顶", "系统工具", () => new WinTopmostView());
             Register("keepawake", "防止睡眠", "系统工具", () => new KeepAwakeView());
             Register("hostseditor", "Hosts 编辑器", "系统工具", () => new HostsEditorView());

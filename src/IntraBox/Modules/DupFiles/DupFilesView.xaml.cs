@@ -60,7 +60,7 @@ namespace IntraBox.Modules.DupFiles
                 try { files = Directory.GetFiles(dir, "*", opt); }
                 catch (Exception ex)
                 {
-                    Ui(() => { MsgText.Text = ex.Message; });
+                    Ui(() => { MsgText.Text = ex.RootMessage(); });
                     return;
                 }
                 var bySize = new Dictionary<long, List<string>>();
@@ -127,7 +127,7 @@ namespace IntraBox.Modules.DupFiles
             }
             catch (Exception ex)
             {
-                Ui(() => { MsgText.Text = "失败：" + ex.Message; });
+                Ui(() => { MsgText.Text = "失败：" + ex.RootMessage(); });
             }
         }
 
@@ -151,7 +151,7 @@ namespace IntraBox.Modules.DupFiles
             var row = ResultList.SelectedItem as DupRow;
             if (row == null) return;
             try { Process.Start("explorer.exe", "/select,\"" + row.Path + "\""); }
-            catch (Exception ex) { MsgText.Text = ex.Message; }
+            catch (Exception ex) { MsgText.Text = ex.RootMessage(); }
         }
 
         private void Delete_Click(object sender, RoutedEventArgs e)
@@ -164,7 +164,7 @@ namespace IntraBox.Modules.DupFiles
                 File.Delete(row.Path);
                 MsgText.Text = "已删除";
             }
-            catch (Exception ex) { MsgText.Text = "删除失败：" + ex.Message; }
+            catch (Exception ex) { MsgText.Text = "删除失败：" + ex.RootMessage(); }
         }
 
         private sealed class DupRow

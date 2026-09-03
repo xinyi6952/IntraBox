@@ -352,7 +352,7 @@ namespace IntraBox.Modules.FileOrganize
             }
             catch (Exception ex)
             {
-                MessageBox.Show("撤销失败：" + ex.Message, "撤销上次整理",
+                MessageBox.Show("撤销失败：" + ex.RootMessage(), "撤销上次整理",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -490,7 +490,7 @@ namespace IntraBox.Modules.FileOrganize
         {
             if (ex is UnauthorizedAccessException) return "无权限";
             if (ex is IOException) return "文件被占用或无法移动";
-            return ex.Message;
+            return ex.RootMessage();
         }
 
         private sealed class RuleRow : INotifyPropertyChanged

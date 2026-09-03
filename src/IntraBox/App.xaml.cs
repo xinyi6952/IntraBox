@@ -4,6 +4,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using IntraBox.Core;
+using Microsoft.Win32;
 using IntraBox.Modules.ClipboardHistory;
 using IntraBox.Modules.Screenshot;
 using IntraBox.Modules.ScreenRuler;
@@ -57,6 +58,9 @@ namespace IntraBox
 
             base.OnStartup(e);
 
+            // WPF WebBrowser 默认 IE7 文档模式，表格/CSS 几乎不生效。写本进程的 IE11 仿真。
+            EnableIe11ForWebBrowser();
+
             _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSignalName);
 
             // 全局异常兜底
@@ -66,6 +70,9 @@ namespace IntraBox
             // 加载配置、初始化托盘、创建主窗口（仍用自研托盘，不用 hc:NotifyIcon）
             ConfigManager.Instance.Load();
             HistoryManager.LoadFromDisk();
+            // 一次性迁移旧 key（generator → idgenerator），保证老用户显隐/上次工具/历史不丢
+            ConfigManager.Instance.MigrateGeneratorKey();
+            HistoryManager.MigrateGeneratorKey();
             ThemeManager.Apply(ConfigManager.Instance.Settings.Theme);
             WindowCaption.Hook();
             _tray = new TrayIconManager();
@@ -243,6 +250,27 @@ namespace IntraBox
                 if (start < tail.Length)
                     fs.Write(tail, start, tail.Length - start);
             }
+        }
+
+        /// <summary>
+        /// WPF WebBrowser 默认按 IE7 渲染，表格边框和较新 CSS 几乎无效。
+        /// 给本进程 exe 写入当前用户的 FEATURE_BROWSER_EMULATION = IE11。
+        /// 必须在创建任何 WebBrowser 之前调用。
+        /// </summary>
+        private static void EnableIe11ForWebBrowser()
+        {
+            try
+            {
+                string exe = AppDomain.CurrentDomain.FriendlyName;
+                if (string.IsNullOrEmpty(exe)) return;
+                using (var key = Registry.CurrentUser.CreateSubKey(
+                    @"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION"))
+                {
+                    if (key == null) return;
+                    key.SetValue(exe, 11001, RegistryValueKind.DWord);
+                }
+            }
+            catch { /* 写注册表失败时仍可预览，只是表格样式可能较差 */ }
         }
     }
 }

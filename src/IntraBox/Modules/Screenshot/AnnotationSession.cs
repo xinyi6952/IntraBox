@@ -342,13 +342,15 @@ namespace IntraBox.Modules.Screenshot
                 }
                 else
                 {
+                    // 预览图暂时拿不到（如底图未就绪）：用中性灰占位，不再用易误解的黄色块。
                     var sh = new Rectangle
                     {
                         Width = r.Width,
                         Height = r.Height,
-                        Fill = new SolidColorBrush(MediaColor.FromArgb(80, 255, 255, 0)),
-                        Stroke = Brushes.Yellow,
+                        Fill = new SolidColorBrush(MediaColor.FromArgb(60, 128, 128, 128)),
+                        Stroke = new SolidColorBrush(MediaColor.FromRgb(160, 160, 160)),
                         StrokeThickness = 1,
+                        StrokeDashArray = new DoubleCollection { 3, 2 },
                         Tag = Tag("mosaic")
                     };
                     Canvas.SetLeft(sh, r.X);

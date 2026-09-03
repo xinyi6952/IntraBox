@@ -1,5 +1,6 @@
 ﻿using System.Xml;
 using System.Xml.Linq;
+using IntraBox.Core;
 
 namespace IntraBox.Modules.Formatter
 {
@@ -24,7 +25,7 @@ namespace IntraBox.Modules.Formatter
             }
             catch (XmlException ex)
             {
-                error = "第 " + ex.LineNumber + " 行 第 " + ex.LinePosition + " 列：" + ex.Message;
+                error = "第 " + ex.LineNumber + " 行 第 " + ex.LinePosition + " 列：" + ex.RootMessage();
                 return null;
             }
         }
@@ -39,7 +40,7 @@ namespace IntraBox.Modules.Formatter
             }
             catch (XmlException ex)
             {
-                error = "第 " + ex.LineNumber + " 行 第 " + ex.LinePosition + " 列：" + ex.Message;
+                error = "第 " + ex.LineNumber + " 行 第 " + ex.LinePosition + " 列：" + ex.RootMessage();
                 return null;
             }
         }

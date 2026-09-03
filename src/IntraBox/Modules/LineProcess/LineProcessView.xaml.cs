@@ -34,62 +34,48 @@ namespace IntraBox.Modules.LineProcess
             });
         }
 
-        private string[] Lines()
+        /// <summary>行处理是纯内存字符串操作（拆行+处理+拼接），毫秒级，同步执行即可，避免后台化引入的取消/版本号复杂度。</summary>
+        private void Run(Func<string[], List<string>> op, string msg)
         {
-            return LineProcessHelper.SplitLines(InputBox.Text);
-        }
-
-        private void SetOut(IList<string> lines, string msg)
-        {
-            var sb = new StringBuilder();
-            for (int i = 0; i < lines.Count; i++)
+            string text = InputBox.Text ?? "";
+            try
             {
-                if (i > 0) sb.AppendLine();
-                sb.Append(lines[i]);
+                var lines = LineProcessHelper.SplitLines(text);
+                var processed = op(lines);
+                var sb = new StringBuilder();
+                for (int i = 0; i < processed.Count; i++)
+                {
+                    if (i > 0) sb.AppendLine();
+                    sb.Append(processed[i]);
+                }
+                OutputBox.Text = sb.ToString();
+                SetMsg(msg + "，共 " + processed.Count + " 行", false);
             }
-            OutputBox.Text = sb.ToString();
-            MsgText.Foreground = FindResource("OkBrush") as System.Windows.Media.Brush;
-            MsgText.Text = msg + "，共 " + lines.Count + " 行";
+            catch (Exception ex)
+            {
+                SetMsg("错误：" + ex.RootMessage(), true);
+            }
         }
 
-        private void Dedup_Click(object sender, RoutedEventArgs e)
-        {
-            SetOut(LineProcessHelper.Deduplicate(Lines()), "已去重（保序）");
-        }
-
-        private void DedupSort_Click(object sender, RoutedEventArgs e)
-        {
-            SetOut(LineProcessHelper.DeduplicateSort(Lines()), "已去重并排序");
-        }
-
-        private void Asc_Click(object sender, RoutedEventArgs e)
-        {
-            SetOut(LineProcessHelper.SortAsc(Lines()), "已升序");
-        }
-
-        private void Desc_Click(object sender, RoutedEventArgs e)
-        {
-            SetOut(LineProcessHelper.SortDesc(Lines()), "已降序");
-        }
-
-        private void Natural_Click(object sender, RoutedEventArgs e)
-        {
-            SetOut(LineProcessHelper.SortNatural(Lines()), "已自然序");
-        }
-
-        private void Blank_Click(object sender, RoutedEventArgs e)
-        {
-            SetOut(LineProcessHelper.RemoveBlank(Lines()), "已删空行");
-        }
-
-        private void Trim_Click(object sender, RoutedEventArgs e)
-        {
-            SetOut(LineProcessHelper.TrimLines(Lines()), "已删首尾空白");
-        }
+        private void Dedup_Click(object sender, RoutedEventArgs e) => Run(LineProcessHelper.Deduplicate, "已去重（保序）");
+        private void DedupSort_Click(object sender, RoutedEventArgs e) => Run(LineProcessHelper.DeduplicateSort, "已去重并排序");
+        private void Asc_Click(object sender, RoutedEventArgs e) => Run(LineProcessHelper.SortAsc, "已升序");
+        private void Desc_Click(object sender, RoutedEventArgs e) => Run(LineProcessHelper.SortDesc, "已降序");
+        private void Natural_Click(object sender, RoutedEventArgs e) => Run(LineProcessHelper.SortNatural, "已自然序");
+        private void Blank_Click(object sender, RoutedEventArgs e) => Run(LineProcessHelper.RemoveBlank, "已删空行");
+        private void Trim_Click(object sender, RoutedEventArgs e) => Run(LineProcessHelper.TrimLines, "已删首尾空白");
 
         private void Affix_Click(object sender, RoutedEventArgs e)
         {
-            SetOut(LineProcessHelper.AddAffix(Lines(), PrefixBox.Text, SuffixBox.Text), "已加前后缀");
+            string prefix = PrefixBox.Text ?? "";
+            string suffix = SuffixBox.Text ?? "";
+            Run(lines => LineProcessHelper.AddAffix(lines, prefix, suffix), "已加前后缀");
+        }
+
+        private void SetMsg(string text, bool error)
+        {
+            MsgText.Foreground = FindResource(error ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
+            MsgText.Text = text;
         }
 
         private void Copy_Click(object sender, RoutedEventArgs e)

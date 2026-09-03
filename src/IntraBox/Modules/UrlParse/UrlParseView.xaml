@@ -12,6 +12,7 @@
         <WrapPanel Margin="0,0,0,8">
             <Button Content="解析" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Parse_Click"/>
             <Button Content="复制全部" Margin="0,4,8,4" Click="Copy_Click"/>
+            <controls:GridFilterBar x:Name="FilterBar" VerticalAlignment="Center" Margin="8,4,0,4"/>
             <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
                        Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
         </WrapPanel>

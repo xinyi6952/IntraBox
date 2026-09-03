@@ -16,7 +16,7 @@
         </WrapPanel>
         <TextBlock x:Name="InputCaption" Grid.Row="1" Text="正则" Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
         <controls:CodeEditor x:Name="PatternBox" Grid.Row="2"/>
-        <controls:CodeEditor x:Name="ExplainBox" Grid.Row="3" Margin="0,8,0,0" IsReadOnly="True" CanMaximize="True"/>
+        <controls:CodeEditor x:Name="ExplainBox" Grid.Row="3" Margin="0,8,0,0" IsReadOnly="True" CanMaximize="True" ShowCopyButton="True"/>
         <StackPanel x:Name="SampleWrap" Grid.Row="4" Margin="0,8,0,0">
             <TextBlock Text="匹配示例" Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
             <TextBlock x:Name="SampleBox" FontFamily="Consolas" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>

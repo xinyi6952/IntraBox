@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
+using IntraBox.Core;
 
 namespace IntraBox.Modules.Formatter
 {
@@ -45,7 +46,7 @@ namespace IntraBox.Modules.Formatter
             }
             catch (YamlException ex)
             {
-                error = "第 " + (ex.Start.Line + 1) + " 行 第 " + (ex.Start.Column + 1) + " 列：" + ex.Message;
+                error = "第 " + (ex.Start.Line + 1) + " 行 第 " + (ex.Start.Column + 1) + " 列：" + ex.RootMessage();
                 return false;
             }
         }

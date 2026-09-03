@@ -2,8 +2,12 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
+using IntraBox.Controls;
 using IntraBox.Core;
 
 namespace IntraBox.Modules.RegexTest
@@ -13,12 +17,24 @@ namespace IntraBox.Modules.RegexTest
     /// </summary>
     public partial class RegexTestView : UserControl, IModuleView
     {
+        private readonly AsyncTaskGate _gate = new AsyncTaskGate();
+
+        private void CancelPending()
+        {
+            _gate.Cancel();
+            LoadingOverlay.Hide(this);
+        }
+
         private readonly ObservableCollection<string> _matches = new ObservableCollection<string>();
+        // 正则语法校验防抖：每敲一字都 new Regex 太频繁，停 300ms 再校验
+        private readonly DispatcherTimer _validateDebounce = new DispatcherTimer();
 
         public RegexTestView()
         {
             InitializeComponent();
             MatchList.ItemsSource = _matches;
+            _validateDebounce.Interval = TimeSpan.FromMilliseconds(300);
+            _validateDebounce.Tick += (s, e) => { _validateDebounce.Stop(); ValidatePattern(); };
         }
 
         private void TestBtn_Click(object sender, RoutedEventArgs e)
@@ -27,6 +43,12 @@ namespace IntraBox.Modules.RegexTest
         }
 
         private void PatternBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _validateDebounce.Stop();
+            _validateDebounce.Start();
+        }
+
+        private void ValidatePattern()
         {
             var p = PatternBox.Text ?? "";
             if (string.IsNullOrWhiteSpace(p))
@@ -41,11 +63,11 @@ namespace IntraBox.Modules.RegexTest
             }
             catch (Exception ex)
             {
-                SetMsg("正则错误：" + ex.Message, true);
+                SetMsg("正则错误：" + ex.RootMessage(), true);
             }
         }
 
-        private void Run()
+        private async void Run()
         {
             SetMsg("", false);
             _matches.Clear();
@@ -69,48 +91,62 @@ namespace IntraBox.Modules.RegexTest
                 return;
             }
 
+            var options = RegexOptions.None;
+            if (IgnoreCaseCheck.IsChecked == true) options |= RegexOptions.IgnoreCase;
+            if (MultilineCheck.IsChecked == true) options |= RegexOptions.Multiline;
+            string text = TextEditor.Text;
+
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            LoadingOverlay.Show(this, "匹配中…");
+
+            List<string> result;
+            int count;
             try
             {
-                var options = RegexOptions.None;
-                if (IgnoreCaseCheck.IsChecked == true) options |= RegexOptions.IgnoreCase;
-                if (MultilineCheck.IsChecked == true) options |= RegexOptions.Multiline;
-
-                var regex = new Regex(pattern, options, TimeSpan.FromSeconds(1));
-                var ms = regex.Matches(TextEditor.Text);
-
-                int n = 0;
-                foreach (Match m in ms)
+                var r = await Task.Run(() =>
                 {
-                    _matches.Add("[" + m.Index + "] " + m.Value);
-                    n++;
-                    if (n >= 500)
+                    token.ThrowIfCancellationRequested();
+                    var regex = new Regex(pattern, options, TimeSpan.FromSeconds(1));
+                    var ms = regex.Matches(text);
+                    var list = new List<string>();
+                    int n = 0;
+                    foreach (Match m in ms)
                     {
-                        _matches.Add("… 已截断，仅显示前 500 条匹配");
-                        break;
+                        token.ThrowIfCancellationRequested();
+                        list.Add("[" + m.Index + "] " + m.Value);
+                        n++;
+                        if (n >= 500) { list.Add("… 已截断，仅显示前 500 条匹配"); break; }
                     }
-                }
-
-                if (n == 0) _matches.Add("（无匹配结果）");
-                SetMsg(n == 0 ? "未匹配到任何内容" : "匹配到 " + n + " 条", n == 0);
+                    return new { List = list, N = n };
+                }, token);
+                result = r.List;
+                count = r.N;
             }
+            catch (OperationCanceledException) { return; }
             catch (RegexMatchTimeoutException)
             {
-                SetMsg("正则超时：模式可能存在灾难性回溯，请简化表达式。", true);
+                if (version == _gate.Version) SetMsg("正则超时：模式可能存在灾难性回溯，请简化表达式。", true);
+                return;
             }
-            catch (ArgumentException ex)
-            {
-                SetMsg("正则错误：" + ex.Message, true);
-            }
-            catch (Exception ex)
-            {
-                SetMsg("匹配失败：" + ex.Message, true);
-            }
+            catch (ArgumentException ex) { if (version == _gate.Version) SetMsg("正则错误：" + ex.RootMessage(), true); return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("匹配失败：" + ex.RootMessage(), true); return; }
+
+            if (version != _gate.Version) return;
+
+            foreach (var s in result) _matches.Add(s);
+            if (count == 0) _matches.Add("（无匹配结果）");
+            SetMsg(count == 0 ? "未匹配到任何内容" : "匹配到 " + count + " 条", count == 0);
         }
 
         private void SetMsg(string t, bool err)
         {
             MsgText.Foreground = FindResource(err ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
             MsgText.Text = t;
+            LoadingOverlay.Hide(this);
         }
 
         public void OnActivated()
@@ -127,6 +163,8 @@ namespace IntraBox.Modules.RegexTest
 
         public void OnDeactivated()
         {
+            _validateDebounce.Stop();
+            CancelPending();
             HistoryManager.Save("regextest", new Dictionary<string, object>
             {
                 { "pattern", PatternBox.Text ?? "" },

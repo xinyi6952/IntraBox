@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using IntraBox.Controls;
@@ -10,10 +12,18 @@ using Newtonsoft.Json.Linq;
 namespace IntraBox.Modules.JsonToClass
 {
     /// <summary>
-    /// JSON 转类：推断字段类型，生成 C# 或 Java 模型。类型推断纯逻辑已抽到 Core.JsonToClassHelper / ClassEmitter。
+    /// JSON 转实体类：推断字段类型，生成 C# 或 Java 模型。类型推断纯逻辑已抽到 Core.JsonToClassHelper / ClassEmitter。
     /// </summary>
     public partial class JsonToClassView : UserControl, IModuleView
     {
+        private readonly AsyncTaskGate _gate = new AsyncTaskGate();
+
+        private void CancelPending()
+        {
+            _gate.Cancel();
+            LoadingOverlay.Hide(this);
+        }
+
         private bool _ready;
 
         public JsonToClassView()
@@ -37,7 +47,7 @@ namespace IntraBox.Modules.JsonToClass
             Generate_Click(null, null);
         }
 
-        private void Generate_Click(object sender, RoutedEventArgs e)
+        private async void Generate_Click(object sender, RoutedEventArgs e)
         {
             var json = InputBox.Text ?? "";
             if (string.IsNullOrWhiteSpace(json))
@@ -46,34 +56,30 @@ namespace IntraBox.Modules.JsonToClass
                 return;
             }
 
-            JToken token;
-            try
-            {
-                token = JToken.Parse(json);
-            }
-            catch (JsonReaderException ex)
-            {
-                SetMsg("JSON 非法：" + ex.Message, true);
-                return;
-            }
-            catch (Exception ex)
-            {
-                SetMsg("解析失败：" + ex.Message, true);
-                return;
-            }
+            var root = JsonToClassHelper.SanitizeIdent(RootNameBox.Text, "Root");
+            bool java = LangCombo.SelectedIndex == 1;
 
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            LoadingOverlay.Show(this, "生成中…");
+
+            string output;
             try
             {
-                var root = JsonToClassHelper.SanitizeIdent(RootNameBox.Text, "Root");
-                bool java = LangCombo.SelectedIndex == 1;
-                OutputBox.SetHighlightingByName(java ? "Java" : "C#");
-                OutputBox.Text = new ClassEmitter(java).Emit(token, root);
-                SetMsg("已生成", false);
+                // JSON 解析 + 递归生成类放后台线程
+                output = await Task.Run(() => new ClassEmitter(java).Emit(JToken.Parse(json), root), token);
             }
-            catch (Exception ex)
-            {
-                SetMsg("生成失败：" + ex.Message, true);
-            }
+            catch (JsonReaderException ex) { if (version == _gate.Version) SetMsg("JSON 非法：" + ex.RootMessage(), true); return; }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("生成失败：" + ex.RootMessage(), true); return; }
+
+            if (version != _gate.Version) return;
+            OutputBox.SetHighlightingByName(java ? "Java" : "C#");
+            OutputBox.Text = output;
+            SetMsg("已生成", false);
         }
 
         private void Copy_Click(object sender, RoutedEventArgs e)
@@ -90,6 +96,7 @@ namespace IntraBox.Modules.JsonToClass
         {
             MsgText.Foreground = FindResource(error ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
             MsgText.Text = text;
+            LoadingOverlay.Hide(this);
         }
 
         public void OnActivated()
@@ -107,6 +114,7 @@ namespace IntraBox.Modules.JsonToClass
 
         public void OnDeactivated()
         {
+            CancelPending();
             HistoryManager.Save("jsontoclass", new Dictionary<string, object>
             {
                 { "input", InputBox.Text ?? "" },

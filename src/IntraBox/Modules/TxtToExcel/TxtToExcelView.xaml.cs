@@ -2,21 +2,32 @@
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using ClosedXML.Excel;
+using IntraBox.Controls;
 using IntraBox.Core;
 using Microsoft.Win32;
 
 namespace IntraBox.Modules.TxtToExcel
 {
     /// <summary>
-    /// TXT 转 Excel：粘贴文本或选择文件，按分隔符解析为表格预览，导出 .xlsx。
+    /// 文本转 Excel：粘贴文本或选择文件，按分隔符解析为表格预览，导出 .xlsx。
     /// 分隔符探测与解析纯逻辑已抽到 Core.TxtToExcelHelper。
     /// </summary>
     public partial class TxtToExcelView : UserControl, IModuleView
     {
+        private readonly AsyncTaskGate _gate = new AsyncTaskGate();
+
+        private void CancelPending()
+        {
+            _gate.Cancel();
+            LoadingOverlay.Hide(this);
+        }
+
         private DataTable _table;
         private readonly DispatcherTimer _debounce = new DispatcherTimer();
         private bool _restoring;
@@ -43,7 +54,7 @@ namespace IntraBox.Modules.TxtToExcel
             ParsePreview();
         }
 
-        private void LoadFile_Click(object sender, RoutedEventArgs e)
+        private async void LoadFile_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog { Title = "选择文本文件", Filter = "文本文件|*.txt;*.csv;*.log|所有文件|*.*" };
             if (dlg.ShowDialog() != true) return;
@@ -53,20 +64,29 @@ namespace IntraBox.Modules.TxtToExcel
                 SetMsg(sizeErr, true);
                 return;
             }
+
+            string path = dlg.FileName;
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+
+            string text;
+            EncodingChoice used = TextFileCodec.Auto;
             try
             {
-                EncodingChoice used;
-                bool uncertain;
-                InputBox.Text = TextFileCodec.ReadAll(dlg.FileName, TextFileCodec.Auto, SizeLimits.MaxFileBytes, out used, out uncertain);
-                SetMsg("", false);
+                text = await Task.Run(() => TextFileCodec.ReadAll(path, TextFileCodec.Auto, SizeLimits.MaxFileBytes, out used), token);
             }
-            catch (Exception ex)
-            {
-                SetMsg("读取失败：" + ex.Message, true);
-            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("读取失败：" + ex.RootMessage(), true); return; }
+            if (version != _gate.Version) return;
+
+            InputBox.Text = text;
+            SetMsg("", false);
         }
 
-        private void ParsePreview()
+        private async void ParsePreview()
         {
             if (InputBox == null || PreviewGrid == null) return;
             var text = InputBox.Text;
@@ -80,7 +100,24 @@ namespace IntraBox.Modules.TxtToExcel
             }
 
             char sep = GetSeparator(text);
-            _table = TxtToExcelHelper.Parse(text, sep);
+
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+
+            DataTable table;
+            try
+            {
+                // 解析建表放后台线程，大文本不卡
+                table = await Task.Run(() => TxtToExcelHelper.Parse(text, sep), token);
+            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("解析失败：" + ex.RootMessage(), true); return; }
+
+            if (version != _gate.Version) return;
+            _table = table;
             PreviewGrid.ItemsSource = _table.DefaultView;
         }
 
@@ -96,29 +133,45 @@ namespace IntraBox.Modules.TxtToExcel
             }
         }
 
-        private void Export_Click(object sender, RoutedEventArgs e)
+        private async void Export_Click(object sender, RoutedEventArgs e)
         {
             if (_table == null || _table.Rows.Count == 0) { SetMsg("没有可导出的数据", true); return; }
 
             var dlg = new SaveFileDialog { Title = "导出 Excel", Filter = "Excel 文件|*.xlsx", FileName = "export.xlsx" };
             if (dlg.ShowDialog() != true) return;
 
+            string path = dlg.FileName;
+            var table = _table; // 捕获引用，后台只读
+
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            SetBusy("导出中…");
+
             try
             {
-                using (var wb = new XLWorkbook())
+                await Task.Run(() =>
                 {
-                    var ws = wb.Worksheets.Add("Sheet1");
-                    for (int r = 0; r < _table.Rows.Count; r++)
-                        for (int c = 0; c < _table.Columns.Count; c++)
-                            ws.Cell(r + 1, c + 1).Value = _table.Rows[r][c]?.ToString() ?? "";
-                    wb.SaveAs(dlg.FileName);
-                }
-                SetMsg("已导出到 " + dlg.FileName, false);
+                    token.ThrowIfCancellationRequested();
+                    using (var wb = new XLWorkbook())
+                    {
+                        var ws = wb.Worksheets.Add("Sheet1");
+                        for (int r = 0; r < table.Rows.Count; r++)
+                        {
+                            token.ThrowIfCancellationRequested();
+                            for (int c = 0; c < table.Columns.Count; c++)
+                                ws.Cell(r + 1, c + 1).Value = table.Rows[r][c]?.ToString() ?? "";
+                        }
+                        wb.SaveAs(path);
+                    }
+                }, token);
+                if (version != _gate.Version) return;
+                SetMsg("已导出到 " + path, false);
             }
-            catch (Exception ex)
-            {
-                SetMsg("导出失败：" + ex.Message, true);
-            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("导出失败：" + ex.RootMessage(), true); }
         }
 
         private void SetMsg(string text, bool isError)
@@ -127,6 +180,14 @@ namespace IntraBox.Modules.TxtToExcel
                 ? (System.Windows.Media.Brush)FindResource("DangerBrush")
                 : (System.Windows.Media.Brush)FindResource("OkBrush");
             MsgText.Text = text;
+            LoadingOverlay.Hide(this);
+        }
+
+        private void SetBusy(string text)
+        {
+            MsgText.Foreground = (System.Windows.Media.Brush)FindResource("TextSecondaryBrush");
+            MsgText.Text = text;
+            LoadingOverlay.Show(this, text);
         }
 
         public void OnActivated()
@@ -146,6 +207,7 @@ namespace IntraBox.Modules.TxtToExcel
         public void OnDeactivated()
         {
             _debounce.Stop();
+            CancelPending();
             HistoryManager.Save("txt2excel", new Dictionary<string, object>
             {
                 { "input", InputBox.Text ?? "" },

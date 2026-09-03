@@ -5,7 +5,7 @@ using IntraBox.Core;
 
 namespace IntraBox.Tests
 {
-    /// <summary>TXT 转 Excel 解析纯逻辑测试（TxtToExcelHelper）。</summary>
+    /// <summary>文本转 Excel 解析纯逻辑测试（TxtToExcelHelper）。</summary>
     [TestClass]
     public class TxtToExcelTests
     {

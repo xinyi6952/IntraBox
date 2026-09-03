@@ -36,7 +36,7 @@ namespace IntraBox.Modules.ColorBlind
                 _src = new Bitmap(dlg.FileName);
                 Apply_Click(null, null);
             }
-            catch (Exception ex) { MsgText.Text = ex.Message; }
+            catch (Exception ex) { MsgText.Text = ex.RootMessage(); }
         }
 
         private void Apply_Click(object sender, RoutedEventArgs e)
@@ -67,7 +67,7 @@ namespace IntraBox.Modules.ColorBlind
             var dlg = new SaveFileDialog { Filter = "PNG|*.png", FileName = "colorblind.png" };
             if (dlg.ShowDialog() != true) return;
             try { _out.Save(dlg.FileName, ImageFormat.Png); MsgText.Text = "已保存"; }
-            catch (Exception ex) { MsgText.Text = ex.Message; }
+            catch (Exception ex) { MsgText.Text = ex.RootMessage(); }
         }
 
         private static Bitmap Transform(Bitmap src, int mode)

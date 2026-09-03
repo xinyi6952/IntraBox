@@ -13,7 +13,7 @@ using IntraBox.Core;
 namespace IntraBox.Modules.PortTest
 {
     /// <summary>
-    /// IP 端口连通测试：TCP 连接 + 可选 Ping，显示成功/失败与耗时。
+    /// 端口连通性测试：TCP 连接 + 可选 Ping，显示成功/失败与耗时。
     /// </summary>
     public partial class PortTestView : UserControl, IModuleView
     {
@@ -60,7 +60,7 @@ namespace IntraBox.Modules.PortTest
                 }
                 catch (Exception ex)
                 {
-                    if (_alive) AddResult("Ping：异常 " + ex.Message);
+                    if (_alive) AddResult("Ping：异常 " + ex.RootMessage());
                 }
             }
 
@@ -91,7 +91,7 @@ namespace IntraBox.Modules.PortTest
             }
             catch (Exception ex)
             {
-                if (_alive) AddResult("TCP：异常 " + ex.Message);
+                if (_alive) AddResult("TCP：异常 " + ex.RootMessage());
                 ScheduleClose(client, connectTask);
                 client = null;
             }

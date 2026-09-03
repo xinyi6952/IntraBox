@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using IntraBox.Core;
 
 namespace IntraBox.Modules.Formatter
 {
@@ -25,7 +26,7 @@ namespace IntraBox.Modules.Formatter
             }
             catch (Exception ex)
             {
-                error = ex.Message;
+                error = ex.RootMessage();
                 return null;
             }
         }
@@ -40,7 +41,7 @@ namespace IntraBox.Modules.Formatter
             }
             catch (Exception ex)
             {
-                error = ex.Message;
+                error = ex.RootMessage();
                 return null;
             }
         }

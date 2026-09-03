@@ -4,7 +4,7 @@ using System.Data;
 
 namespace IntraBox.Core
 {
-    /// <summary>TXT 转 Excel：分隔符探测与表格解析。纯逻辑，便于单元测试。</summary>
+    /// <summary>文本转 Excel：分隔符探测与表格解析。纯逻辑，便于单元测试。</summary>
     public static class TxtToExcelHelper
     {
         public static char DetectSeparator(string text)

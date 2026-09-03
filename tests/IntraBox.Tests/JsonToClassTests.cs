@@ -5,7 +5,7 @@ using Newtonsoft.Json.Linq;
 
 namespace IntraBox.Tests
 {
-    /// <summary>JSON 转类纯逻辑测试（JsonToClassHelper / ClassEmitter）。</summary>
+    /// <summary>JSON 转实体类纯逻辑测试（JsonToClassHelper / ClassEmitter）。</summary>
     [TestClass]
     public class JsonToClassTests
     {

@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using IntraBox.Core;
 
 namespace IntraBox.Modules.Formatter
 {
@@ -24,7 +25,7 @@ namespace IntraBox.Modules.Formatter
             }
             catch (JsonReaderException ex)
             {
-                error = "第 " + ex.LineNumber + " 行 第 " + ex.LinePosition + " 列：" + ex.Message;
+                error = "第 " + ex.LineNumber + " 行 第 " + ex.LinePosition + " 列：" + ex.RootMessage();
                 return null;
             }
         }
@@ -39,7 +40,7 @@ namespace IntraBox.Modules.Formatter
             }
             catch (JsonReaderException ex)
             {
-                error = "第 " + ex.LineNumber + " 行 第 " + ex.LinePosition + " 列：" + ex.Message;
+                error = "第 " + ex.LineNumber + " 行 第 " + ex.LinePosition + " 列：" + ex.RootMessage();
                 return null;
             }
         }

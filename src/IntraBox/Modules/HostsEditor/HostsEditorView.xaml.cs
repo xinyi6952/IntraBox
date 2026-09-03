@@ -110,7 +110,7 @@ namespace IntraBox.Modules.HostsEditor
             }
             catch (Exception ex)
             {
-                SetMsg("读取失败：" + ex.Message, true);
+                SetMsg("读取失败：" + ex.RootMessage(), true);
             }
             MarkClean();
             UpdateUndoUi();
@@ -215,7 +215,7 @@ namespace IntraBox.Modules.HostsEditor
             }
             catch (Exception ex)
             {
-                SetMsg("保存失败：" + ex.Message, true);
+                SetMsg("保存失败：" + ex.RootMessage(), true);
                 return false;
             }
         }
@@ -257,7 +257,7 @@ namespace IntraBox.Modules.HostsEditor
             }
             catch (Exception ex)
             {
-                SetMsg("撤销失败：" + ex.Message, true);
+                SetMsg("撤销失败：" + ex.RootMessage(), true);
             }
         }
 

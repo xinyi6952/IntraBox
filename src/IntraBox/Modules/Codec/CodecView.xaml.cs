@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using IntraBox.Controls;
 using IntraBox.Core;
 
@@ -12,7 +13,9 @@ namespace IntraBox.Modules.Codec
     /// </summary>
     public partial class CodecView : UserControl, IModuleView
     {
+        // 编解码是纯内存字符串变换（微秒级），无需后台线程；同步执行避免「取消+版本号」误丢结果。
         private bool _ready;
+        private readonly DispatcherTimer _debounce = new DispatcherTimer();
 
         public CodecView()
         {
@@ -23,7 +26,15 @@ namespace IntraBox.Modules.Codec
                 InPlaceMaximize.Apply(on, OutputBox, 4, 5, ToolbarPanel, InputCaption, InputBox, OutputCaption);
                 OutputBox.IsMaximized = on;
             };
-            InputBox.TextChangedByUser += (s, e) => ConvertNow(false);
+            // 输入变化走防抖，避免每敲一字就全量转换
+            _debounce.Interval = TimeSpan.FromMilliseconds(300);
+            _debounce.Tick += (s, e) => { _debounce.Stop(); ConvertNow(false); };
+            InputBox.TextChangedByUser += (s, e) =>
+            {
+                if (!_ready) return;
+                _debounce.Stop();
+                _debounce.Start();
+            };
             _ready = true;
         }
 
@@ -49,14 +60,16 @@ namespace IntraBox.Modules.Codec
                 return;
             }
 
+            int type = TypeCombo == null ? 0 : TypeCombo.SelectedIndex;
+
             try
             {
-                OutputBox.Text = CodecHelper.Transform(input, TypeCombo == null ? 0 : TypeCombo.SelectedIndex);
+                OutputBox.Text = CodecHelper.Transform(input, type);
                 SetMsg("已转换", false);
             }
             catch (Exception ex)
             {
-                SetMsg("转换失败：" + ex.Message, true);
+                SetMsg("转换失败：" + ex.RootMessage(), true);
             }
         }
 
@@ -89,6 +102,7 @@ namespace IntraBox.Modules.Codec
 
         public void OnDeactivated()
         {
+            _debounce.Stop();
             HistoryManager.Save("codec", new Dictionary<string, object>
             {
                 { "input", InputBox.Text ?? "" },

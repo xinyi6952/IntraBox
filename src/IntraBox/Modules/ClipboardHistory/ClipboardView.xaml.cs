@@ -123,8 +123,14 @@ namespace IntraBox.Modules.ClipboardHistory
                     ClipboardStore.SuppressImageCapture = true;
                     try
                     {
-                        Clipboard.SetImage(item.Thumb);
-                        ClipboardMonitor.MarkPasted(item);
+                        string err;
+                        if (ClipboardHelper.TrySetImage(item.Thumb, out err))
+                            ClipboardMonitor.MarkPasted(item);
+                        else
+                        {
+                            MsgText.Text = "写回失败：" + err;
+                            return;
+                        }
                     }
                     finally
                     {
@@ -135,14 +141,20 @@ namespace IntraBox.Modules.ClipboardHistory
                 }
                 else if (!item.IsImage)
                 {
-                    Clipboard.SetText(item.Text);
-                    ClipboardMonitor.MarkPasted(item);
+                    string err;
+                    if (ClipboardHelper.TrySetText(item.Text, out err))
+                        ClipboardMonitor.MarkPasted(item);
+                    else
+                    {
+                        MsgText.Text = "写回失败：" + err;
+                        return;
+                    }
                 }
                 MsgText.Text = "已写回剪贴板";
             }
             catch (Exception ex)
             {
-                MsgText.Text = "写回失败：" + ex.Message;
+                MsgText.Text = "写回失败：" + ex.RootMessage();
             }
         }
 

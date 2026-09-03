@@ -9,7 +9,7 @@ namespace IntraBox.Modules.RegBrowse
 {
     public partial class RegBrowseView : UserControl, IModuleView
     {
-        public RegBrowseView() { InitializeComponent(); }
+        public RegBrowseView() { InitializeComponent(); FilterBar.Attach(ValGrid); }
 
         public void OnActivated()
         {
@@ -100,9 +100,10 @@ namespace IntraBox.Modules.RegBrowse
             }
             catch (Exception ex)
             {
-                PathText.Text = full + "  （" + ex.Message + "）";
+                PathText.Text = full + "  （" + ex.RootMessage() + "）";
             }
             ValGrid.ItemsSource = rows;
+            FilterBar.Apply();
         }
 
         private static string Format(object v, RegistryValueKind kind)

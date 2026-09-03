@@ -18,6 +18,6 @@
         <controls:CodeEditor x:Name="JsonBox" Grid.Row="1"/>
         <controls:CodeEditor x:Name="SchemaBox" Grid.Row="2" Margin="0,8,0,0"/>
         <TextBlock Grid.Row="3" Text="结果" Margin="0,8,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
-        <controls:CodeEditor x:Name="OutBox" Grid.Row="4" IsReadOnly="True"/>
+        <controls:CodeEditor x:Name="OutBox" Grid.Row="4" IsReadOnly="True" ShowCopyButton="True"/>
     </Grid>
 </UserControl>

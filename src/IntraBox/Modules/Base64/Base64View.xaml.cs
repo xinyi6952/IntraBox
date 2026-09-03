@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using IntraBox.Controls;
@@ -16,6 +18,14 @@ namespace IntraBox.Modules.Base64
     /// </summary>
     public partial class Base64View : UserControl, IModuleView
     {
+        private readonly AsyncTaskGate _gate = new AsyncTaskGate();
+
+        private void CancelPending()
+        {
+            _gate.Cancel();
+            LoadingOverlay.Hide(this);
+        }
+
         public Base64View()
         {
             InitializeComponent();
@@ -28,33 +38,65 @@ namespace IntraBox.Modules.Base64
         }
 
         // 文本 → Base64
-        private void EncodeBtn_Click(object sender, RoutedEventArgs e)
+        private async void EncodeBtn_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrEmpty(InputBox.Text)) { SetMsg("输入不能为空", true); return; }
-            var bytes = Encoding.UTF8.GetBytes(InputBox.Text);
-            OutputBox.Text = Convert.ToBase64String(bytes);
-            SetMsg("已编码 " + bytes.Length + " 字节");
+            string text = InputBox.Text;
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            SetBusy("编码中…");
+            try
+            {
+                var result = await Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    var bytes = Encoding.UTF8.GetBytes(text);
+                    return new { Text = Convert.ToBase64String(bytes), Bytes = bytes.Length };
+                }, token);
+                if (version != _gate.Version) return;
+                OutputBox.Text = result.Text;
+                SetMsg("已编码 " + result.Bytes + " 字节");
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("错误：" + ex.RootMessage(), true); }
         }
 
         // Base64 → 文本
-        private void DecodeBtn_Click(object sender, RoutedEventArgs e)
+        private async void DecodeBtn_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(InputBox.Text)) { SetMsg("输入不能为空", true); return; }
+            string input = InputBox.Text.Trim();
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            SetBusy("解码中…");
             try
             {
-                var bytes = Convert.FromBase64String(InputBox.Text.Trim());
-                OutputBox.Text = Encoding.UTF8.GetString(bytes);
-                SetMsg("已解码 " + bytes.Length + " 字节");
+                var result = await Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    var bytes = Convert.FromBase64String(input);
+                    return new { Text = Encoding.UTF8.GetString(bytes), Bytes = bytes.Length };
+                }, token);
+                if (version != _gate.Version) return;
+                OutputBox.Text = result.Text;
+                SetMsg("已解码 " + result.Bytes + " 字节");
             }
+            catch (OperationCanceledException) { }
             catch (FormatException)
             {
-                OutputBox.Text = "";
-                SetMsg("错误：不是合法的 Base64 字符串", true);
+                if (version == _gate.Version) { OutputBox.Text = ""; SetMsg("错误：不是合法的 Base64 字符串", true); }
             }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("错误：" + ex.RootMessage(), true); }
         }
 
         // 任意文件 → Base64 字符串
-        private void FileToBase64_Click(object sender, RoutedEventArgs e)
+        private async void FileToBase64_Click(object sender, RoutedEventArgs e)
         {
             ClearMsg();
             var dlg = new OpenFileDialog
@@ -72,39 +114,35 @@ namespace IntraBox.Modules.Base64
                 return;
             }
 
+            string path = dlg.FileName;
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            SetBusy("读取并编码中…");
             try
             {
-                var bytes = File.ReadAllBytes(dlg.FileName);
-                OutputBox.Text = Convert.ToBase64String(bytes);
+                string result = await Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    var bytes = File.ReadAllBytes(path);
+                    token.ThrowIfCancellationRequested();
+                    return Convert.ToBase64String(bytes);
+                }, token);
+                if (version != _gate.Version) return;
+                OutputBox.Text = result;
                 SetMsg("已转换 " + fi.Name + "（" + FormatSize(fi.Length) + "）");
             }
-            catch (Exception ex)
-            {
-                SetMsg("错误：" + ex.Message, true);
-            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("错误：" + ex.RootMessage(), true); }
         }
 
         // Base64 字符串 → 任意文件
-        private void Base64ToFile_Click(object sender, RoutedEventArgs e)
+        private async void Base64ToFile_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(InputBox.Text)) { SetMsg("输入不能为空", true); return; }
-
-            byte[] bytes;
-            try
-            {
-                bytes = Convert.FromBase64String(InputBox.Text.Trim());
-            }
-            catch (FormatException)
-            {
-                SetMsg("错误：不是合法的 Base64 字符串", true);
-                return;
-            }
-
-            if (bytes.Length > SizeLimits.MaxFileBytes)
-            {
-                SetMsg("错误：解码后数据过大（超过 " + SizeLimits.MaxFileMb + " MB 限制）", true);
-                return;
-            }
+            string input = InputBox.Text.Trim();
 
             var save = new SaveFileDialog
             {
@@ -114,15 +152,30 @@ namespace IntraBox.Modules.Base64
             };
             if (save.ShowDialog() != true) return;
 
+            string path = save.FileName;
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            SetBusy("解码并保存中…");
             try
             {
-                File.WriteAllBytes(save.FileName, bytes);
-                SetMsg("已保存到 " + save.FileName + "（" + FormatSize(bytes.Length) + "）");
+                long len = await Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    var bytes = Convert.FromBase64String(input);
+                    if (bytes.Length > SizeLimits.MaxFileBytes)
+                        throw new InvalidOperationException("解码后数据过大（超过 " + SizeLimits.MaxFileMb + " MB 限制）");
+                    File.WriteAllBytes(path, bytes);
+                    return (long)bytes.Length;
+                }, token);
+                if (version != _gate.Version) return;
+                SetMsg("已保存到 " + path + "（" + FormatSize(len) + "）");
             }
-            catch (Exception ex)
-            {
-                SetMsg("错误：" + ex.Message, true);
-            }
+            catch (OperationCanceledException) { }
+            catch (FormatException) { if (version == _gate.Version) SetMsg("错误：不是合法的 Base64 字符串", true); }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("错误：" + ex.RootMessage(), true); }
         }
 
         private static string FormatSize(long bytes)
@@ -138,11 +191,20 @@ namespace IntraBox.Modules.Base64
                 ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xC0, 0x39, 0x2B))
                 : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x2E, 0x7D, 0x32));
             MsgText.Text = text;
+            LoadingOverlay.Hide(this);
+        }
+
+        private void SetBusy(string text)
+        {
+            MsgText.Foreground = FindResource("TextSecondaryBrush") as System.Windows.Media.Brush;
+            MsgText.Text = text;
+            LoadingOverlay.Show(this, text);
         }
 
         private void ClearMsg()
         {
             MsgText.Text = "";
+            LoadingOverlay.Hide(this);
         }
 
         public void OnActivated()
@@ -154,6 +216,7 @@ namespace IntraBox.Modules.Base64
 
         public void OnDeactivated()
         {
+            CancelPending();
             HistoryManager.Save("base64", new Dictionary<string, object>
             {
                 { "input", InputBox.Text ?? "" }

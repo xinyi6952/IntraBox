@@ -13,6 +13,7 @@ namespace IntraBox.Modules.UrlParse
         public UrlParseView()
         {
             InitializeComponent();
+            FilterBar.Attach(ResultGrid);
         }
 
         public void OnActivated()
@@ -38,6 +39,7 @@ namespace IntraBox.Modules.UrlParse
                 return;
             }
             ResultGrid.ItemsSource = rows;
+            FilterBar.Apply();
             SetMsg("已解析 " + rows.Count + " 项", false);
         }
 

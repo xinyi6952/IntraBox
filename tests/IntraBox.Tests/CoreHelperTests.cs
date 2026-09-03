@@ -132,7 +132,7 @@ namespace IntraBox.Tests
                     string key = ModuleRegistry.All[i].Key;
                     Assert.AreNotEqual("ulidgen", key);
                     Assert.AreNotEqual("screengif", key);
-                    if (key == "generator") hasGenerator = true;
+                    if (key == "idgenerator") hasGenerator = true;
                     if (key == "urlparse") hasUrlParse = true;
                     if (key == "codec") hasCodec = true;
                 }

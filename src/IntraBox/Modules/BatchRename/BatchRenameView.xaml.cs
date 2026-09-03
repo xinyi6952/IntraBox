@@ -20,6 +20,7 @@ namespace IntraBox.Modules.BatchRename
         {
             InitializeComponent();
             PreviewGrid.ItemsSource = _rows;
+            FilterBar.Attach(PreviewGrid);
         }
 
         public void OnActivated() { }
@@ -50,7 +51,7 @@ namespace IntraBox.Modules.BatchRename
                 }
                 catch (Exception ex)
                 {
-                    SetMsg(ex.Message, true);
+                    SetMsg(ex.RootMessage(), true);
                     return;
                 }
                 PathText.Text = dlg.SelectedPath + "（" + _files.Count + " 个文件）";
@@ -76,8 +77,8 @@ namespace IntraBox.Modules.BatchRename
                 try { rx = new Regex(find); }
                 catch (Exception ex)
                 {
-                    SetMsg("正则错误：" + ex.Message, true);
-                    PreviewGrid.Items.Refresh();
+                    SetMsg("正则错误：" + ex.RootMessage(), true);
+                    FilterBar.Apply();
                     return;
                 }
             }
@@ -108,7 +109,7 @@ namespace IntraBox.Modules.BatchRename
                 used.Add(dest);
                 _rows.Add(new RenameRow { OldPath = path, OldName = Path.GetFileName(path), NewName = neu, NewPath = dest, Status = st });
             }
-            PreviewGrid.Items.Refresh();
+            FilterBar.Apply();
             SetMsg("预览 " + _rows.Count + " 项", false);
         }
 
@@ -132,11 +133,11 @@ namespace IntraBox.Modules.BatchRename
                 }
                 catch (Exception ex)
                 {
-                    row.Status = "跳过：" + ex.Message;
+                    row.Status = "跳过：" + ex.RootMessage();
                     skip++;
                 }
             }
-            PreviewGrid.Items.Refresh();
+            FilterBar.Apply();
             SetMsg("完成：成功 " + ok + "，跳过 " + skip, skip > 0);
         }
 

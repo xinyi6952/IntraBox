@@ -29,6 +29,6 @@
         <controls:CodeEditor x:Name="InputBox" Grid.Row="2"/>
 
         <TextBlock x:Name="OutputCaption" Grid.Row="3" Text="结果" Margin="0,10,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
-        <controls:CodeEditor x:Name="OutputBox" Grid.Row="4" IsReadOnly="True" CanMaximize="True"/>
+        <controls:CodeEditor x:Name="OutputBox" Grid.Row="4" IsReadOnly="True" CanMaximize="True" ShowCopyButton="True"/>
     </Grid>
 </UserControl>

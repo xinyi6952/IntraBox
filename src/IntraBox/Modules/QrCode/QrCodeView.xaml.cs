@@ -2,8 +2,11 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using IntraBox.Controls;
 using IntraBox.Core;
 using Microsoft.Win32;
 using QRCoder;
@@ -13,10 +16,18 @@ using ZXing.Common;
 namespace IntraBox.Modules.QrCode
 {
     /// <summary>
-    /// 二维码：文本生成（QRCoder）并可保存 PNG；图片解码（ZXing.Net）。
+    /// 二维码生成：文本生成（QRCoder）并可保存 PNG；图片解码（ZXing.Net）。
     /// </summary>
     public partial class QrCodeView : UserControl, IModuleView
     {
+        private readonly AsyncTaskGate _gate = new AsyncTaskGate();
+
+        private void CancelPending()
+        {
+            _gate.Cancel();
+            LoadingOverlay.Hide(this);
+        }
+
         private Bitmap _qrBmp;
 
         public QrCodeView()
@@ -33,6 +44,7 @@ namespace IntraBox.Modules.QrCode
 
         public void OnDeactivated()
         {
+            CancelPending();
             HistoryManager.Save("qrcode", new Dictionary<string, object>
             {
                 { "input", InputBox.Text ?? "" }
@@ -40,7 +52,7 @@ namespace IntraBox.Modules.QrCode
             ClearBitmap();
         }
 
-        private void Generate_Click(object sender, RoutedEventArgs e)
+        private async void Generate_Click(object sender, RoutedEventArgs e)
         {
             var text = InputBox.Text ?? "";
             if (string.IsNullOrEmpty(text))
@@ -48,22 +60,36 @@ namespace IntraBox.Modules.QrCode
                 SetMsg("请输入要编码的文本", true);
                 return;
             }
+
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            LoadingOverlay.Show(this, "生成中…");
+
+            Bitmap bmp;
             try
             {
-                using (var gen = new QRCodeGenerator())
-                using (var data = gen.CreateQrCode(text, QRCodeGenerator.ECCLevel.Q))
-                using (var qr = new QRCode(data))
+                bmp = await Task.Run(() =>
                 {
-                    var bmp = qr.GetGraphic(20);
-                    ReplaceBitmap(bmp);
-                    PreviewImage.Source = ScreenCapture.ToBitmapSource(_qrBmp);
-                }
-                SetMsg("已生成", false);
+                    token.ThrowIfCancellationRequested();
+                    using (var gen = new QRCodeGenerator())
+                    using (var data = gen.CreateQrCode(text, QRCodeGenerator.ECCLevel.Q))
+                    using (var qr = new QRCode(data))
+                    {
+                        return qr.GetGraphic(20);
+                    }
+                }, token);
             }
-            catch (Exception ex)
-            {
-                SetMsg("生成失败：" + ex.Message, true);
-            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("生成失败：" + ex.RootMessage(), true); return; }
+
+            if (version != _gate.Version) { bmp.Dispose(); return; }
+
+            ReplaceBitmap(bmp);
+            PreviewImage.Source = ScreenCapture.ToBitmapSource(_qrBmp);
+            SetMsg("已生成", false);
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
@@ -87,7 +113,7 @@ namespace IntraBox.Modules.QrCode
             }
             catch (Exception ex)
             {
-                SetMsg("保存失败：" + ex.Message, true);
+                SetMsg("保存失败：" + ex.RootMessage(), true);
             }
         }
 
@@ -106,7 +132,7 @@ namespace IntraBox.Modules.QrCode
                 SetMsg(err, true);
         }
 
-        private void Decode_Click(object sender, RoutedEventArgs e)
+        private async void Decode_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog
             {
@@ -114,33 +140,44 @@ namespace IntraBox.Modules.QrCode
                 Filter = "图片|*.png;*.jpg;*.jpeg;*.bmp;*.gif|所有文件|*.*"
             };
             if (dlg.ShowDialog() != true) return;
+
+            string path = dlg.FileName;
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            LoadingOverlay.Show(this, "解码中…");
+
+            string resultText;
             try
             {
-                using (var bmp = new Bitmap(dlg.FileName))
+                resultText = await Task.Run(() =>
                 {
-                    var reader = new BarcodeReader
+                    token.ThrowIfCancellationRequested();
+                    using (var bmp = new Bitmap(path))
                     {
-                        AutoRotate = true,
-                        Options = new DecodingOptions
+                        var reader = new BarcodeReader
                         {
-                            TryHarder = true,
-                            PossibleFormats = new[] { BarcodeFormat.QR_CODE }
-                        }
-                    };
-                    var result = reader.Decode(bmp);
-                    if (result == null || string.IsNullOrEmpty(result.Text))
-                    {
-                        SetMsg("未识别到二维码", true);
-                        return;
+                            AutoRotate = true,
+                            Options = new DecodingOptions
+                            {
+                                TryHarder = true,
+                                PossibleFormats = new[] { BarcodeFormat.QR_CODE }
+                            }
+                        };
+                        var result = reader.Decode(bmp);
+                        return result == null ? null : result.Text;
                     }
-                    InputBox.Text = result.Text;
-                    SetMsg("已解码", false);
-                }
+                }, token);
             }
-            catch (Exception ex)
-            {
-                SetMsg("解码失败：" + ex.Message, true);
-            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("解码失败：" + ex.RootMessage(), true); return; }
+
+            if (version != _gate.Version) return;
+            if (string.IsNullOrEmpty(resultText)) { SetMsg("未识别到二维码", true); return; }
+            InputBox.Text = resultText;
+            SetMsg("已解码", false);
         }
 
         private void ReplaceBitmap(Bitmap bmp)
@@ -161,6 +198,7 @@ namespace IntraBox.Modules.QrCode
         {
             MsgText.Foreground = FindResource(error ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
             MsgText.Text = text;
+            LoadingOverlay.Hide(this);
         }
     }
 }

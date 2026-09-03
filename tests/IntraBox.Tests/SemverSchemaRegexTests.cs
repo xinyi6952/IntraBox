@@ -6,7 +6,7 @@ using Newtonsoft.Json.Linq;
 
 namespace IntraBox.Tests
 {
-    /// <summary>Semver 版本比较 / JSON Schema / 正则解释 纯逻辑测试。</summary>
+    /// <summary>SemVer 版本比较 / JSON Schema / 正则解释 纯逻辑测试。</summary>
     [TestClass]
     public class SemverSchemaRegexTests
     {

@@ -32,6 +32,16 @@
             <Grid Margin="0,0,0,4">
                 <TextBlock x:Name="PreviewCaption" Text="预览" Foreground="{DynamicResource TextSecondaryBrush}"
                            VerticalAlignment="Center"/>
+                <!-- WebBrowser 是 HWND 会盖住同格 WPF 控件，搜索条放在标题行（非 WebBrowser 区域） -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,30,0">
+                    <TextBlock Text="查找" VerticalAlignment="Center" Margin="0,0,6,0"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBox x:Name="SearchBox" Width="168" MinHeight="26" VerticalAlignment="Center"
+                             ToolTip="在预览中查找（Enter 下一个 / Shift+Enter 上一个 / Esc 清空）"
+                             TextChanged="SearchBox_TextChanged" PreviewKeyDown="SearchBox_PreviewKeyDown"/>
+                    <TextBlock x:Name="SearchCount" VerticalAlignment="Center" Margin="6,0,0,0" MinWidth="40"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
                 <Button x:Name="MaxBtn" HorizontalAlignment="Right" Width="22" Height="22"
                         MinWidth="22" MinHeight="22" Padding="0" Click="MaxBtn_Click"
                         Background="Transparent" BorderThickness="0" ToolTip="最大化预览">

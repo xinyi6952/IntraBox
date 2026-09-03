@@ -61,7 +61,7 @@ namespace IntraBox.Modules.RegexViz
             catch (Exception ex)
             {
                 MsgText.Foreground = FindResource("DangerBrush") as System.Windows.Media.Brush;
-                MsgText.Text = "正则错误：" + ex.Message;
+                MsgText.Text = "正则错误：" + ex.RootMessage();
             }
         }
 
@@ -89,7 +89,7 @@ namespace IntraBox.Modules.RegexViz
                 ExplainBox.Text = "";
                 SampleBox.Text = "";
                 MsgText.Foreground = FindResource("DangerBrush") as System.Windows.Media.Brush;
-                MsgText.Text = "非法正则：" + ex.Message;
+                MsgText.Text = "非法正则：" + ex.RootMessage();
             }
         }
     }

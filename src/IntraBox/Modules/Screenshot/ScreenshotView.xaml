@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="4">
         <StackPanel MaxWidth="640" HorizontalAlignment="Left">
-            <TextBlock Text="快捷键截屏" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"
+            <TextBlock Text="屏幕截图" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"
                        Foreground="{DynamicResource TextPrimaryBrush}"/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,12"
                        Foreground="{DynamicResource TextSecondaryBrush}"

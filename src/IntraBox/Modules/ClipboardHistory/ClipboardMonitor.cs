@@ -60,16 +60,9 @@ namespace IntraBox.Modules.ClipboardHistory
             {
                 if (item.Thumb != null)
                     ClipboardStore.LastImageSig = GetImageSignature(item.Thumb);
-                try
-                {
-                    if (Clipboard.ContainsImage())
-                    {
-                        var img = Clipboard.GetImage();
-                        if (img != null)
-                            ClipboardStore.LastImageSig = GetImageSignature(img);
-                    }
-                }
-                catch { }
+                var img = ClipboardHelper.SafeGetImage();
+                if (img != null)
+                    ClipboardStore.LastImageSig = GetImageSignature(img);
             }
             else
             {
@@ -86,55 +79,41 @@ namespace IntraBox.Modules.ClipboardHistory
 
         private static void CheckClipboardText()
         {
-            try
+            string text;
+            if (!ClipboardHelper.TryGetText(out text)) return;
+            if (string.IsNullOrEmpty(text)) return;
+            if (text == ClipboardStore.LastText) return;
+            string err;
+            if (!SizeLimits.TryCheckText(text, out err))
             {
-                if (!Clipboard.ContainsText()) return;
-                var text = Clipboard.GetText();
-                if (string.IsNullOrEmpty(text)) return;
-                if (text == ClipboardStore.LastText) return;
-                string err;
-                if (!SizeLimits.TryCheckText(text, out err))
-                {
-                    ClipboardStore.LastText = text.Length + ":" + (text.Length > 64 ? text.Substring(0, 64) : text);
-                    return;
-                }
-                ClipboardStore.LastText = text;
-                AddTextItem(text);
+                ClipboardStore.LastText = text.Length + ":" + (text.Length > 64 ? text.Substring(0, 64) : text);
+                return;
             }
-            catch
-            {
-                // 剪贴板被其他进程短暂占用，忽略本次，下个周期重试
-            }
+            ClipboardStore.LastText = text;
+            AddTextItem(text);
         }
 
         private static void CheckClipboardImage()
         {
-            try
+            // 无图时 GetImage 返回 null（不抛），故无需前置 ContainsImage；占用时只重试一轮，减轻 UI 顿挫。
+            var img = ClipboardHelper.SafeGetImage();
+            if (img == null) return;
+            var sig = GetImageSignature(img);
+            if (ClipboardStore.SuppressImageCapture)
             {
-                if (!Clipboard.ContainsImage()) return;
-                var img = Clipboard.GetImage();
-                if (img == null) return;
-                var sig = GetImageSignature(img);
-                if (ClipboardStore.SuppressImageCapture)
-                {
-                    ClipboardStore.LastImageSig = sig;
-                    return;
-                }
-                if (ClipboardStore.ShouldSkipDuplicateImage(sig, ClipboardStore.LastImageSig))
-                    return;
-                long bytes = (long)img.PixelWidth * img.PixelHeight * 4;
-                if (bytes > SizeLimits.MaxFileBytes)
-                {
-                    ClipboardStore.LastImageSig = sig;
-                    return;
-                }
                 ClipboardStore.LastImageSig = sig;
-                AddImage(img);
+                return;
             }
-            catch
+            if (ClipboardStore.ShouldSkipDuplicateImage(sig, ClipboardStore.LastImageSig))
+                return;
+            long bytes = (long)img.PixelWidth * img.PixelHeight * 4;
+            if (bytes > SizeLimits.MaxFileBytes)
             {
-                // 同上
+                ClipboardStore.LastImageSig = sig;
+                return;
             }
+            ClipboardStore.LastImageSig = sig;
+            AddImage(img);
         }
 
         private static void AddTextItem(string text)

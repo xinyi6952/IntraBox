@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using IntraBox.Controls;
@@ -15,6 +17,15 @@ namespace IntraBox.Modules.Crypto
     /// </summary>
     public partial class CryptoView : UserControl, IModuleView
     {
+        private readonly AsyncTaskGate _gate = new AsyncTaskGate();
+
+        private void CancelPending()
+        {
+            _gate.Cancel();
+            LoadingOverlay.Hide(this);
+        }
+
+
         public CryptoView()
         {
             InitializeComponent();
@@ -44,121 +55,195 @@ namespace IntraBox.Modules.Crypto
             KeyCaption.Text = rsa ? "密钥 XML" : "密钥";
         }
 
-        private void Encrypt_Click(object sender, RoutedEventArgs e)
+        private async void Encrypt_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                var plain = Encoding.UTF8.GetBytes(InputBox.Text ?? "");
-                if (plain.Length == 0) { SetMsg("输入不能为空", true); return; }
-                byte[] cipher;
-                if (AlgoIndex == 2)
-                    cipher = CryptoHelper.RsaEncrypt(LoadRsa(false), plain);
-                else
-                    cipher = CryptoHelper.SymmetricEncrypt(AlgoIndex == 1, KeyBytes(), plain);
-                OutputBox.Text = Convert.ToBase64String(cipher);
-                SetMsg("已加密（Base64）", false);
-            }
-            catch (Exception ex)
-            {
-                SetMsg("加密失败：" + Friendly(ex), true);
-            }
-        }
+            string plainText = InputBox.Text ?? "";
+            if (string.IsNullOrEmpty(plainText)) { SetMsg("输入不能为空", true); return; }
+            int algo = AlgoIndex;
+            string keyText = KeyBox.Text ?? "";
 
-        private void Decrypt_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var cipher = CryptoHelper.FromBase64(InputBox.Text);
-                byte[] plain;
-                if (AlgoIndex == 2)
-                    plain = CryptoHelper.RsaDecrypt(LoadRsa(true), cipher);
-                else
-                    plain = CryptoHelper.SymmetricDecrypt(AlgoIndex == 1, KeyBytes(), cipher);
-                OutputBox.Text = Encoding.UTF8.GetString(plain);
-                SetMsg("已解密", false);
-            }
-            catch (Exception ex)
-            {
-                SetMsg("解密失败：" + Friendly(ex), true);
-            }
-        }
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            LoadingOverlay.Show(this, "处理中…");
 
-        private void Sign_Click(object sender, RoutedEventArgs e)
-        {
+            string output;
             try
             {
-                var data = Encoding.UTF8.GetBytes(InputBox.Text ?? "");
-                if (data.Length == 0) { SetMsg("输入不能为空", true); return; }
-                using (var rsa = LoadRsa(true))
-                using (var sha = SHA256.Create())
+                output = await Task.Run(() =>
                 {
-                    var sig = rsa.SignData(data, sha);
-                    OutputBox.Text = Convert.ToBase64String(sig);
-                    SignBox.Text = OutputBox.Text;
-                    SetMsg("已签名（SHA256，Base64）", false);
-                }
+                    token.ThrowIfCancellationRequested();
+                    var plain = Encoding.UTF8.GetBytes(plainText);
+                    byte[] cipher;
+                    if (algo == 2)
+                        cipher = CryptoHelper.RsaEncrypt(CryptoHelper.LoadRsa(keyText, false), plain);
+                    else
+                        cipher = CryptoHelper.SymmetricEncrypt(algo == 1, CryptoHelper.DeriveKey(keyText, algo == 1), plain);
+                    return Convert.ToBase64String(cipher);
+                }, token);
             }
-            catch (Exception ex)
-            {
-                SetMsg("签名失败：" + Friendly(ex), true);
-            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("加密失败：" + Friendly(ex), true); return; }
+
+            if (version != _gate.Version) return;
+            OutputBox.Text = output;
+            SetMsg("已加密（Base64）", false);
         }
 
-        private void Verify_Click(object sender, RoutedEventArgs e)
+        private async void Decrypt_Click(object sender, RoutedEventArgs e)
         {
+            string inputText = InputBox.Text ?? "";
+            if (string.IsNullOrEmpty(inputText)) { SetMsg("输入不能为空", true); return; }
+            int algo = AlgoIndex;
+            string keyText = KeyBox.Text ?? "";
+
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            LoadingOverlay.Show(this, "处理中…");
+
+            string output;
             try
             {
-                var data = Encoding.UTF8.GetBytes(InputBox.Text ?? "");
-                var sigText = string.IsNullOrWhiteSpace(SignBox.Text) ? OutputBox.Text : SignBox.Text;
-                var sig = CryptoHelper.FromBase64(sigText);
-                using (var rsa = LoadRsa(false))
-                using (var sha = SHA256.Create())
+                output = await Task.Run(() =>
                 {
-                    bool ok = rsa.VerifyData(data, sha, sig);
-                    SetMsg(ok ? "验签通过" : "验签失败：签名不匹配", !ok);
-                }
+                    token.ThrowIfCancellationRequested();
+                    var cipher = CryptoHelper.FromBase64(inputText);
+                    byte[] plain;
+                    if (algo == 2)
+                        plain = CryptoHelper.RsaDecrypt(CryptoHelper.LoadRsa(keyText, true), cipher);
+                    else
+                        plain = CryptoHelper.SymmetricDecrypt(algo == 1, CryptoHelper.DeriveKey(keyText, algo == 1), cipher);
+                    return Encoding.UTF8.GetString(plain);
+                }, token);
             }
-            catch (Exception ex)
-            {
-                SetMsg("验签失败：" + Friendly(ex), true);
-            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("解密失败：" + Friendly(ex), true); return; }
+
+            if (version != _gate.Version) return;
+            OutputBox.Text = output;
+            SetMsg("已解密", false);
         }
 
-        private void GenKey_Click(object sender, RoutedEventArgs e)
+        private async void Sign_Click(object sender, RoutedEventArgs e)
         {
+            string dataText = InputBox.Text ?? "";
+            if (string.IsNullOrEmpty(dataText)) { SetMsg("输入不能为空", true); return; }
+            string keyText = KeyBox.Text ?? "";
+
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            LoadingOverlay.Show(this, "处理中…");
+
+            string output;
             try
             {
-                if (AlgoIndex == 2)
+                output = await Task.Run(() =>
                 {
-                    using (var rsa = new RSACryptoServiceProvider(2048))
+                    token.ThrowIfCancellationRequested();
+                    var data = Encoding.UTF8.GetBytes(dataText);
+                    using (var rsa = CryptoHelper.LoadRsa(keyText, true))
+                    using (var sha = SHA256.Create())
                     {
-                        rsa.PersistKeyInCsp = false;
-                        KeyBox.Text = rsa.ToXmlString(true);
-                        OutputBox.Text = "公钥 XML（可公开）：\r\n" + rsa.ToXmlString(false);
+                        var sig = rsa.SignData(data, sha);
+                        return Convert.ToBase64String(sig);
                     }
-                    SetMsg("已生成 RSA-2048 密钥对（私钥在「密钥 XML」）", false);
-                }
-                else if (AlgoIndex == 1)
-                {
-                    var key = new byte[8];
-                    using (var rng = RandomNumberGenerator.Create())
-                        rng.GetBytes(key);
-                    KeyBox.Text = Convert.ToBase64String(key);
-                    SetMsg("已生成 DES 密钥（Base64）", false);
-                }
-                else
-                {
-                    var key = new byte[32];
-                    using (var rng = RandomNumberGenerator.Create())
-                        rng.GetBytes(key);
-                    KeyBox.Text = Convert.ToBase64String(key);
-                    SetMsg("已生成 AES-256 密钥（Base64）", false);
-                }
+                }, token);
             }
-            catch (Exception ex)
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("签名失败：" + Friendly(ex), true); return; }
+
+            if (version != _gate.Version) return;
+            OutputBox.Text = output;
+            SignBox.Text = output;
+            SetMsg("已签名（SHA256，Base64）", false);
+        }
+
+        private async void Verify_Click(object sender, RoutedEventArgs e)
+        {
+            string dataText = InputBox.Text ?? "";
+            string sigText = string.IsNullOrWhiteSpace(SignBox.Text) ? OutputBox.Text : SignBox.Text;
+            string keyText = KeyBox.Text ?? "";
+
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            LoadingOverlay.Show(this, "处理中…");
+
+            bool ok;
+            try
             {
-                SetMsg("生成失败：" + ex.Message, true);
+                ok = await Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    var data = Encoding.UTF8.GetBytes(dataText);
+                    var sig = CryptoHelper.FromBase64(sigText);
+                    using (var rsa = CryptoHelper.LoadRsa(keyText, false))
+                    using (var sha = SHA256.Create())
+                        return rsa.VerifyData(data, sha, sig);
+                }, token);
             }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("验签失败：" + Friendly(ex), true); return; }
+
+            if (version != _gate.Version) return;
+            SetMsg(ok ? "验签通过" : "验签失败：签名不匹配", !ok);
+        }
+
+        private async void GenKey_Click(object sender, RoutedEventArgs e)
+        {
+            int algo = AlgoIndex;
+
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            LoadingOverlay.Show(this, algo == 2 ? "生成 RSA 密钥中…" : "生成密钥中…");
+
+            try
+            {
+                var r = await Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (algo == 2)
+                    {
+                        using (var rsa = new RSACryptoServiceProvider(2048))
+                        {
+                            rsa.PersistKeyInCsp = false;
+                            return new { Key = rsa.ToXmlString(true), Out = "公钥 XML（可公开）：\r\n" + rsa.ToXmlString(false), Msg = "已生成 RSA-2048 密钥对（私钥在「密钥 XML」）" };
+                        }
+                    }
+                    else if (algo == 1)
+                    {
+                        var key = new byte[8];
+                        using (var rng = RandomNumberGenerator.Create()) rng.GetBytes(key);
+                        return new { Key = Convert.ToBase64String(key), Out = "", Msg = "已生成 DES 密钥（Base64）" };
+                    }
+                    else
+                    {
+                        var key = new byte[32];
+                        using (var rng = RandomNumberGenerator.Create()) rng.GetBytes(key);
+                        return new { Key = Convert.ToBase64String(key), Out = "", Msg = "已生成 AES-256 密钥（Base64）" };
+                    }
+                }, token);
+
+                if (version != _gate.Version) return;
+                KeyBox.Text = r.Key;
+                if (algo == 2) OutputBox.Text = r.Out;
+                SetMsg(r.Msg, false);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { if (version == _gate.Version) SetMsg("生成失败：" + ex.RootMessage(), true); }
         }
 
         private void Copy_Click(object sender, RoutedEventArgs e)
@@ -171,26 +256,17 @@ namespace IntraBox.Modules.Crypto
                 SetMsg(err, true);
         }
 
-        private RSACryptoServiceProvider LoadRsa(bool needPrivate)
-        {
-            return CryptoHelper.LoadRsa(KeyBox.Text, needPrivate);
-        }
-
-        private byte[] KeyBytes()
-        {
-            return CryptoHelper.DeriveKey(KeyBox.Text, AlgoIndex == 1);
-        }
-
         private static string Friendly(Exception ex)
         {
-            if (ex is CryptographicException) return "密钥或数据不正确（" + ex.Message + "）";
-            return ex.Message;
+            if (ex is CryptographicException) return "密钥或数据不正确（" + ex.RootMessage() + "）";
+            return ex.RootMessage();
         }
 
         private void SetMsg(string text, bool error)
         {
             MsgText.Foreground = FindResource(error ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
             MsgText.Text = text;
+            LoadingOverlay.Hide(this);
         }
 
         public void OnActivated()
@@ -206,6 +282,7 @@ namespace IntraBox.Modules.Crypto
 
         public void OnDeactivated()
         {
+            CancelPending();
             HistoryManager.Save("crypto", new Dictionary<string, object>
             {
                 { "algo", AlgoCombo.SelectedIndex },

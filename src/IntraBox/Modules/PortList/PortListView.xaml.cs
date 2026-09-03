@@ -40,7 +40,7 @@ namespace IntraBox.Modules.PortList
             }
             catch (Exception ex)
             {
-                SetMsg("读取失败：" + ex.Message, true);
+                SetMsg("读取失败：" + ex.RootMessage(), true);
             }
         }
 
@@ -138,7 +138,7 @@ namespace IntraBox.Modules.PortList
             }
             catch (Exception ex)
             {
-                SetMsg("结束失败：" + ex.Message, true);
+                SetMsg("结束失败：" + ex.RootMessage(), true);
             }
         }
 

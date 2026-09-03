@@ -17,7 +17,7 @@
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextPrimaryBrush}"
                        Text="• 截屏标注 / OCR、文件整理与查找、文本比对与格式化"/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextPrimaryBrush}"
-                       Text="• 剪贴板历史、Hosts、哈希、加解密、二维码等 40+ 本地工具"/>
+                       Text="• 剪贴板历史、Hosts、哈希、加解密、二维码生成等 40+ 本地工具"/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,16" Foreground="{DynamicResource TextPrimaryBrush}"
                        Text="• 关闭窗口会藏到托盘；从托盘「退出」才结束进程"/>
             <TextBlock TextWrapping="Wrap" FontWeight="SemiBold"

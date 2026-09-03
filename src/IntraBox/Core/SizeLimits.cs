@@ -11,7 +11,7 @@ namespace IntraBox.Core
     {
         public const int DefaultMaxFileMb = 10;
         public const int MinFileMb = 1;
-        public const int AbsoluteMaxFileMb = 50;
+        public const int AbsoluteMaxFileMb = 200;
 
         public static int MaxFileMb
         {
@@ -33,6 +33,17 @@ namespace IntraBox.Core
                 if (chars < 1) return 1;
                 return (int)chars;
             }
+        }
+
+        /// <summary>
+        /// 在内存中做格式化/比对等「生成全尺寸副本」操作的硬顶字符数。
+        /// 这类操作会同时存在输入串、StringBuilder 输出、缩进转换的 Split 数组等多份全尺寸副本，
+        /// 32 位进程 ~2GB 地址空间下极易 OOM。64 位下放宽。
+        /// 与 MaxFileMb（文件落盘上限）解耦：即便用户把上限调到 200MB，格式化仍受此硬顶约束。
+        /// </summary>
+        public static int MaxFormatChars
+        {
+            get { return IntPtr.Size == 8 ? 200_000_000 : 5_000_000; }
         }
 
         public static int ClampMb(int mb)

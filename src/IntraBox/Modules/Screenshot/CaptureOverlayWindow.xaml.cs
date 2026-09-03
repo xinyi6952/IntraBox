@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Threading.Tasks;
 using IntraBox.Core;
 using Microsoft.Win32;
 using Brushes = System.Windows.Media.Brushes;
@@ -90,7 +91,7 @@ namespace IntraBox.Modules.Screenshot
                 catch (Exception ex)
                 {
                     if (restore && main != null) main.Show();
-                    MessageBox.Show("截屏失败：" + ex.Message, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("截屏失败：" + ex.RootMessage(), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             };
             timer.Start();
@@ -471,21 +472,41 @@ namespace IntraBox.Modules.Screenshot
             Bitmap crop = null;
             try
             {
-                Mouse.OverrideCursor = Cursors.Wait;
                 crop = ScreenCapture.Crop(_fullBmp, DipToPx(_sel));
-                string text = OcrService.Recognize(crop);
+            }
+            catch (Exception ex)
+            {
+                if (crop != null) crop.Dispose();
+                MessageBox.Show("OCR 失败：" + ex.RootMessage(), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            RunOcrAsync(crop);
+        }
+
+        // 识别放后台线程：Tesseract 单次识别耗时数秒，同步会冻结整个覆盖层窗口。
+        // TesseractEngine 非线程安全，在后台线程内 using 新建，不跨线程复用。
+        private async void RunOcrAsync(Bitmap bmp)
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
+            try
+            {
+                var scheduler = TaskScheduler.FromCurrentSynchronizationContext();
+                string text = await Task.Run(() => OcrService.Recognize(bmp))
+                    .ContinueWith(t => t.Result, scheduler);
+                Mouse.OverrideCursor = null;
                 var w = new OcrResultWindow(text);
                 w.Owner = this;
                 w.Show();
             }
             catch (Exception ex)
             {
-                MessageBox.Show("OCR 失败：" + ex.Message, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Mouse.OverrideCursor = null;
+                MessageBox.Show("OCR 失败：" + ex.RootMessage(), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally
             {
                 Mouse.OverrideCursor = null;
-                if (crop != null) crop.Dispose();
+                if (bmp != null) bmp.Dispose();
                 GcHelper.CollectSafely();
             }
         }
@@ -520,7 +541,7 @@ namespace IntraBox.Modules.Screenshot
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("保存失败：" + ex.Message, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("保存失败：" + ex.RootMessage(), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
                     bmp.Dispose();
                     return;
                 }
@@ -562,8 +583,13 @@ namespace IntraBox.Modules.Screenshot
 
         private Rectangle DipToPx(WpfRect r)
         {
-            double sx = _fullBmp.Width / ActualWidth;
-            double sy = _fullBmp.Height / ActualHeight;
+            // 窗口刚 Show 时 ActualWidth/Height 可能尚未布局完成（为 0），
+            // 直接除会得到 Infinity/NaN，导致下游 Crop 抛异常被吞、马赛克退化成占位色块。
+            // 这里在布局未就绪时退化为按图像尺寸做 1:1 估算，保证马赛克预览始终有效。
+            double aw = ActualWidth;
+            double ah = ActualHeight;
+            double sx = (aw > 1) ? (_fullBmp.Width / aw) : 1.0;
+            double sy = (ah > 1) ? (_fullBmp.Height / ah) : 1.0;
             int x = (int)Math.Round(r.X * sx);
             int y = (int)Math.Round(r.Y * sy);
             int w = (int)Math.Round(r.Width * sx);

@@ -13,7 +13,7 @@ using MediaColor = System.Windows.Media.Color;
 namespace IntraBox.Modules.ColorPicker
 {
     /// <summary>
-    /// 颜色取色器：屏幕取色 + HEX/RGB/HSL 互转 + 复制。
+    /// 屏幕取色：HEX/RGB/HSL 互转 + 复制。
     /// 取色模式：移动鼠标实时跟踪颜色，左键点击确定（全局鼠标钩子）。
     /// </summary>
     public partial class ColorPickerView : UserControl, IModuleView

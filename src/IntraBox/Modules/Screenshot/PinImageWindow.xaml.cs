@@ -6,6 +6,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using System.Threading.Tasks;
 using IntraBox.Core;
 using Microsoft.Win32;
 using Point = System.Windows.Point;
@@ -96,20 +98,30 @@ namespace IntraBox.Modules.Screenshot
 
         private void RunOcr()
         {
-            Bitmap bmp = null;
+            Bitmap bmp = BuildBitmap();
+            if (bmp == null) return;
+            RunOcrAsync(bmp);
+        }
+
+        // 识别放后台线程：Tesseract 单次识别耗时数秒，同步会冻结钉图窗口。
+        // TesseractEngine 非线程安全，在后台线程内 using 新建，不跨线程复用。
+        private async void RunOcrAsync(Bitmap bmp)
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
             try
             {
-                Mouse.OverrideCursor = Cursors.Wait;
-                bmp = BuildBitmap();
-                if (bmp == null) return;
-                string text = OcrService.Recognize(bmp);
+                var scheduler = TaskScheduler.FromCurrentSynchronizationContext();
+                string text = await Task.Run(() => OcrService.Recognize(bmp))
+                    .ContinueWith(t => t.Result, scheduler);
+                Mouse.OverrideCursor = null;
                 var w = new OcrResultWindow(text);
                 w.Owner = this;
                 w.Show();
             }
             catch (Exception ex)
             {
-                MessageBox.Show("OCR 失败：" + ex.Message, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Mouse.OverrideCursor = null;
+                MessageBox.Show("OCR 失败：" + ex.RootMessage(), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally
             {
@@ -149,7 +161,7 @@ namespace IntraBox.Modules.Screenshot
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("保存失败：" + ex.Message, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("保存失败：" + ex.RootMessage(), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
             bmp.Dispose();

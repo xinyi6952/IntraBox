@@ -85,7 +85,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="目标目录" Binding="{Binding TargetTemplate, UpdateSourceTrigger=LostFocus}" Width="*"/>
-                <DataGridTemplateColumn Header="删除" Width="64">
+                <DataGridTemplateColumn Header="操作" Width="64">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button Content="删除" Padding="8,1" Margin="2,0"

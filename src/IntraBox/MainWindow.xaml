@@ -15,7 +15,11 @@
                 <TextBlock x:Name="StatusText" Text="就绪" Foreground="{DynamicResource TextSecondaryBrush}"/>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock x:Name="MemoryText" Text="" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <Button x:Name="MemoryBtn" Click="MemoryBtn_Click" Padding="8,2" MinHeight="22" MinWidth="0"
+                        BorderThickness="0" Background="Transparent"
+                        ToolTip="查看内存明细，可手动回收">
+                    <TextBlock x:Name="MemoryText" Text="" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </Button>
             </StatusBarItem>
         </StatusBar>
 
@@ -110,7 +114,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Border Grid.Row="0" Background="{DynamicResource PanelBgBrush}" Padding="20,14"
+                <Border x:Name="ModuleHeader" Grid.Row="0" Background="{DynamicResource PanelBgBrush}" Padding="20,14"
                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
                     <TextBlock x:Name="ModuleTitle"
                                Text="请从左侧选择一个工具"

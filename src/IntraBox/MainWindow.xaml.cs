@@ -116,6 +116,41 @@ namespace IntraBox
             PersistLastModule(info.Key);
         }
 
+        /// <summary>提醒弹窗「打开任务」：切到任务计划并选中指定 uid。</summary>
+        public void OpenTodo(string uid)
+        {
+            IntraBox.Modules.Todo.TodoView.PendingOpenUid = uid;
+            var info = ToolVisibility.Find("todo");
+            if (info == null) return;
+            if (_loader.CurrentInfo != null && _loader.CurrentInfo.Key == "todo")
+            {
+                var view = _loader.CurrentView as IntraBox.Modules.Todo.TodoView;
+                if (view != null) view.OpenPending();
+                WindowRestore.ShowAndRestore(this);
+                return;
+            }
+            if (!ToolVisibility.IsVisible("todo"))
+            {
+                if (!_loader.Activate(info, WorkspaceHost)) return;
+                SetSettingsSelected(false);
+                _navSyncing = true;
+                NavList.SelectedItem = null;
+                _navSyncing = false;
+                ModuleTitle.Text = info.DisplayName;
+                StatusText.Text = "当前工具：" + info.DisplayName;
+                PersistLastModule(info.Key);
+                return;
+            }
+            foreach (ModuleInfo m in NavList.Items)
+            {
+                if (m.Key == "todo")
+                {
+                    NavList.SelectedItem = m;
+                    break;
+                }
+            }
+        }
+
         /// <summary>启动时恢复上次打开的工具；无记录则保持欢迎语。</summary>
         public void RestoreLastModule()
         {
@@ -210,19 +245,80 @@ namespace IntraBox
         protected override void OnClosing(CancelEventArgs e)
         {
             base.OnClosing(e);
+            // 托盘右键「退出」已设 IsExiting，直接结束；标题栏关闭 / Alt+F4 走询问
             if (ConfirmHelper.IsExiting)
                 return;
+
             e.Cancel = true;
+            bool exit;
+            var settings = ConfigManager.Instance.Settings;
+            if (settings.ClosePromptSkip)
+            {
+                exit = settings.ClosePreferExit;
+            }
+            else
+            {
+                var dlg = new ClosePromptWindow { Owner = this };
+                dlg.PrefillPreferExit(settings.ClosePreferExit);
+                if (dlg.ShowDialog() != true)
+                    return;
+                exit = dlg.ChoseExit;
+                if (dlg.DontAskAgain)
+                {
+                    settings.ClosePromptSkip = true;
+                    settings.ClosePreferExit = exit;
+                    ConfigManager.Instance.Save();
+                }
+                else
+                {
+                    // 未勾选「不再提醒」也记住本次选项，下次弹窗预选
+                    settings.ClosePreferExit = exit;
+                    ConfigManager.Instance.Save();
+                }
+            }
+
+            if (exit)
+            {
+                if (!_loader.TryDeactivate()) return;
+                ConfirmHelper.IsExiting = true;
+                Application.Current.Shutdown();
+                return;
+            }
+
             WindowRestore.PersistFrom(this);
             Hide();
         }
 
+        /// <summary>抽屉最大化时铺满导航右侧：隐藏模块标题并去掉工作区边距。</summary>
+        public void SetWorkspaceFill(bool fill)
+        {
+            if (ModuleHeader != null)
+                ModuleHeader.Visibility = fill ? Visibility.Collapsed : Visibility.Visible;
+            if (WorkspaceHost != null)
+                WorkspaceHost.Margin = fill ? new Thickness(0) : new Thickness(16);
+        }
+
         private void UpdateMemoryText()
         {
-            using (var p = System.Diagnostics.Process.GetCurrentProcess())
-            {
-                MemoryText.Text = "内存 " + (p.WorkingSet64 / 1024 / 1024) + " MB";
-            }
+            var u = MemoryUsage.Capture();
+            MemoryText.Text = "内存 " + u.WorkingSetText;
+        }
+
+        public void RefreshMemoryText()
+        {
+            UpdateMemoryText();
+        }
+
+        private void MemoryBtn_Click(object sender, RoutedEventArgs e)
+        {
+            string tool = null;
+            if (_loader.CurrentInfo != null)
+                tool = _loader.CurrentInfo.DisplayName;
+            var w = new MemoryInspectWindow();
+            w.Owner = this;
+            w.LoadFrom(tool);
+            w.ShowDialog();
+            UpdateMemoryText();
         }
     }
 }

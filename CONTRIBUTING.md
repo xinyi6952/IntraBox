@@ -21,7 +21,7 @@ vstest.console.exe tests\IntraBox.Tests\bin\Release\IntraBox.Tests.dll
 
 ## 开发约定
 
-- 新增功能模块：在 `src/IntraBox/Modules/` 下新建子目录，实现 `UserControl`（可选实现 `IModuleView` 做激活/销毁、`ILeaveGuard` 做离开确认），并在 `ModuleRegistry.RegisterDefault()` 里注册一行。
+- 新增功能模块：在 `src/IntraBox/Modules/` 下新建子目录，实现 `UserControl`（可选实现 `IModuleView` 做激活/销毁、`ILeaveGuard` 做离开确认），在 `ModuleRegistry.RegisterDefault()` 注册，并写入 `NavOrder` 的默认分类/工具顺序。
 - 确定性逻辑尽量抽成 `src/IntraBox/Core/*Helper` 纯静态类，便于单元测试。
 - 每个模块遵循「按需加载、用完销毁」。
 - UI 文本使用简体中文。
@@ -29,9 +29,13 @@ vstest.console.exe tests\IntraBox.Tests\bin\Release\IntraBox.Tests.dll
 ## 提交流程
 
 1. Fork 本仓库并创建分支（如 `feature/xxx` 或 `fix/xxx`）
-2. 提交时写清晰的提交信息
+2. 提交信息按 [代码提交规范](docs/代码提交规范.md)：多改动点用无序列表；一条需求默认一条 commit；不要附带 AI 工具身份
 3. 确保 `test.bat` 全绿
-4. 提交 Pull Request，描述改动动机与影响
+4. 提交 Pull Request，描述改动动机与影响；涉及已有功能时对照 [代码评审清单](docs/代码评审清单.md) 的触发表做防回归检查
+
+## AI 助手
+
+仓库根目录 [AGENTS.md](AGENTS.md)（Claude Code 另见 [CLAUDE.md](CLAUDE.md)）写明语言版本、BOM、模块注册等约束。要求「代码评审」或「提交」时分别按 [代码评审清单](docs/代码评审清单.md)、[代码提交规范](docs/代码提交规范.md) 执行，无需再贴标准。
 
 ## 代码风格
 

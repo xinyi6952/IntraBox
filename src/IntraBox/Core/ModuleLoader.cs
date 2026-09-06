@@ -16,6 +16,7 @@ namespace IntraBox.Core
         private ContentControl _host;    // 工作区宿主，销毁时需摘掉 Content 以触发 Unloaded
 
         public ModuleInfo CurrentInfo { get { return _currentInfo; } }
+        public UIElement CurrentView { get { return _current; } }
 
         /// <summary>
         /// 激活指定模块。若当前模块拒绝离开（未保存），返回 false 且不切换。

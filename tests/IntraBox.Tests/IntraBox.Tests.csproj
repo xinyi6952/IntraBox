@@ -36,11 +36,15 @@
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-  </ItemGroup>
+    <ItemGroup>
+      <Reference Include="System" />
+      <Reference Include="System.Core" />
+      <Reference Include="System.Data" />
+      <Reference Include="System.Xaml" />
+      <Reference Include="WindowsBase" />
+      <Reference Include="PresentationCore" />
+      <Reference Include="PresentationFramework" />
+    </ItemGroup>
 
   <ItemGroup>
     <!-- MSTest 测试框架与适配器 -->

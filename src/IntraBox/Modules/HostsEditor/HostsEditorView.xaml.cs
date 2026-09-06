@@ -77,6 +77,8 @@ namespace IntraBox.Modules.HostsEditor
         private void MarkClean()
         {
             _savedSnapshot = Snapshot();
+            for (int i = 0; i < _rows.Count; i++)
+                _rows[i].CaptureSavedEnabled();
         }
 
         private static bool IsAdmin()
@@ -152,6 +154,7 @@ namespace IntraBox.Modules.HostsEditor
                 Host = "example.local",
                 Comment = ""
             };
+            row.CaptureSavedEnabled();
             _rows.Add(row);
             _fileLines.Add(row);
         }
@@ -178,7 +181,6 @@ namespace IntraBox.Modules.HostsEditor
             var row = HostGrid.SelectedItem as HostsEntry;
             if (row == null) return;
             row.Enabled = !row.Enabled;
-            HostGrid.Items.Refresh();
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)

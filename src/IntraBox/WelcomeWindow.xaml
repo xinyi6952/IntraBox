@@ -19,7 +19,7 @@
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextPrimaryBrush}"
                        Text="• 剪贴板历史、Hosts、哈希、加解密、二维码生成等 40+ 本地工具"/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,16" Foreground="{DynamicResource TextPrimaryBrush}"
-                       Text="• 关闭窗口会藏到托盘；从托盘「退出」才结束进程"/>
+                       Text="• 关闭窗口可选择最小化到托盘或退出；配置默认保存在本机用户目录"/>
             <TextBlock TextWrapping="Wrap" FontWeight="SemiBold"
                        Foreground="{DynamicResource AccentBrush}"
                        Text="纯本地运行 · 无遥测 · 无网络请求 · 兼容 Windows 7 SP1 及以上"/>

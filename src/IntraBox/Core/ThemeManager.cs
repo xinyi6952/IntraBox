@@ -16,6 +16,11 @@ namespace IntraBox.Core
 
         public static string Current { get; private set; } = Dark;
 
+        public static bool IsDark
+        {
+            get { return Resolve(Current) != Light; }
+        }
+
         public static event EventHandler Changed;
 
         private static bool _watchingSystem;

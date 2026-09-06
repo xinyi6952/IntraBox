@@ -124,27 +124,28 @@ namespace IntraBox.Core
             }
             try
             {
-                // 大图（约 4K 级）改用延迟渲染：仅在目标程序粘贴时提供位图，避免复制瞬间阻塞。
-                long pixels = (long)image.PixelWidth * image.PixelHeight;
-                if (pixels >= DeferredImagePixels)
+                int w, h;
+                byte[] bgra = ClipboardImage.CopyBgra32(image, out w, out h);
+                if (bgra == null)
                 {
-                    var data = new DataObject();
-                    BitmapSource captured = image;
-                    if (!captured.IsFrozen) captured.Freeze(); // 延迟回调可能在非 UI 线程取数据
-                    data.SetData(DataFormats.Bitmap, (Func<object>)(() => captured), false);
-                    if (!TryWithRetry(() => Clipboard.SetDataObject(data, true)))
-                    {
-                        error = "复制失败：剪贴板被占用，请稍后重试";
-                        return false;
-                    }
+                    error = "没有可复制的图像";
+                    return false;
                 }
-                else
+
+                // 大图（约 4K 级）延迟编码 PNG/DIB：仅在目标程序粘贴时再压，避免复制瞬间卡住 UI。
+                long pixels = (long)w * h;
+                DataObject data = pixels >= DeferredImagePixels
+                    ? ClipboardImage.CreateDeferredDataObject(bgra, w, h, image.DpiX, image.DpiY)
+                    : ClipboardImage.CreateDataObject(bgra, w, h, image.DpiX, image.DpiY);
+                if (data == null)
                 {
-                    if (!TryWithRetry(() => Clipboard.SetImage(image)))
-                    {
-                        error = "复制失败：剪贴板被占用，请稍后重试";
-                        return false;
-                    }
+                    error = "没有可复制的图像";
+                    return false;
+                }
+                if (!TryWithRetry(() => Clipboard.SetDataObject(data, true)))
+                {
+                    error = "复制失败：剪贴板被占用，请稍后重试";
+                    return false;
                 }
                 return true;
             }
@@ -180,18 +181,106 @@ namespace IntraBox.Core
             catch { return false; }
         }
 
-        /// <summary>安全判断剪贴板是否含图像。占用时返回 false。</summary>
+        /// <summary>安全判断剪贴板是否含图像（含仅有 PNG 而无 CF_BITMAP 的情况）。占用时返回 false。</summary>
         public static bool SafeContainsImage()
         {
-            try { return TryWithRetry(() => Clipboard.ContainsImage(), false); }
+            try
+            {
+                return TryWithRetry(() =>
+                {
+                    var data = Clipboard.GetDataObject();
+                    return ClipboardImage.HasImage(data);
+                }, false);
+            }
             catch { return false; }
         }
 
-        /// <summary>安全读取剪贴板图像。占用时返回 null。</summary>
+        /// <summary>安全读取剪贴板图像。走 PNG/DIB 解码，避免 WPF GetImage 黑块。占用时返回 null。</summary>
         public static BitmapSource SafeGetImage()
         {
-            try { return TryWithRetry<BitmapSource>(() => Clipboard.GetImage(), null); }
-            catch { return null; }
+            int w, h;
+            byte[] bgra;
+            if (!TryGetImageBgra(out w, out h, out bgra) || bgra == null) return null;
+            return ClipboardImage.ToFrozenBgra32(bgra, w, h, 96, 96);
+        }
+
+        /// <summary>一次 OpenClipboard：文本 + 图片像素。占用时返回 false。图片像素超限时仍返回宽高、bgra 为 null。</summary>
+        public static bool TryReadClipboard(long maxPixelBytes, out string text, out int imageWidth, out int imageHeight, out byte[] imageBgra)
+        {
+            text = null;
+            imageWidth = 0;
+            imageHeight = 0;
+            imageBgra = null;
+            try
+            {
+                var result = TryWithRetry(() =>
+                {
+                    var data = Clipboard.GetDataObject();
+                    if (data == null) return null;
+                    int w, h;
+                    byte[] bgra;
+                    ClipboardImage.TryDecode(data, maxPixelBytes, out w, out h, out bgra);
+                    return Tuple.Create(ReadText(data), w, h, bgra);
+                }, null);
+                if (result == null) return false;
+                text = result.Item1;
+                imageWidth = result.Item2;
+                imageHeight = result.Item3;
+                imageBgra = result.Item4;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>只取图片像素。占用或无图返回 false。</summary>
+        public static bool TryGetImageBgra(out int width, out int height, out byte[] bgra)
+        {
+            width = 0;
+            height = 0;
+            bgra = null;
+            try
+            {
+                var result = TryWithRetry(() =>
+                {
+                    var data = Clipboard.GetDataObject();
+                    if (data == null) return null;
+                    int w, h;
+                    byte[] px;
+                    ClipboardImage.TryDecode(data, out w, out h, out px);
+                    return Tuple.Create(w, h, px);
+                }, null);
+                if (result == null || result.Item3 == null) return false;
+                width = result.Item1;
+                height = result.Item2;
+                bgra = result.Item3;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string ReadText(IDataObject data)
+        {
+            if (data == null) return null;
+            try
+            {
+                if (data.GetDataPresent(DataFormats.UnicodeText, true))
+                {
+                    var t = data.GetData(DataFormats.UnicodeText, true) as string;
+                    if (t != null) return t;
+                }
+                if (data.GetDataPresent(DataFormats.Text, true))
+                    return data.GetData(DataFormats.Text, true) as string;
+            }
+            catch
+            {
+            }
+            return null;
         }
     }
 }

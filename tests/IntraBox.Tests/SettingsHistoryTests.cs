@@ -68,6 +68,7 @@ namespace IntraBox.Tests
             Assert.IsTrue(ClipboardStore.ShouldSkipDuplicateImage("same", "same"));
             Assert.IsFalse(ClipboardStore.ShouldSkipDuplicateImage("a", "b"));
             Assert.IsFalse(ClipboardStore.ShouldSkipDuplicateImage(null, "b"));
+            Assert.IsFalse(ClipboardStore.ShouldSkipDuplicateImage(null, null));
         }
 
         [TestMethod]
@@ -76,6 +77,17 @@ namespace IntraBox.Tests
             Assert.AreEqual("[图片] 1920×1080", ClipItem.MakeShortPreview(true, "ignored", "[图片] 1920×1080"));
             Assert.AreEqual("[图片]", ClipItem.MakeShortPreview(true, null, null));
             Assert.AreEqual("hello world", ClipItem.MakeShortPreview(false, "hello\nworld", "fallback"));
+            Assert.IsNull(ClipItem.TruncateOneLine(null, 10));
+            Assert.AreEqual("", ClipItem.TruncateOneLine("", 10));
+            Assert.AreEqual("a b", ClipItem.TruncateOneLine("  a  \r\n  b  ", 10));
+            Assert.AreEqual("hello", ClipItem.TruncateOneLine("hello", 5));
+            Assert.AreEqual("hello…", ClipItem.TruncateOneLine("hello!", 5));
+        }
+
+        [TestMethod]
+        public void ClipboardStore_Add空项_拒绝()
+        {
+            Assert.IsFalse(ClipboardStore.Add(null));
         }
     }
 }

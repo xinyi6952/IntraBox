@@ -1,9 +1,11 @@
 @echo off
 REM ============================================================
 REM  IntraBox clean rebuild script
-REM  Fully removes build caches (obj/bin) and the old dist
-REM  package (including personal config.json/history.json), then
-REM  rebuilds and redeploys from scratch via robocopy /MIR.
+REM  Fully removes build caches (obj/bin), runtime data
+REM  (%%LOCALAPPDATA%%\IntraBox\Data and custom datapath.txt),
+REM  and the old dist package, then rebuilds and redeploys.
+REM  Next launch is first-run defaults (welcome, sample todo,
+REM  empty history). Dist leftover json is not kept.
 REM  Every exit path pauses AND writes build.log, so a
 REM  double-clicked window never vanishes without a trace.
 REM  NOTE: keep this file ASCII-only (English); chcp 65001 makes
@@ -11,6 +13,7 @@ REM  tool output render safely in the console.
 REM ============================================================
 setlocal
 cd /d "%~dp0"
+echo IntraBox rebuild starting...
 chcp 65001 >nul
 set "LOG=%~dp0build.log"
 echo ==== IntraBox REBUILD %DATE% %TIME% ==== > "%LOG%"
@@ -45,16 +48,35 @@ if "%RUNNING%"=="0" (
 )
 
 REM ---- 1. delete build caches (obj/bin) ----
-echo [1/5] Deleting build caches - obj, bin...
+echo [1/6] Deleting build caches - obj, bin...
 if exist "src\IntraBox\obj" rmdir /S /Q "src\IntraBox\obj"
 if exist "src\IntraBox\bin" rmdir /S /Q "src\IntraBox\bin"
 if exist "tests\IntraBox.Tests\obj" rmdir /S /Q "tests\IntraBox.Tests\obj"
 if exist "tests\IntraBox.Tests\bin" rmdir /S /Q "tests\IntraBox.Tests\bin"
 
-REM ---- 2. delete old dist package (incl. personal config.json/history.json) ----
-REM A still-loaded native dll (x86/x64 tesseract/leptonica) or a hung handle can lock
-REM the folder, so retry a few times with a short wait before giving up loudly.
-echo [2/5] Deleting old dist package - including personal config and history...
+REM ---- 2. reset runtime data to first-run defaults ----
+REM config/history/todos live under %%LOCALAPPDATA%%\IntraBox\Data (or datapath.txt).
+echo [2/6] Resetting user data to first-run defaults...
+if exist "dist\IntraBox\datapath.txt" (
+    for /f "usebackq delims=" %%D in ("dist\IntraBox\datapath.txt") do (
+        if exist "%%D" rmdir /S /Q "%%D" 2>nul
+    )
+)
+if exist "%LOCALAPPDATA%\IntraBox\Data" (
+    rmdir /S /Q "%LOCALAPPDATA%\IntraBox\Data" 2>nul
+    if exist "%LOCALAPPDATA%\IntraBox\Data" ( ping -n 3 127.0.0.1 >nul & rmdir /S /Q "%LOCALAPPDATA%\IntraBox\Data" 2>nul )
+)
+if exist "%LOCALAPPDATA%\IntraBox\Data" (
+    echo [ERROR] Cannot delete %%LOCALAPPDATA%%\IntraBox\Data>> "%LOG%"
+    echo ============================================================
+    echo  [ERROR] Cannot delete user data folder.
+    echo  Close IntraBox from the tray, then retry.
+    echo ============================================================
+    goto :fail
+)
+
+REM ---- 3. delete old dist package ----
+echo [3/6] Deleting old dist package...
 if exist "dist\IntraBox" (
     rmdir /S /Q "dist\IntraBox" 2>nul
     if exist "dist\IntraBox" ( ping -n 3 127.0.0.1 >nul & rmdir /S /Q "dist\IntraBox" 2>nul )
@@ -71,20 +93,20 @@ if exist "dist\IntraBox" (
     goto :fail
 )
 
-REM ---- 3. clean build ----
-echo [3/5] Building... - this can take a couple of minutes.
+REM ---- 4. clean build ----
+echo [4/6] Building... NuGet restore then compile. Output is live below (also in build.log).
 echo --- MSBuild clean --- >> "%LOG%"
 REM Use explicit Rebuild (not Restore;Build): after wiping obj, Restore alone does
 REM not re-register Tesseract's native x86/x64 assets, so a plain Build skips them.
-"%MSBUILD%" "src\IntraBox\IntraBox.csproj" /t:"Restore;Rebuild" /p:Configuration=Release /m >> "%LOG%" 2>&1
+"%MSBUILD%" "src\IntraBox\IntraBox.csproj" /t:"Restore;Rebuild" /p:Configuration=Release /p:NuGetAudit=false /m /v:m /fl "/flp:LogFile=%LOG%;Append;Encoding=UTF-8;Verbosity=minimal"
 set "BUILDRC=%ERRORLEVEL%"
 if not "%BUILDRC%"=="0" (
     echo [FAILED] Build failed.>> "%LOG%"
     goto :buildfail
 )
 
-REM ---- 4. redeploy to a fresh dist\IntraBox\ ----
-echo [4/5] Deploying to dist\IntraBox\...
+REM ---- 5. redeploy to a fresh dist\IntraBox\ ----
+echo [5/6] Deploying to dist\IntraBox\...
 if not exist "dist\IntraBox" mkdir "dist\IntraBox"
 REM Copy docs first so the mirror below does not treat them as extras to delete.
 copy /Y "docs\*.txt" "dist\IntraBox\" >> "%LOG%" 2>&1
@@ -97,8 +119,8 @@ if %RC% GEQ 8 (
     goto :fail
 )
 
-REM ---- 5. verify required runtime folders are present ----
-echo [5/5] Verifying package completeness...
+REM ---- 6. verify required runtime folders are present ----
+echo [6/6] Verifying package completeness...
 set "MISSING="
 if not exist "dist\IntraBox\IntraBox.exe" set "MISSING=%MISSING% IntraBox.exe"
 if not exist "dist\IntraBox\tessdata" set "MISSING=%MISSING% tessdata"

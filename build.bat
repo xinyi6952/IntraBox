@@ -11,6 +11,7 @@ REM  tool output (MSBuild/robocopy) render safely in the console.
 REM ============================================================
 setlocal
 cd /d "%~dp0"
+echo IntraBox build starting...
 chcp 65001 >nul
 set "LOG=%~dp0build.log"
 echo ==== IntraBox build %DATE% %TIME% ==== > "%LOG%"
@@ -45,9 +46,9 @@ if "%RUNNING%"=="0" (
     goto :fail
 )
 
-echo Building... - this can take a minute.
+echo Building... NuGet restore then compile. Output is live below (also in build.log).
 echo --- MSBuild --- >> "%LOG%"
-"%MSBUILD%" "src\IntraBox\IntraBox.csproj" /t:"Restore;Build" /p:Configuration=Release /m >> "%LOG%" 2>&1
+"%MSBUILD%" "src\IntraBox\IntraBox.csproj" /t:"Restore;Build" /p:Configuration=Release /p:NuGetAudit=false /m /v:m /fl "/flp:LogFile=%LOG%;Append;Encoding=UTF-8;Verbosity=minimal"
 set "BUILDRC=%ERRORLEVEL%"
 if not "%BUILDRC%"=="0" (
     echo [FAILED] Build failed.>> "%LOG%"

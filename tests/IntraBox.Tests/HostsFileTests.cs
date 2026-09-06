@@ -181,6 +181,21 @@ namespace IntraBox.Tests
             Assert.IsTrue(p.IndexOf(@"drivers\etc\hosts", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
+        [TestMethod]
+        public void 启用勾选相对已保存可标记未保存()
+        {
+            var e = HostsFileHelper.ParseLine("127.0.0.1 a.local");
+            Assert.IsTrue(e.Enabled);
+            Assert.IsFalse(e.UnsavedEnabled);
+            e.Enabled = false;
+            Assert.IsTrue(e.UnsavedEnabled);
+            e.Enabled = true;
+            Assert.IsFalse(e.UnsavedEnabled);
+            e.Enabled = false;
+            e.CaptureSavedEnabled();
+            Assert.IsFalse(e.UnsavedEnabled);
+        }
+
         private static System.Collections.Generic.List<HostsEntry> Mappings(System.Collections.Generic.List<HostsEntry> lines)
         {
             var maps = new System.Collections.Generic.List<HostsEntry>();

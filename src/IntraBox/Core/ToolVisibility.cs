@@ -38,8 +38,31 @@ namespace IntraBox.Core
             return null;
         }
 
-        /// <summary>可勾选的工具（不含设置）。</summary>
+        /// <summary>可勾选的工具（不含设置），按当前导航顺序。</summary>
         public static List<ModuleInfo> ToggleableTools()
+        {
+            return NavOrder.Sort(ToggleableRaw());
+        }
+
+        /// <summary>默认导航顺序（忽略用户自定义）。</summary>
+        public static List<ModuleInfo> ToggleableToolsDefault()
+        {
+            return NavOrder.SortDefault(ToggleableRaw());
+        }
+
+        /// <summary>左侧可滚动导航要显示的工具。</summary>
+        public static List<ModuleInfo> NavTools()
+        {
+            var src = ToggleableTools();
+            var list = new List<ModuleInfo>();
+            for (int i = 0; i < src.Count; i++)
+            {
+                if (IsVisible(src[i].Key)) list.Add(src[i]);
+            }
+            return list;
+        }
+
+        private static List<ModuleInfo> ToggleableRaw()
         {
             var list = new List<ModuleInfo>();
             var all = ModuleRegistry.All;
@@ -47,19 +70,6 @@ namespace IntraBox.Core
             {
                 if (!IsAlwaysPinned(all[i].Key))
                     list.Add(all[i]);
-            }
-            return list;
-        }
-
-        /// <summary>左侧可滚动导航要显示的工具。</summary>
-        public static List<ModuleInfo> NavTools()
-        {
-            var list = new List<ModuleInfo>();
-            var all = ModuleRegistry.All;
-            for (int i = 0; i < all.Count; i++)
-            {
-                if (IsAlwaysPinned(all[i].Key)) continue;
-                if (IsVisible(all[i].Key)) list.Add(all[i]);
             }
             return list;
         }

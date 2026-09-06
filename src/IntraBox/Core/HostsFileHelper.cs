@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -9,14 +10,59 @@ namespace IntraBox.Core
     /// <summary>
     /// Hosts 文件一行：注释/空行原样保留；映射行可在表格里改 IP/域名/启用状态。
     /// </summary>
-    public sealed class HostsEntry
+    public sealed class HostsEntry : INotifyPropertyChanged
     {
+        private bool _enabled;
+        private bool _savedEnabled;
+
         public bool IsMapping { get; set; }
         public string Raw { get; set; }
-        public bool Enabled { get; set; }
         public string Ip { get; set; }
         public string Host { get; set; }
         public string Comment { get; set; }
+
+        public bool Enabled
+        {
+            get { return _enabled; }
+            set
+            {
+                if (_enabled == value) return;
+                _enabled = value;
+                Raise("Enabled");
+                Raise("UnsavedEnabled");
+            }
+        }
+
+        /// <summary>上次加载或保存时的启用状态；与 Enabled 不同表示未保存的勾选改动。</summary>
+        public bool SavedEnabled
+        {
+            get { return _savedEnabled; }
+            set
+            {
+                if (_savedEnabled == value) return;
+                _savedEnabled = value;
+                Raise("SavedEnabled");
+                Raise("UnsavedEnabled");
+            }
+        }
+
+        public bool UnsavedEnabled
+        {
+            get { return _enabled != _savedEnabled; }
+        }
+
+        public void CaptureSavedEnabled()
+        {
+            SavedEnabled = _enabled;
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void Raise(string name)
+        {
+            var h = PropertyChanged;
+            if (h != null) h(this, new PropertyChangedEventArgs(name));
+        }
     }
 
     /// <summary>
@@ -92,7 +138,7 @@ namespace IntraBox.Core
             if (hash >= 0)
                 comment = line.Substring(hash + 1).Trim();
 
-            return new HostsEntry
+            var entry = new HostsEntry
             {
                 IsMapping = true,
                 Raw = line,
@@ -101,6 +147,8 @@ namespace IntraBox.Core
                 Host = host,
                 Comment = comment
             };
+            entry.CaptureSavedEnabled();
+            return entry;
         }
 
         public static string FormatMapping(HostsEntry e)

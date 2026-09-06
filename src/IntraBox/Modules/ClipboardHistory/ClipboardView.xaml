@@ -12,14 +12,8 @@
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
             <TextBox x:Name="SearchBox" MinWidth="180" Margin="0,4,8,4" TextChanged="SearchBox_TextChanged"/>
             <Button Content="清空搜索" Margin="0,4,8,4" Click="ClearSearch_Click"/>
-            <Button Content="写回剪贴板" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="PasteBtn_Click"/>
-            <Button Content="固定/取消" Margin="0,4,8,4" Click="PinBtn_Click"/>
-            <Button Content="删除" Margin="0,4,8,4" Click="DeleteBtn_Click"/>
-            <Button Content="清空非固定" Margin="0,4,8,4" Click="ClearBtn_Click"/>
             <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
                        Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-            <TextBlock Text="图片历史仅保留缩略图（最长边 128px）" VerticalAlignment="Center" Margin="12,4,0,4"
-                       Foreground="{DynamicResource TextSecondaryBrush}"/>
         </WrapPanel>
 
         <ListBox x:Name="HistoryList" Grid.Row="1"
@@ -28,11 +22,41 @@
                  PreviewMouseRightButtonDown="HistoryList_PreviewMouseRightButtonDown"
                  HorizontalContentAlignment="Stretch">
             <ListBox.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Header="查看" Click="ViewMenu_Click" Icon="{x:Null}"
-                              Style="{StaticResource ContextMenuItemStyle}"/>
-                    <MenuItem Header="删除" Click="DeleteMenu_Click" Icon="{x:Null}"
-                              Style="{StaticResource ContextMenuItemStyle}"/>
+                <ContextMenu Opened="ListMenu_Opened">
+                    <MenuItem x:Name="MenuViewItem" Header="查看" Click="ViewMenu_Click"
+                              Style="{StaticResource ContextMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <Path Style="{StaticResource MenuIconPath}"
+                                  Data="M1,8 C4,3 12,3 15,8 C12,13 4,13 1,8 M6.5,8 A1.5,1.5 0 1 0 9.5,8 A1.5,1.5 0 1 0 6.5,8"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem x:Name="MenuPasteItem" Header="写回剪贴板" Click="PasteMenu_Click"
+                              Style="{StaticResource ContextMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <Path Style="{StaticResource MenuIconPath}"
+                                  Data="M5,3 H11 V5 H13 V14 H3 V5 H5 V3 M6,2 H10 V5 H6 Z"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem x:Name="MenuPinItem" Header="固定" Click="PinMenu_Click"
+                              Style="{StaticResource ContextMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <Path Style="{StaticResource MenuIconPath}"
+                                  Data="M6,2 H10 L11,7 H13 L8,12 V15 M8,12 L3,7 H5 L6,2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem x:Name="MenuDeleteItem" Header="删除" Click="DeleteMenu_Click"
+                              Style="{StaticResource ContextMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <Path Style="{StaticResource MenuIconPath}" Data="M4,4 L12,12 M12,4 L4,12"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem x:Name="MenuClearItem" Header="清空非固定" Click="ClearMenu_Click"
+                              Style="{StaticResource ContextMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <Path Style="{StaticResource MenuIconPath}"
+                                  Data="M3,5 H13 M5,5 V13 H11 V5 M7,7 V11 M9,7 V11"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </ContextMenu>
             </ListBox.ContextMenu>
             <ListBox.ItemTemplate>
@@ -68,7 +92,6 @@
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <!-- 窗口内最大化查看：文本全文 / 图片缩略图，右上角缩小恢复 -->
         <Border x:Name="ViewerOverlay" Grid.Row="0" Grid.RowSpan="2" Visibility="Collapsed"
                 Background="{DynamicResource WindowBgBrush}" Panel.ZIndex="20">
             <Grid>
@@ -82,12 +105,17 @@
                     <TextBlock x:Name="ViewerTitle" VerticalAlignment="Center" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                 </DockPanel>
-                <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                    <Grid>
+                <ScrollViewer x:Name="ViewerScroll" Grid.Row="1"
+                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <Grid HorizontalAlignment="Left" VerticalAlignment="Top">
                         <TextBox x:Name="ViewerText" AcceptsReturn="True" IsReadOnly="True" TextWrapping="Wrap"
                                  FontFamily="Consolas" FontSize="13" BorderThickness="0"
-                                 VerticalScrollBarVisibility="Disabled"/>
-                        <Image x:Name="ViewerImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                                 VerticalAlignment="Top" HorizontalAlignment="Left"
+                                 VerticalContentAlignment="Top" HorizontalContentAlignment="Left"
+                                 VerticalScrollBarVisibility="Disabled"
+                                 Width="{Binding ViewportWidth, ElementName=ViewerScroll}"/>
+                        <Image x:Name="ViewerImage" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Grid>
                 </ScrollViewer>
             </Grid>

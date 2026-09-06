@@ -140,6 +140,26 @@ namespace IntraBox.Tests
                 Assert.IsTrue(hasCodec);
                 Assert.IsTrue(hasUrlParse, "URL 解析与 URL 编解码用途不同，应同时保留");
             }
+
+            [TestMethod]
+            public void 导航默认顺序_效率工具与剪贴板在最前()
+            {
+                Assert.AreEqual("效率工具", NavOrder.DefaultCategories[0]);
+                Assert.AreEqual("系统工具", NavOrder.DefaultCategories[1]);
+                Assert.AreEqual("clipboard", NavOrder.DefaultToolKeys[0]);
+                Assert.AreEqual("todo", NavOrder.DefaultToolKeys[1]);
+                Assert.AreEqual("notes", NavOrder.DefaultToolKeys[2]);
+                Assert.AreEqual("vault", NavOrder.DefaultToolKeys[3]);
+                var list = ToolVisibility.ToggleableToolsDefault();
+                Assert.IsTrue(list.Count > 4);
+                Assert.AreEqual("clipboard", list[0].Key);
+                Assert.AreEqual("todo", list[1].Key);
+                Assert.AreEqual("notes", list[2].Key);
+                Assert.AreEqual("vault", list[3].Key);
+                Assert.AreEqual("machineinfo", list[4].Key);
+                Assert.AreEqual("settings", ToolVisibility.SettingsKey);
+                Assert.IsTrue(list.Count > 3, "应含笔记模块");
+            }
         }
 
         // ==================== 文本文件编码往返 ====================
@@ -220,6 +240,26 @@ namespace IntraBox.Tests
                 {
                     try { File.Delete(path); } catch { }
                 }
+            }
+        }
+
+        [TestClass]
+        public class Memory
+        {
+            [TestMethod]
+            public void FormatMb_字节换算()
+            {
+                Assert.AreEqual("0 MB", MemoryUsage.FormatMb(0));
+                Assert.AreEqual("0 MB", MemoryUsage.FormatMb(-1));
+                Assert.AreEqual("5 MB", MemoryUsage.FormatMb(5L * 1024 * 1024));
+            }
+
+            [TestMethod]
+            public void Capture_工作集大于零()
+            {
+                var u = MemoryUsage.Capture();
+                Assert.IsTrue(u.WorkingSetBytes > 0);
+                Assert.IsTrue(u.WorkingSetText.EndsWith(" MB"));
             }
         }
     }

@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using IntraBox.Core;
 
 namespace IntraBox.Modules.ClipboardHistory
@@ -38,11 +39,6 @@ namespace IntraBox.Modules.ClipboardHistory
                 ViewerClose_Click(null, null);
         }
 
-        private void PasteBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (HistoryList.SelectedItem is ClipItem item) PasteItem(item);
-        }
-
         private void HistoryList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (HistoryList.SelectedItem is ClipItem item) PasteItem(item);
@@ -61,9 +57,35 @@ namespace IntraBox.Modules.ClipboardHistory
             }
         }
 
+        private void ListMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            var item = HistoryList.SelectedItem as ClipItem;
+            bool has = item != null;
+            if (MenuViewItem != null) MenuViewItem.IsEnabled = has;
+            if (MenuPasteItem != null) MenuPasteItem.IsEnabled = has;
+            if (MenuPinItem != null)
+            {
+                MenuPinItem.IsEnabled = has;
+                MenuPinItem.Header = has && item.IsPinned ? "取消固定" : "固定";
+            }
+            if (MenuDeleteItem != null) MenuDeleteItem.IsEnabled = has;
+            if (MenuClearItem != null) MenuClearItem.IsEnabled = true;
+        }
+
         private void ViewMenu_Click(object sender, RoutedEventArgs e)
         {
             ShowViewer(HistoryList.SelectedItem as ClipItem);
+        }
+
+        private void PasteMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (HistoryList.SelectedItem is ClipItem item) PasteItem(item);
+        }
+
+        private void PinMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (HistoryList.SelectedItem is ClipItem item)
+                item.IsPinned = !item.IsPinned;
         }
 
         private void DeleteMenu_Click(object sender, RoutedEventArgs e)
@@ -71,15 +93,26 @@ namespace IntraBox.Modules.ClipboardHistory
             DeleteSelected();
         }
 
+        private void ClearMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ConfirmHelper.Action("确定清空未固定的剪贴板历史？此操作不可撤销。", "清空确认"))
+                return;
+            for (int i = ClipboardStore.Items.Count - 1; i >= 0; i--)
+            {
+                if (!ClipboardStore.Items[i].IsPinned) ClipboardStore.Items.RemoveAt(i);
+            }
+            GcHelper.CollectSafely();
+        }
+
         private void ShowViewer(ClipItem item)
         {
             if (item == null) return;
-            if (item.IsImage && item.Thumb != null)
+            if (item.IsImage)
             {
+                BitmapSource src = DecodeOriginal(item) ?? item.Thumb;
                 ViewerTitle.Text = (item.Preview ?? "[图片]")
-                    + "  " + item.Time.ToString("yyyy-MM-dd HH:mm:ss")
-                    + "  （历史仅保留缩略图）";
-                ViewerImage.Source = item.Thumb;
+                    + "  " + item.Time.ToString("yyyy-MM-dd HH:mm:ss");
+                ViewerImage.Source = src;
                 ViewerImage.Visibility = Visibility.Visible;
                 ViewerText.Visibility = Visibility.Collapsed;
                 ViewerText.Text = "";
@@ -93,6 +126,16 @@ namespace IntraBox.Modules.ClipboardHistory
                 ViewerImage.Source = null;
             }
             ViewerOverlay.Visibility = Visibility.Visible;
+        }
+
+        private static BitmapSource DecodeOriginal(ClipItem item)
+        {
+            if (item == null || item.ImagePng == null) return null;
+            int w, h;
+            byte[] bgra;
+            if (!ClipboardImage.TryDecodePngBytes(item.ImagePng, out w, out h, out bgra))
+                return null;
+            return ClipboardImage.ToFrozenBgra32(bgra, w, h, 96, 96);
         }
 
         private void ViewerClose_Click(object sender, RoutedEventArgs e)
@@ -118,13 +161,15 @@ namespace IntraBox.Modules.ClipboardHistory
         {
             try
             {
-                if (item.IsImage && item.Thumb != null)
+                if (item.IsImage)
                 {
+                    BitmapSource toWrite = DecodeOriginal(item) ?? item.Thumb;
+                    if (toWrite == null) return;
                     ClipboardStore.SuppressImageCapture = true;
                     try
                     {
                         string err;
-                        if (ClipboardHelper.TrySetImage(item.Thumb, out err))
+                        if (ClipboardHelper.TrySetImage(toWrite, out err))
                             ClipboardMonitor.MarkPasted(item);
                         else
                         {
@@ -136,7 +181,7 @@ namespace IntraBox.Modules.ClipboardHistory
                     {
                         ClipboardStore.SuppressImageCapture = false;
                     }
-                    MsgText.Text = "已写回剪贴板（图片为缩略图）";
+                    MsgText.Text = "已写回剪贴板";
                     return;
                 }
                 else if (!item.IsImage)
@@ -156,30 +201,6 @@ namespace IntraBox.Modules.ClipboardHistory
             {
                 MsgText.Text = "写回失败：" + ex.RootMessage();
             }
-        }
-
-        private void PinBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (HistoryList.SelectedItem is ClipItem item)
-            {
-                item.IsPinned = !item.IsPinned;
-            }
-        }
-
-        private void DeleteBtn_Click(object sender, RoutedEventArgs e)
-        {
-            DeleteSelected();
-        }
-
-        private void ClearBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ConfirmHelper.Action("确定清空未固定的剪贴板历史？此操作不可撤销。", "清空确认"))
-                return;
-            for (int i = ClipboardStore.Items.Count - 1; i >= 0; i--)
-            {
-                if (!ClipboardStore.Items[i].IsPinned) ClipboardStore.Items.RemoveAt(i);
-            }
-            GcHelper.CollectSafely();
         }
 
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)

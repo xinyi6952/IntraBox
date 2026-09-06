@@ -4,12 +4,16 @@ using System.Runtime.Serialization;
 namespace IntraBox.Core
 {
     /// <summary>
-    /// 应用配置模型：以本地 JSON 文件（程序目录 config.json）持久化。
-    /// 绿色免安装：配置、历史均随程序目录存储，不写系统注册表。
+    /// 应用配置模型：以本地 JSON 文件（数据根 config.json）持久化。
+    /// 绿色免安装：配置、历史均随数据根存储，不写系统注册表。
     /// </summary>
     [DataContract]
     public sealed class AppSettings
     {
+        /// <summary>配置文件版本，缺省按 1 补齐，便于后续字段兼容。</summary>
+        [DataMember]
+        public int ConfigVersion { get; set; } = DataPaths.CurrentConfigVersion;
+
         /// <summary>是否首次运行（用于后续引导）</summary>
         [DataMember]
         public bool FirstRun { get; set; } = true;
@@ -56,6 +60,14 @@ namespace IntraBox.Core
         /// </summary>
         [DataMember]
         public string[] VisibleToolKeys { get; set; }
+
+        /// <summary>左侧导航分类顺序。null 或空 = 使用默认（按使用频率）。</summary>
+        [DataMember]
+        public string[] NavCategoryOrder { get; set; }
+
+        /// <summary>左侧导航工具 Key 顺序。null 或空 = 使用默认。工具仍留在原分类内。</summary>
+        [DataMember]
+        public string[] NavToolOrder { get; set; }
 
         /// <summary>上次关闭/藏到托盘前主窗口是否最大化。</summary>
         [DataMember]
@@ -111,5 +123,31 @@ namespace IntraBox.Core
         /// <summary>屏幕标尺热键虚拟键，默认 M。</summary>
         [DataMember]
         public int RulerHotkeyVk { get; set; } = 0x4D;
+
+        /// <summary>笔记是否自动保存。默认关闭，需点保存或 Ctrl+S。</summary>
+        [DataMember]
+        public bool NotesAutoSave { get; set; }
+
+        /// <summary>账号备忘是否自动保存。默认关闭。</summary>
+        [DataMember]
+        public bool VaultAutoSave { get; set; }
+
+        /// <summary>从账号备忘复制时是否写入剪贴板历史。默认 false（不记入）。</summary>
+        [DataMember]
+        public bool ClipboardRecordVaultCopies { get; set; }
+
+        /// <summary>
+        /// 点标题栏关闭/Alt+F4 时是否跳过「最小化到托盘 / 退出」询问。
+        /// 为 true 时按 ClosePreferExit 直接执行；托盘右键「退出」不受此项影响。
+        /// </summary>
+        [DataMember]
+        public bool ClosePromptSkip { get; set; }
+
+        /// <summary>
+        /// 关闭提示勾选「不再提醒」后记住的选择：true=退出进程，false=最小化到托盘。
+        /// 默认 true，与首次弹窗预选「退出」一致。
+        /// </summary>
+        [DataMember]
+        public bool ClosePreferExit { get; set; } = true;
     }
 }

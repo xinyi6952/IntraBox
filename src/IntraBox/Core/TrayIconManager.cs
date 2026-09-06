@@ -12,6 +12,8 @@ namespace IntraBox.Core
     public sealed class TrayIconManager : IDisposable
     {
         private WF.NotifyIcon _notifyIcon;
+        private System.Drawing.Image _showImg;
+        private System.Drawing.Image _exitImg;
 
         public void Initialize()
         {
@@ -22,10 +24,12 @@ namespace IntraBox.Core
                 Visible = true
             };
 
+            _showImg = IconToMenuImage(ExtractAppIcon());
+            _exitImg = IconToMenuImage(SystemIcons.Error);
             var menu = new WF.ContextMenuStrip();
-            menu.Items.Add("显示主窗口", null, (s, e) => ShowMainWindow());
+            menu.Items.Add("显示主窗口", _showImg, (s, e) => ShowMainWindow());
             menu.Items.Add(new WF.ToolStripSeparator());
-            menu.Items.Add("退出", null, (s, e) => ExitApplication());
+            menu.Items.Add("退出", _exitImg, (s, e) => ExitApplication());
             _notifyIcon.ContextMenuStrip = menu;
 
             // 左键单击/双击都打开主窗口；右键仍弹出菜单
@@ -80,6 +84,20 @@ namespace IntraBox.Core
             }
         }
 
+        private static System.Drawing.Image IconToMenuImage(Icon icon)
+        {
+            if (icon == null) return null;
+            try
+            {
+                using (var bmp = icon.ToBitmap())
+                    return new Bitmap(bmp, 16, 16);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public void Dispose()
         {
             if (_notifyIcon != null)
@@ -90,6 +108,8 @@ namespace IntraBox.Core
                 _notifyIcon.Dispose();
                 _notifyIcon = null;
             }
+            if (_showImg != null) { _showImg.Dispose(); _showImg = null; }
+            if (_exitImg != null) { _exitImg.Dispose(); _exitImg = null; }
         }
     }
 }

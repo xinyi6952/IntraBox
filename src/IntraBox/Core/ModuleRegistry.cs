@@ -42,6 +42,9 @@ using IntraBox.Modules.RegexTest;
 using IntraBox.Modules.Screenshot;
 using IntraBox.Modules.Settings;
 using IntraBox.Modules.Timestamp;
+using IntraBox.Modules.Todo;
+using IntraBox.Modules.Notes;
+using IntraBox.Modules.Vault;
 using IntraBox.Modules.TxtToExcel;
 
 namespace IntraBox.Core
@@ -67,75 +70,64 @@ namespace IntraBox.Core
         /// </summary>
         private static void RegisterDefault()
         {
-            // 安全工具
-            Register("hash", "哈希计算", "安全工具", () => new HashView());
-            Register("crypto", "加解密", "安全工具", () => new CryptoView());
-            Register("certdecode", "证书解析", "安全工具", () => new CertDecodeView());
+            // 顺序与 NavOrder 默认一致（按日常使用频率）；真正展示顺序以 NavOrder 为准。
+            Register("clipboard", "剪贴板历史", "效率工具", () => new ClipboardView());
+            Register("todo", "任务计划", "效率工具", () => new TodoView());
+            Register("notes", "笔记", "效率工具", () => new NotesView());
+            Register("vault", "账号备忘", "效率工具", () => new VaultView());
 
-            // 编码转换
+            Register("machineinfo", "本机信息", "系统工具", () => new MachineInfoView());
+            Register("hostseditor", "Hosts 编辑器", "系统工具", () => new HostsEditorView());
+            Register("filelock", "文件占用查看", "系统工具", () => new FileLockView());
+            Register("wintopmost", "窗口置顶", "系统工具", () => new WinTopmostView());
+            Register("keepawake", "防止睡眠", "系统工具", () => new KeepAwakeView());
+            Register("regbrowse", "注册表只读浏览", "系统工具", () => new RegBrowseView());
+
+            Register("formatter", "格式化", "格式化", () => new FormatterView());
+
+            Register("screenshot", "屏幕截图", "截图", () => new ScreenshotView());
+            Register("screenruler", "屏幕标尺", "截图", () => new ScreenRulerView());
+
+            Register("diff", "文本比对", "文本工具", () => new DiffView());
+            Register("regextest", "正则表达式测试", "文本工具", () => new RegexTestView());
+            Register("lineprocess", "行处理", "文本工具", () => new LineProcessView());
+            Register("namecase", "命名转换", "文本工具", () => new NameCaseView());
+            Register("mdpreview", "Markdown 预览", "文本工具", () => new MdPreviewView());
+            Register("textstats", "文本统计", "文本工具", () => new TextStatsView());
+            Register("regexviz", "正则可视化", "文本工具", () => new RegexVizView());
+
             Register("base64", "Base64 编解码", "编码转换", () => new Base64View());
             Register("codec", "URL/HTML/Unicode 编解码", "编码转换", () => new CodecView());
             Register("urlparse", "URL 解析", "编码转换", () => new UrlParseView());
             Register("unicodeinspect", "Unicode 字符检查", "编码转换", () => new UnicodeInspectView());
 
-            // 格式化
-            Register("formatter", "格式化", "格式化", () => new FormatterView());
+            Register("timestamp", "时间戳转换", "转换工具", () => new TimestampView());
 
-            // 截图
-            Register("screenshot", "屏幕截图", "截图", () => new ScreenshotView());
-            Register("screenruler", "屏幕标尺", "截图", () => new ScreenRulerView());
+            Register("filesearch", "文件查找", "文件管理", () => new FileSearchView());
+            Register("fileorganize", "文件整理", "文件管理", () => new FileOrganizeView());
+            Register("batchrename", "批量重命名", "文件管理", () => new BatchRenameView());
+            Register("dupfiles", "重复文件查找", "文件管理", () => new DupFilesView());
 
-            // 开发工具
-            Register("jsonschema", "JSON Schema 验证", "开发工具", () => new JsonSchemaView());
-            Register("semver", "SemVer 版本比较", "开发工具", () => new SemverView());
-
-            // 设计工具
-            Register("colorblind", "色盲模拟", "设计工具", () => new ColorBlindView());
-            Register("colorpicker", "屏幕取色", "设计工具", () => new ColorPickerView());
-
-            // 生成器
-            Register("qrcode", "二维码生成", "生成器", () => new QrCodeView());
-            Register("jsontoclass", "JSON 转实体类", "生成器", () => new JsonToClassView());
-            Register("idgenerator", "ID 与密码生成", "生成器", () => new GeneratorView());
-
-            // 数据转换
-            Register("txt2excel", "文本转 Excel", "数据转换", () => new TxtToExcelView());
-
-            // 图片工具
-            Register("imageconvert", "图片压缩缩放转换", "图片工具", () => new ImageConvertView());
-
-            // 网络工具
             Register("portlist", "端口占用查看", "网络工具", () => new PortListView());
             Register("porttest", "端口连通性测试", "网络工具", () => new PortTestView());
 
-            // 文本工具
-            Register("lineprocess", "行处理", "文本工具", () => new LineProcessView());
-            Register("mdpreview", "Markdown 预览", "文本工具", () => new MdPreviewView());
-            Register("namecase", "命名转换", "文本工具", () => new NameCaseView());
-            Register("diff", "文本比对", "文本工具", () => new DiffView());
-            Register("textstats", "文本统计", "文本工具", () => new TextStatsView());
-            Register("regextest", "正则表达式测试", "文本工具", () => new RegexTestView());
-            Register("regexviz", "正则可视化", "文本工具", () => new RegexVizView());
+            Register("hash", "哈希计算", "安全工具", () => new HashView());
+            Register("crypto", "加解密", "安全工具", () => new CryptoView());
+            Register("certdecode", "证书解析", "安全工具", () => new CertDecodeView());
 
-            // 文件管理
-            Register("dupfiles", "重复文件查找", "文件管理", () => new DupFilesView());
-            Register("batchrename", "批量重命名", "文件管理", () => new BatchRenameView());
-            Register("filesearch", "文件查找", "文件管理", () => new FileSearchView());
-            Register("fileorganize", "文件整理", "文件管理", () => new FileOrganizeView());
+            Register("idgenerator", "ID 与密码生成", "生成器", () => new GeneratorView());
+            Register("qrcode", "二维码生成", "生成器", () => new QrCodeView());
+            Register("jsontoclass", "JSON 转实体类", "生成器", () => new JsonToClassView());
 
-            // 系统工具
-            Register("machineinfo", "本机信息", "系统工具", () => new MachineInfoView());
-            Register("wintopmost", "窗口置顶", "系统工具", () => new WinTopmostView());
-            Register("keepawake", "防止睡眠", "系统工具", () => new KeepAwakeView());
-            Register("hostseditor", "Hosts 编辑器", "系统工具", () => new HostsEditorView());
-            Register("filelock", "文件占用查看", "系统工具", () => new FileLockView());
-            Register("regbrowse", "注册表只读浏览", "系统工具", () => new RegBrowseView());
+            Register("txt2excel", "文本转 Excel", "数据转换", () => new TxtToExcelView());
 
-            // 效率工具
-            Register("clipboard", "剪贴板历史", "效率工具", () => new ClipboardView());
+            Register("imageconvert", "图片压缩缩放转换", "图片工具", () => new ImageConvertView());
 
-            // 转换工具
-            Register("timestamp", "时间戳转换", "转换工具", () => new TimestampView());
+            Register("colorpicker", "屏幕取色", "设计工具", () => new ColorPickerView());
+            Register("colorblind", "色盲模拟", "设计工具", () => new ColorBlindView());
+
+            Register("jsonschema", "JSON Schema 验证", "开发工具", () => new JsonSchemaView());
+            Register("semver", "SemVer 版本比较", "开发工具", () => new SemverView());
 
             // 设置（固定导航底部）
             Register("settings", "设置", "系统", () => new SettingsView());

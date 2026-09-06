@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 namespace IntraBox.Core
 {
     /// <summary>
-    /// 工具状态记忆：只保存数据、不缓存控件。会话内 LRU 字典，并落盘到程序目录 history.json。
+    /// 工具状态记忆：只保存数据、不缓存控件。会话内 LRU 字典，并落盘到数据根 history.json。
     /// 内存更新同步、序列化与写盘在线程池异步进行，避免卡住界面。
     /// 单条字符串超过 MaxTextChars（512KB）直接丢弃，不落盘图片或其它大对象。
     /// </summary>
@@ -29,7 +29,7 @@ namespace IntraBox.Core
 
         private static string FilePath
         {
-            get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "history.json"); }
+            get { return DataPaths.HistoryJson; }
         }
 
         public static void LoadFromDisk()

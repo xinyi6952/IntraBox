@@ -8,6 +8,8 @@
     <SolidColorBrush x:Key="AccentPressedBrush" Color="#2C5A86"/>
     <SolidColorBrush x:Key="DangerBrush" Color="#C72222"/>
     <SolidColorBrush x:Key="WarningBrush" Color="#B88217"/>
+    <SolidColorBrush x:Key="HostsUnsavedRowBrush" Color="#F7E8B8"/>
+    <SolidColorBrush x:Key="HostsUnsavedRowSelectedBrush" Color="#EDC85C"/>
     <SolidColorBrush x:Key="SuccessBrush" Color="#2E7D32"/>
     <SolidColorBrush x:Key="OkBrush" Color="#2E7D32"/>
     <SolidColorBrush x:Key="WindowBgBrush" Color="#F2F2F2"/>
@@ -37,6 +39,8 @@
     <SolidColorBrush x:Key="EditorBackgroundBrush" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="EditorForegroundBrush" Color="#000000"/>
     <SolidColorBrush x:Key="EditorLineNumberBrush" Color="#999999"/>
+    <SolidColorBrush x:Key="NotesLineNumberBrush" Color="#5A7A88"/>
+    <SolidColorBrush x:Key="NotesLineNumberBgBrush" Color="#EEF1F5"/>
     <SolidColorBrush x:Key="EditorCurrentLineBrush" Color="#FFF5CC"/>
     <SolidColorBrush x:Key="EditorCurrentLineBorderBrush" Color="#E6E6B8"/>
     <SolidColorBrush x:Key="EditorSelectionBrush" Color="#A6D2FF"/>

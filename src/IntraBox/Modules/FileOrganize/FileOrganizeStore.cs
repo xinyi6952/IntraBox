@@ -16,7 +16,7 @@ namespace IntraBox.Modules.FileOrganize
         public List<OrganizeRule> Rules { get; set; }
     }
 
-    /// <summary>读写程序目录下的 fileorganize.json。撤销记录只写 fileorganize-undo.json。</summary>
+    /// <summary>读写数据根目录下的 fileorganize.json。撤销记录只写 fileorganize-undo.json。</summary>
     public static class FileOrganizeStore
     {
         private static readonly object _sync = new object();
@@ -30,16 +30,16 @@ namespace IntraBox.Modules.FileOrganize
 
         public static string DefaultPath
         {
-            get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "fileorganize.json"); }
+            get { return DataPaths.FileOrganizeJson; }
         }
 
         public static string UndoPathFor(string statePath)
         {
             string dir = string.IsNullOrEmpty(statePath)
-                ? AppDomain.CurrentDomain.BaseDirectory
+                ? DataPaths.Root
                 : Path.GetDirectoryName(statePath);
             if (string.IsNullOrEmpty(dir))
-                dir = AppDomain.CurrentDomain.BaseDirectory;
+                dir = DataPaths.Root;
             return Path.Combine(dir, "fileorganize-undo.json");
         }
 

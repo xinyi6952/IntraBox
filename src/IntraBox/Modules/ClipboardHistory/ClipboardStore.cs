@@ -71,8 +71,10 @@ namespace IntraBox.Modules.ClipboardHistory
 
         public bool IsImage { get; set; }
         public string Text { get; set; }
-        /// <summary>图片历史只保留独立缩略图（最长边约 256px），不持有原图。</summary>
+        /// <summary>图片历史列表用缩略图；写回/查看用原图像素的 PNG 压缩副本。</summary>
         public BitmapSource Thumb { get; set; }
+        /// <summary>原图 PNG（压缩），避免只写回 128px 缩略图发糊。</summary>
+        public byte[] ImagePng { get; set; }
         public string Preview { get; set; }
 
         /// <summary>列表用的单行精简预览（约 72 字，多行压成一行）。</summary>

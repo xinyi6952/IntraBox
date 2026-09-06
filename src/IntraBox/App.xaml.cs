@@ -68,10 +68,12 @@ namespace IntraBox
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 
             // 加载配置、初始化托盘、创建主窗口（仍用自研托盘，不用 hc:NotifyIcon）
+            DataPaths.Initialize();
             ConfigManager.Instance.Load();
             HistoryManager.LoadFromDisk();
             // 一次性迁移旧 key（generator → idgenerator），保证老用户显隐/上次工具/历史不丢
             ConfigManager.Instance.MigrateGeneratorKey();
+            ConfigManager.Instance.EnsureNewToolsVisible();
             HistoryManager.MigrateGeneratorKey();
             ThemeManager.Apply(ConfigManager.Instance.Settings.Theme);
             WindowCaption.Hook();
@@ -91,6 +93,10 @@ namespace IntraBox
             TryShowWelcome(window);
             window.RestoreLastModule();
             ClipboardMonitor.Start();
+            IntraBox.Modules.Todo.TodoStore.Reload();
+            IntraBox.Modules.Notes.NoteStore.Reload();
+            IntraBox.Modules.Vault.VaultStore.Reload();
+            IntraBox.Modules.Todo.TodoReminderService.Start();
 
             StartShowWindowListener();
         }
@@ -115,6 +121,10 @@ namespace IntraBox
                 KeepAwakeService.SetEnabled(false);
                 HistoryManager.Flush();
                 IntraBox.Modules.FileOrganize.FileOrganizeStore.Flush();
+                IntraBox.Modules.Todo.TodoStore.Flush();
+                IntraBox.Modules.Notes.NoteStore.Flush();
+                IntraBox.Modules.Vault.VaultStore.Flush();
+                IntraBox.Modules.Todo.TodoReminderService.Stop();
                 ConfigManager.Instance.Save();
                 HotkeyService.Uninstall();
                 if (_tray != null) { _tray.Dispose(); _tray = null; }
@@ -187,12 +197,13 @@ namespace IntraBox
             LogException(e.ExceptionObject as Exception);
         }
 
-        /// <summary>将异常链（含内部异常与堆栈）写入程序目录 error.log，便于定位。</summary>
+        /// <summary>将异常链（含内部异常与堆栈）写入数据根 error.log，便于定位。</summary>
         private static void LogException(Exception ex)
         {
             try
             {
-                var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "error.log");
+                DataPaths.Initialize();
+                var path = DataPaths.ErrorLog;
                 RotateLogIfNeeded(path);
                 var sb = new System.Text.StringBuilder();
                 sb.AppendLine("==== " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " ====");
@@ -209,7 +220,7 @@ namespace IntraBox
             catch { /* 日志写入失败不影响运行 */ }
         }
 
-        /// <summary>error.log 超过 1MB 时只保留尾部 256KB，避免托盘常驻把程序目录写满。</summary>
+        /// <summary>error.log 超过 1MB 时只保留尾部 256KB，避免托盘常驻把数据目录写满。</summary>
         private static void RotateLogIfNeeded(string path)
         {
             const long maxBytes = 1024L * 1024L;

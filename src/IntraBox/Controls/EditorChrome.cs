@@ -86,6 +86,7 @@ namespace IntraBox.Controls
             var state = editor.Tag as EditorAttachState;
             if (state != null && state.Brackets != null)
                 state.Brackets.Background = FindBrush("BracketHighlightBrush");
+            HighlightingTheme.Apply(editor.SyntaxHighlighting, ThemeManager.IsDark);
             editor.TextArea.TextView.Redraw();
         }
 
@@ -93,6 +94,7 @@ namespace IntraBox.Controls
         {
             if (editor == null) return;
             editor.SyntaxHighlighting = def;
+            HighlightingTheme.Apply(def, ThemeManager.IsDark);
             var state = editor.Tag as EditorAttachState;
             UpdateFoldings(editor, state);
         }

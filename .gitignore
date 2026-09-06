@@ -22,6 +22,9 @@ redist/
 .fleet/
 .vscode/
 
+# ===== 本机个人文件（评审流水账等，不入库）=====
+.agents-local/
+
 # ===== Visual Studio =====
 .vs/
 *.user

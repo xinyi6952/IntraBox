@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using IntraBox.Core;
 
 namespace IntraBox.Modules.ClipboardHistory
@@ -15,6 +13,7 @@ namespace IntraBox.Modules.ClipboardHistory
     public static class ClipboardMonitor
     {
         private static HwndSource _source;
+        private const int ThumbMaxEdge = 128;
 
         public static void Start()
         {
@@ -58,11 +57,15 @@ namespace IntraBox.Modules.ClipboardHistory
             if (item == null) return;
             if (item.IsImage)
             {
-                if (item.Thumb != null)
-                    ClipboardStore.LastImageSig = GetImageSignature(item.Thumb);
-                var img = ClipboardHelper.SafeGetImage();
-                if (img != null)
-                    ClipboardStore.LastImageSig = GetImageSignature(img);
+                int w, h;
+                byte[] bgra;
+                if (ClipboardHelper.TryGetImageBgra(out w, out h, out bgra))
+                    ClipboardStore.LastImageSig = ClipboardImage.Signature(w, h, bgra);
+                else if (item.Thumb != null)
+                {
+                    bgra = ClipboardImage.CopyBgra32(item.Thumb, out w, out h);
+                    ClipboardStore.LastImageSig = ClipboardImage.Signature(w, h, bgra);
+                }
             }
             else
             {
@@ -70,17 +73,19 @@ namespace IntraBox.Modules.ClipboardHistory
             }
         }
 
-        /// <summary>检测剪贴板变化（文本与图片分开处理，避免一个失败影响另一个）。</summary>
+        /// <summary>检测剪贴板变化（一次打开同时取文本与图片，避免连开两次）。</summary>
         private static void CheckClipboard()
         {
-            CheckClipboardText();
-            CheckClipboardImage();
+            string text;
+            int w, h;
+            byte[] bgra;
+            if (!ClipboardHelper.TryReadClipboard(SizeLimits.MaxFileBytes, out text, out w, out h, out bgra)) return;
+            CheckClipboardText(text);
+            CheckClipboardImage(w, h, bgra);
         }
 
-        private static void CheckClipboardText()
+        private static void CheckClipboardText(string text)
         {
-            string text;
-            if (!ClipboardHelper.TryGetText(out text)) return;
             if (string.IsNullOrEmpty(text)) return;
             if (text == ClipboardStore.LastText) return;
             string err;
@@ -93,12 +98,15 @@ namespace IntraBox.Modules.ClipboardHistory
             AddTextItem(text);
         }
 
-        private static void CheckClipboardImage()
+        private static void CheckClipboardImage(int origW, int origH, byte[] bgra)
         {
-            // 无图时 GetImage 返回 null（不抛），故无需前置 ContainsImage；占用时只重试一轮，减轻 UI 顿挫。
-            var img = ClipboardHelper.SafeGetImage();
-            if (img == null) return;
-            var sig = GetImageSignature(img);
+            if (origW < 1 || origH < 1) return;
+            if (bgra == null)
+            {
+                ClipboardStore.LastImageSig = origW + "x" + origH + ":oversized";
+                return;
+            }
+            var sig = ClipboardImage.Signature(origW, origH, bgra);
             if (ClipboardStore.SuppressImageCapture)
             {
                 ClipboardStore.LastImageSig = sig;
@@ -106,14 +114,8 @@ namespace IntraBox.Modules.ClipboardHistory
             }
             if (ClipboardStore.ShouldSkipDuplicateImage(sig, ClipboardStore.LastImageSig))
                 return;
-            long bytes = (long)img.PixelWidth * img.PixelHeight * 4;
-            if (bytes > SizeLimits.MaxFileBytes)
-            {
-                ClipboardStore.LastImageSig = sig;
-                return;
-            }
             ClipboardStore.LastImageSig = sig;
-            AddImage(img);
+            AddImage(origW, origH, bgra);
         }
 
         private static void AddTextItem(string text)
@@ -128,74 +130,19 @@ namespace IntraBox.Modules.ClipboardHistory
             });
         }
 
-        private const int ThumbMaxEdge = 128;
-
-        private static void AddImage(BitmapSource img)
+        private static void AddImage(int origW, int origH, byte[] bgra)
         {
-            int origW = img.PixelWidth;
-            int origH = img.PixelHeight;
-            var thumb = CopyAsThumb(img, ThumbMaxEdge);
+            var thumb = ClipboardImage.CreateThumb(bgra, origW, origH, ThumbMaxEdge, 96, 96);
+            byte[] png = ClipboardImage.EncodePngBytes(bgra, origW, origH);
             ClipboardStore.Add(new ClipItem
             {
                 IsImage = true,
                 Text = null,
                 Preview = "[图片] " + origW + "×" + origH,
                 Thumb = thumb,
+                ImagePng = png,
                 Time = DateTime.Now
             });
-        }
-
-        /// <summary>
-        /// 生成独立缩略图：把像素拷进新 BitmapSource 并 Freeze，
-        /// 避免 TransformedBitmap 继续引用剪贴板原图导致内存收不回。
-        /// </summary>
-        private static BitmapSource CopyAsThumb(BitmapSource src, int maxEdge)
-        {
-            int w = src.PixelWidth;
-            int h = src.PixelHeight;
-            if (w < 1) w = 1;
-            if (h < 1) h = 1;
-            double scale = Math.Min(1.0, (double)maxEdge / Math.Max(w, h));
-            int tw = Math.Max(1, (int)Math.Round(w * scale));
-            int th = Math.Max(1, (int)Math.Round(h * scale));
-
-            BitmapSource current = src;
-            if (src.Format != PixelFormats.Bgra32)
-                current = new FormatConvertedBitmap(src, PixelFormats.Bgra32, null, 0);
-            if (tw != w || th != h)
-            {
-                double sx = (double)tw / w;
-                double sy = (double)th / h;
-                current = new TransformedBitmap(current, new ScaleTransform(sx, sy));
-            }
-
-            int stride = tw * 4;
-            var pixels = new byte[stride * th];
-            current.CopyPixels(pixels, stride, 0);
-            double dpiX = src.DpiX > 0 ? src.DpiX : 96;
-            double dpiY = src.DpiY > 0 ? src.DpiY : 96;
-            var copy = BitmapSource.Create(tw, th, dpiX, dpiY, PixelFormats.Bgra32, null, pixels, stride);
-            copy.Freeze();
-            return copy;
-        }
-
-        /// <summary>图片指纹：用于去重，以及写回剪贴板后避免立刻再记一条。</summary>
-        private static string GetImageSignature(BitmapSource img)
-        {
-            int w = img.PixelWidth, h = img.PixelHeight;
-            const int sample = 16;
-            var sw = Math.Max(1.0, (double)sample / w);
-            var sh = Math.Max(1.0, (double)sample / h);
-            var scaled = new TransformedBitmap(img, new ScaleTransform(sw, sh));
-            var fmt = new FormatConvertedBitmap(scaled, PixelFormats.Bgra32, null, 0);
-            int pw = fmt.PixelWidth, ph = fmt.PixelHeight;
-            int stride = pw * 4;
-            var pixels = new byte[stride * ph];
-            fmt.CopyPixels(pixels, stride, 0);
-
-            long sum = (long)w * 100000 + h;
-            foreach (var b in pixels) sum = sum * 31 + b;
-            return w + "x" + h + ":" + sum;
         }
     }
 }

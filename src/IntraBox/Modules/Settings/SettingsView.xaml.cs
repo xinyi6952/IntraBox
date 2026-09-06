@@ -1,14 +1,22 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using IntraBox.Controls;
 using IntraBox.Core;
 using IntraBox.Modules.ClipboardHistory;
+using IntraBox.Modules.Notes;
+using IntraBox.Modules.Todo;
+using WF = System.Windows.Forms;
 
 namespace IntraBox.Modules.Settings
 {
-    /// <summary>应用设置：主题、文件大小上限、截屏热键、工具显隐。写入 config.json。</summary>
+    /// <summary>应用设置：主题、文件大小上限、截屏热键、工具显隐与导航排序。写入 config.json。</summary>
     public partial class SettingsView : UserControl, IModuleView, ILeaveGuard
     {
         private bool _loading;
@@ -17,10 +25,15 @@ namespace IntraBox.Modules.Settings
         private bool _hkShift;
         private int _hkVk = 0x41;
         private List<ToolVisItem> _toolItems;
+        private List<ToolVisGroup> _toolGroups;
+        private List<NavSortGroup> _sortGroups;
+        private bool _sortUiOpen;
         private int _loadedMb;
         private int _loadedClip;
         private int _loadedHistoryDelay;
+        private bool _loadedVaultClip;
         private string _loadedVis = "";
+        private string _loadedSort = "";
 
         public SettingsView()
         {
@@ -43,12 +56,16 @@ namespace IntraBox.Modules.Settings
             _hkVk = s.CaptureHotkeyVk > 0 ? s.CaptureHotkeyVk : 0x41;
             RefreshHotkeyBox();
             LoadToolVisibility();
+            LoadNavSort(false);
+            ShowSortUi(false);
             int clip = AppSettings.ClampClipboardMax(s.ClipboardMaxItems);
             ClipSlider.Value = clip;
             UpdateClipLabel(clip);
+            VaultClipCheck.IsChecked = s.ClipboardRecordVaultCopies;
             int delay = AppSettings.CurrentHistoryPersistDelayMs();
             HistoryDelaySlider.Value = delay;
             UpdateHistoryDelayLabel(delay);
+            RefreshDataDirBox();
             MsgText.Text = "";
             _loading = false;
             RememberClean();
@@ -84,8 +101,10 @@ namespace IntraBox.Modules.Settings
         {
             _loadedMb = SizeLimits.ClampMb((int)SizeSlider.Value);
             _loadedClip = AppSettings.ClampClipboardMax((int)ClipSlider.Value);
+            _loadedVaultClip = VaultClipCheck != null && VaultClipCheck.IsChecked == true;
             _loadedHistoryDelay = AppSettings.ClampHistoryPersistDelayMs((int)HistoryDelaySlider.Value);
             _loadedVis = CurrentVisKey();
+            _loadedSort = CurrentSortKey();
         }
 
         private bool IsDirty()
@@ -93,23 +112,389 @@ namespace IntraBox.Modules.Settings
             int mb = SizeLimits.ClampMb((int)SizeSlider.Value);
             int clip = AppSettings.ClampClipboardMax((int)ClipSlider.Value);
             int delay = AppSettings.ClampHistoryPersistDelayMs((int)HistoryDelaySlider.Value);
-            return mb != _loadedMb || clip != _loadedClip || delay != _loadedHistoryDelay || CurrentVisKey() != _loadedVis;
+            bool vaultClip = VaultClipCheck != null && VaultClipCheck.IsChecked == true;
+            return mb != _loadedMb || clip != _loadedClip || delay != _loadedHistoryDelay
+                || vaultClip != _loadedVaultClip
+                || CurrentVisKey() != _loadedVis || CurrentSortKey() != _loadedSort;
         }
 
         private void LoadToolVisibility()
         {
             _toolItems = new List<ToolVisItem>();
+            _toolGroups = new List<ToolVisGroup>();
             var tools = ToolVisibility.ToggleableTools();
+            ToolVisGroup cur = null;
             for (int i = 0; i < tools.Count; i++)
             {
-                _toolItems.Add(new ToolVisItem
+                var item = new ToolVisItem
                 {
                     Key = tools[i].Key,
                     DisplayName = tools[i].DisplayName,
                     IsVisible = ToolVisibility.IsVisible(tools[i].Key)
+                };
+                _toolItems.Add(item);
+                if (cur == null || cur.Category != tools[i].Category)
+                {
+                    cur = new ToolVisGroup { Category = tools[i].Category };
+                    _toolGroups.Add(cur);
+                }
+                cur.Items.Add(item);
+            }
+            ToolVisGroups.ItemsSource = _toolGroups;
+        }
+
+        private string CurrentSortKey()
+        {
+            if (_sortGroups == null) return "";
+            var sb = new System.Text.StringBuilder();
+            for (int g = 0; g < _sortGroups.Count; g++)
+            {
+                if (g > 0) sb.Append('|');
+                sb.Append(_sortGroups[g].Category);
+                sb.Append('>');
+                var items = _sortGroups[g].Items;
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Append(items[i].Key);
+                }
+            }
+            return sb.ToString();
+        }
+
+        private void LoadNavSort(bool useDefault)
+        {
+            var tools = useDefault ? ToolVisibility.ToggleableToolsDefault() : ToolVisibility.ToggleableTools();
+            _sortGroups = BuildSortGroups(tools);
+            BindNavSort();
+            RebuildVisGroups();
+        }
+
+        private static List<NavSortGroup> BuildSortGroups(List<ModuleInfo> tools)
+        {
+            var groups = new List<NavSortGroup>();
+            NavSortGroup cur = null;
+            for (int i = 0; i < tools.Count; i++)
+            {
+                if (cur == null || cur.Category != tools[i].Category)
+                {
+                    cur = new NavSortGroup { Category = tools[i].Category };
+                    groups.Add(cur);
+                }
+                cur.Items.Add(new NavSortItem
+                {
+                    Key = tools[i].Key,
+                    DisplayName = tools[i].DisplayName
                 });
             }
-            ToolVisList.ItemsSource = _toolItems;
+            return groups;
+        }
+
+        private void BindNavSort()
+        {
+            if (NavSortGrid == null) return;
+            var rows = new List<NavTreeNode>();
+            if (_sortGroups != null)
+            {
+                for (int g = 0; g < _sortGroups.Count; g++)
+                {
+                    var sg = _sortGroups[g];
+                    rows.Add(new NavTreeNode
+                    {
+                        Title = sg.Category,
+                        Category = sg.Category,
+                        IsCategory = true
+                    });
+                    for (int i = 0; i < sg.Items.Count; i++)
+                    {
+                        rows.Add(new NavTreeNode
+                        {
+                            Title = sg.Items[i].DisplayName,
+                            Key = sg.Items[i].Key,
+                            Category = sg.Category,
+                            IsCategory = false
+                        });
+                    }
+                }
+            }
+            NavSortGrid.ItemsSource = null;
+            NavSortGrid.ItemsSource = rows;
+        }
+
+        private void NavSortToggle_Click(object sender, RoutedEventArgs e)
+        {
+            ShowSortUi(!_sortUiOpen);
+        }
+
+        private void ShowSortUi(bool on)
+        {
+            _sortUiOpen = on;
+            if (ToolVisGroups != null)
+                ToolVisGroups.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+            if (NavSortPanel != null)
+                NavSortPanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            if (NavSortToggleBtn != null)
+                NavSortToggleBtn.Content = on ? "返回显隐" : "调整顺序";
+            if (on) BindNavSort();
+        }
+
+        private void RebuildVisGroups()
+        {
+            if (_toolItems == null || _sortGroups == null) return;
+            _toolGroups = new List<ToolVisGroup>();
+            for (int g = 0; g < _sortGroups.Count; g++)
+            {
+                var sg = _sortGroups[g];
+                var vg = new ToolVisGroup { Category = sg.Category };
+                for (int i = 0; i < sg.Items.Count; i++)
+                {
+                    var vis = FindToolVis(sg.Items[i].Key);
+                    if (vis != null) vg.Items.Add(vis);
+                }
+                if (vg.Items.Count > 0)
+                    _toolGroups.Add(vg);
+            }
+            if (ToolVisGroups != null)
+            {
+                ToolVisGroups.ItemsSource = null;
+                ToolVisGroups.ItemsSource = _toolGroups;
+            }
+        }
+
+        private ToolVisItem FindToolVis(string key)
+        {
+            if (_toolItems == null) return null;
+            for (int i = 0; i < _toolItems.Count; i++)
+            {
+                if (_toolItems[i].Key == key) return _toolItems[i];
+            }
+            return null;
+        }
+
+        private void NavSortReset_Click(object sender, RoutedEventArgs e)
+        {
+            LoadNavSort(true);
+            ShowSortUi(true);
+            MsgText.Text = "已恢复默认排序，保存设置后生效。";
+        }
+
+        private void NavTreeTop_Click(object sender, RoutedEventArgs e)
+        {
+            MoveNavNode(sender, -2);
+        }
+
+        private void NavTreeUp_Click(object sender, RoutedEventArgs e)
+        {
+            MoveNavNode(sender, -1);
+        }
+
+        private void NavTreeDown_Click(object sender, RoutedEventArgs e)
+        {
+            MoveNavNode(sender, 1);
+        }
+
+        private void NavTreeBottom_Click(object sender, RoutedEventArgs e)
+        {
+            MoveNavNode(sender, 2);
+        }
+
+        private void MoveNavNode(object sender, int dir)
+        {
+            var btn = sender as Button;
+            var node = btn != null ? btn.Tag as NavTreeNode : null;
+            if (node == null) return;
+            if (node.IsCategory)
+                MoveCategory(node.Category, dir);
+            else
+                MoveTool(node.Key, dir);
+        }
+
+        private void MoveCategory(string category, int dir)
+        {
+            int i = IndexOfGroup(category);
+            if (i < 0) return;
+            MoveInList(_sortGroups, i, dir);
+            BindNavSort();
+            RebuildVisGroups();
+        }
+
+        private void MoveTool(string key, int dir)
+        {
+            NavSortGroup g;
+            int i = IndexOfTool(key, out g);
+            if (g == null || i < 0) return;
+            MoveInList(g.Items, i, dir);
+            BindNavSort();
+            RebuildVisGroups();
+        }
+
+        private int IndexOfGroup(string category)
+        {
+            if (_sortGroups == null || string.IsNullOrEmpty(category)) return -1;
+            for (int i = 0; i < _sortGroups.Count; i++)
+            {
+                if (_sortGroups[i].Category == category) return i;
+            }
+            return -1;
+        }
+
+        private int IndexOfTool(string key, out NavSortGroup group)
+        {
+            group = null;
+            if (_sortGroups == null || string.IsNullOrEmpty(key)) return -1;
+            for (int g = 0; g < _sortGroups.Count; g++)
+            {
+                var items = _sortGroups[g].Items;
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (items[i].Key == key)
+                    {
+                        group = _sortGroups[g];
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        private static void MoveInList<T>(List<T> list, int index, int dir)
+        {
+            if (list == null || index < 0 || index >= list.Count) return;
+            int dest = index;
+            if (dir == -2) dest = 0;
+            else if (dir == -1) dest = index - 1;
+            else if (dir == 1) dest = index + 1;
+            else dest = list.Count - 1;
+            if (dest < 0 || dest >= list.Count || dest == index) return;
+            T item = list[index];
+            list.RemoveAt(index);
+            list.Insert(dest, item);
+        }
+
+        private void ToolVisAllOn_Click(object sender, RoutedEventArgs e)
+        {
+            SetAllToolVis(true);
+        }
+
+        private void ToolVisAllOff_Click(object sender, RoutedEventArgs e)
+        {
+            SetAllToolVis(false);
+        }
+
+        private void SetAllToolVis(bool on)
+        {
+            if (_toolItems == null) return;
+            for (int i = 0; i < _toolItems.Count; i++)
+                _toolItems[i].IsVisible = on;
+        }
+
+        private void RefreshDataDirBox()
+        {
+            if (DataDirBox == null) return;
+            DataDirBox.Text = DataPaths.Root;
+        }
+
+        private void DataDirOpen_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = DataPaths.Root,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MsgText.Text = "无法打开：" + ex.Message;
+            }
+        }
+
+        private void DataDirChange_Click(object sender, RoutedEventArgs e)
+        {
+            using (var dlg = new WF.FolderBrowserDialog())
+            {
+                dlg.Description = "选择新的数据目录（将复制现有文件，不删除原目录）";
+                dlg.ShowNewFolderButton = true;
+                try { dlg.SelectedPath = DataPaths.Root; } catch { }
+                if (dlg.ShowDialog() != WF.DialogResult.OK) return;
+                BeginCopyDataRoot(dlg.SelectedPath, false);
+            }
+        }
+
+        private void DataDirReset_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataPaths.IsDefaultRoot)
+            {
+                MsgText.Text = "已经是默认数据目录。";
+                return;
+            }
+            BeginCopyDataRoot(DataPaths.DefaultRoot, true);
+        }
+
+        private void BeginCopyDataRoot(string dest, bool restoreDefault)
+        {
+            string err;
+            if (!DataPaths.TryValidateNewRoot(dest, out err))
+            {
+                MsgText.Text = err;
+                MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (DataPaths.SamePath(dest, DataPaths.Root))
+            {
+                MsgText.Text = "已经是当前数据目录。";
+                return;
+            }
+            LoadingOverlay.Show(this, "正在复制数据文件…");
+            string destCopy = dest;
+            Task.Run(() =>
+            {
+                try
+                {
+                    Dispatcher.Invoke(new Action(FlushAllStores));
+                    DataPaths.CopyRootTo(destCopy);
+                    Dispatcher.Invoke(new Action(() => FinishDataRootCopy(destCopy, restoreDefault, null)));
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.Invoke(new Action(() => FinishDataRootCopy(null, false, ex.Message)));
+                }
+            });
+        }
+
+        private static void FlushAllStores()
+        {
+            HistoryManager.Flush();
+            IntraBox.Modules.FileOrganize.FileOrganizeStore.Flush();
+            TodoStore.Flush();
+            NoteStore.Flush();
+            IntraBox.Modules.Vault.VaultStore.Flush();
+            ConfigManager.Instance.Save();
+        }
+
+        private void FinishDataRootCopy(string dest, bool restoreDefault, string error)
+        {
+            LoadingOverlay.Hide(this);
+            if (!string.IsNullOrEmpty(error) || string.IsNullOrEmpty(dest))
+            {
+                MsgText.Text = "复制失败，仍使用原目录。" + (error ?? "");
+                MessageBox.Show("复制失败：" + (error ?? "未知错误"), "IntraBox",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            DataPaths.SetRoot(dest, restoreDefault);
+            ConfigManager.Instance.Load();
+            HistoryManager.LoadFromDisk();
+            TodoStore.Reload();
+            NoteStore.Reload();
+            IntraBox.Modules.Vault.VaultStore.Reload();
+            ThemeManager.Apply(ConfigManager.Instance.Settings.Theme);
+            RefreshDataDirBox();
+            OnActivated();
+            MsgText.Text = restoreDefault
+                ? "已恢复默认数据目录（文件已复制，原目录未删除）。"
+                : "数据目录已更换（文件已复制，原目录未删除）。";
         }
 
         private void RefreshHotkeyBox()
@@ -221,6 +606,10 @@ namespace IntraBox.Modules.Settings
             UpdateClipLabel((int)ClipSlider.Value);
         }
 
+        private void VaultClip_Changed(object sender, RoutedEventArgs e)
+        {
+        }
+
         private void UpdateClipLabel(int n)
         {
             ClipLabel.Text = n + " 条";
@@ -242,6 +631,16 @@ namespace IntraBox.Modules.Settings
             var w = new IntraBox.WelcomeWindow();
             w.Owner = Window.GetWindow(this);
             w.ShowDialog();
+        }
+
+        private void ClosePromptReset_Click(object sender, RoutedEventArgs e)
+        {
+            var s = ConfigManager.Instance.Settings;
+            s.ClosePromptSkip = false;
+            ConfigManager.Instance.Save();
+            RememberClean();
+            MsgText.Text = "已恢复关闭提示，下次点关闭会再询问";
+            MsgText.Foreground = (Brush)FindResource("TextSecondaryBrush");
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
@@ -278,8 +677,10 @@ namespace IntraBox.Modules.Settings
             UpdateHistoryDelayLabel(delay);
             ConfigManager.Instance.Settings.MaxFileSizeMb = mb;
             ConfigManager.Instance.Settings.ClipboardMaxItems = clip;
+            ConfigManager.Instance.Settings.ClipboardRecordVaultCopies = VaultClipCheck != null && VaultClipCheck.IsChecked == true;
             ConfigManager.Instance.Settings.HistoryPersistDelayMs = delay;
             ConfigManager.Instance.Settings.VisibleToolKeys = visible.ToArray();
+            ApplyNavOrderFromUi();
             ThemeManager.Apply(ThemeName(ThemeCombo.SelectedIndex));
             ConfigManager.Instance.Save();
             ClipboardStore.TrimToLimit();
@@ -288,8 +689,47 @@ namespace IntraBox.Modules.Settings
             var main = Application.Current != null ? Application.Current.MainWindow as MainWindow : null;
             if (main != null) main.ReloadNav();
 
-            MsgText.Text = "已保存。状态记忆写入延迟 " + delay + " 毫秒，文件上限 " + mb + " MB，主题与工具显隐已记住。";
+            MsgText.Text = "已保存。状态记忆写入延迟 " + delay + " 毫秒，文件上限 " + mb + " MB，主题、显隐与导航排序已记住。";
             return true;
+        }
+
+        private void ApplyNavOrderFromUi()
+        {
+            var cats = new List<string>();
+            var keys = new List<string>();
+            if (_sortGroups != null)
+            {
+                for (int g = 0; g < _sortGroups.Count; g++)
+                {
+                    cats.Add(_sortGroups[g].Category);
+                    var items = _sortGroups[g].Items;
+                    for (int i = 0; i < items.Count; i++)
+                        keys.Add(items[i].Key);
+                }
+            }
+            var catArr = cats.ToArray();
+            var keyArr = keys.ToArray();
+            if (NavOrder.IsDefaultOrder(catArr, keyArr))
+            {
+                ConfigManager.Instance.Settings.NavCategoryOrder = null;
+                ConfigManager.Instance.Settings.NavToolOrder = null;
+            }
+            else
+            {
+                ConfigManager.Instance.Settings.NavCategoryOrder = catArr;
+                ConfigManager.Instance.Settings.NavToolOrder = keyArr;
+            }
+        }
+
+        private sealed class ToolVisGroup
+        {
+            public string Category { get; set; }
+            public List<ToolVisItem> Items { get; set; }
+
+            public ToolVisGroup()
+            {
+                Items = new List<ToolVisItem>();
+            }
         }
 
         private sealed class ToolVisItem : INotifyPropertyChanged
@@ -309,6 +749,36 @@ namespace IntraBox.Modules.Settings
                 }
             }
             public event PropertyChangedEventHandler PropertyChanged;
+        }
+
+        private sealed class NavTreeNode
+        {
+            public string Title { get; set; }
+            public string Category { get; set; }
+            public string Key { get; set; }
+            public bool IsCategory { get; set; }
+            public string KindText { get { return IsCategory ? "分类" : "工具"; } }
+            public Thickness IndentMargin
+            {
+                get { return new Thickness(IsCategory ? 6 : 28, 0, 8, 0); }
+            }
+        }
+
+        private sealed class NavSortGroup
+        {
+            public string Category { get; set; }
+            public List<NavSortItem> Items { get; set; }
+
+            public NavSortGroup()
+            {
+                Items = new List<NavSortItem>();
+            }
+        }
+
+        private sealed class NavSortItem
+        {
+            public string Key { get; set; }
+            public string DisplayName { get; set; }
         }
     }
 }

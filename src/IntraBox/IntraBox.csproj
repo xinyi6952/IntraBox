@@ -90,6 +90,8 @@
 
   <PropertyGroup>
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <!-- Intranet / TLS to nuget.org often fails; audit then retries for tens of seconds with no console output. -->
+    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
 
   <ItemGroup>

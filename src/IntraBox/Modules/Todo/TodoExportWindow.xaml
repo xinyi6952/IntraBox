@@ -1,0 +1,41 @@
+﻿<Window x:Class="IntraBox.Modules.Todo.TodoExportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="导出任务" Width="400" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        WindowStyle="None" ShowInTaskbar="False"
+        Background="{DynamicResource WindowBgBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        BorderBrush="{DynamicResource BorderBrush}"
+        BorderThickness="1"
+        FontSize="14">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <DockPanel Grid.Row="0" Margin="0,0,0,18">
+            <Button DockPanel.Dock="Right" Content="×" Width="28" Height="28" MinWidth="28" MinHeight="28"
+                    Padding="0" FontSize="16" ToolTip="关闭"
+                    Background="Transparent" BorderThickness="0"
+                    Foreground="{DynamicResource TextSecondaryBrush}"
+                    Click="Cancel_Click"/>
+            <TextBlock Text="选择要导出的任务" VerticalAlignment="Center"
+                       FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        </DockPanel>
+        <StackPanel Grid.Row="1" Margin="0,0,0,20">
+            <RadioButton x:Name="AllRadio" Content="全部" GroupName="ExportScope"
+                         Margin="0,0,0,12" FontSize="14"/>
+            <RadioButton x:Name="TodoRadio" Content="待办" GroupName="ExportScope"
+                         Margin="0,0,0,12" FontSize="14" IsChecked="True"/>
+            <RadioButton x:Name="DoneRadio" Content="已办" GroupName="ExportScope"
+                         FontSize="14"/>
+        </StackPanel>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="取消" MinWidth="72" Margin="0,0,10,0" IsCancel="True" Click="Cancel_Click"/>
+            <Button Content="导出" MinWidth="72" Style="{StaticResource PrimaryButton}"
+                    IsDefault="True" Click="Ok_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

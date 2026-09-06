@@ -29,6 +29,7 @@ namespace IntraBox.Modules.Todo
             _loading = true;
             FillTimeCombos(DueHourCombo, DueMinuteCombo, 15, 0);
             FillTimeCombos(RemindHourCombo, RemindMinuteCombo, 15, 0);
+            FillRemindRepeatCombos();
             FontCombo.Items.Add("微软雅黑");
             FontCombo.Items.Add("宋体");
             FontCombo.Items.Add("黑体");
@@ -104,6 +105,8 @@ namespace IntraBox.Modules.Todo
             }
             RemindKindCombo.SelectedIndex = item.RemindKind < 0 || item.RemindKind > 5 ? 0 : item.RemindKind;
             SelectTime(RemindHourCombo, RemindMinuteCombo, item.RemindHour, item.RemindMinute);
+            SelectComboInt(RemindTimesCombo, TodoRemindRepeat.ClampTimes(item.RemindTimes));
+            SelectComboInt(RemindIntervalCombo, TodoRemindRepeat.ClampIntervalMin(item.RemindIntervalMin));
             RemindWeekCombo.SelectedIndex = item.RemindWeekday;
             RemindNBox.Text = item.RemindNDays < 2 ? "2" : item.RemindNDays.ToString();
             RemindPanel.Visibility = item.Completed ? Visibility.Collapsed : Visibility.Visible;
@@ -117,6 +120,15 @@ namespace IntraBox.Modules.Todo
             ApplyReadOnly();
             _loading = false;
             _fingerprint = CurrentFingerprint();
+        }
+
+        public void ApplyRemindOff()
+        {
+            if (_item == null || _readOnly) return;
+            _item.RemindKind = TodoRemindKind.Off;
+            if (RemindKindCombo != null)
+                RemindKindCombo.SelectedIndex = TodoRemindKind.Off;
+            UpdateRemindExtra();
         }
 
         public bool IsDirty()
@@ -147,6 +159,10 @@ namespace IntraBox.Modules.Todo
             sb.Append('|');
             sb.Append(RemindNBox != null ? RemindNBox.Text ?? "" : "");
             sb.Append('|');
+            sb.Append(ComboInt(RemindTimesCombo, TodoRemindRepeat.DefaultTimes));
+            sb.Append('|');
+            sb.Append(ComboInt(RemindIntervalCombo, TodoRemindRepeat.DefaultIntervalMin));
+            sb.Append('|');
             sb.Append(TodoRichText.ContentStamp(DetailBox != null ? DetailBox.Document : null));
             return sb.ToString();
         }
@@ -156,6 +172,7 @@ namespace IntraBox.Modules.Todo
             error = null;
             TodoItem collected;
             if (!TryCollect(out collected, out error)) return false;
+            ApplyTrySaveRemind(_item, collected);
             DirectoryEnsure();
             TodoRichText.SaveFrom(DetailBox, collected.Uid);
             if (_isNew)
@@ -282,8 +299,27 @@ namespace IntraBox.Modules.Todo
                 int n;
                 if (!int.TryParse(RemindNBox.Text, out n) || n < 2) n = 2;
                 collected.RemindNDays = n;
+                collected.RemindTimes = ComboInt(RemindTimesCombo, TodoRemindRepeat.DefaultTimes);
+                collected.RemindIntervalMin = ComboInt(RemindIntervalCombo, TodoRemindRepeat.DefaultIntervalMin);
+                ApplyTryCollectRemind(_item, collected);
             }
             return true;
+        }
+
+        /// <summary>TryCollect：提醒规则变了则清空已提醒，使新时刻能再弹。</summary>
+        public static void ApplyTryCollectRemind(TodoItem before, TodoItem collected)
+        {
+            if (collected == null || collected.Completed) return;
+            if (!RemindScheduleChanged(before, collected)) return;
+            collected.LastRemindedAt = null;
+        }
+
+        /// <summary>TrySave：提醒规则变了则清稍后与排队。</summary>
+        public static void ApplyTrySaveRemind(TodoItem before, TodoItem collected)
+        {
+            if (collected == null || collected.Completed) return;
+            if (!RemindScheduleChanged(before, collected)) return;
+            TodoReminderService.ResetLiveRemind(collected.Uid);
         }
 
         private bool IsDueAllowed(DateTime? due)
@@ -313,6 +349,8 @@ namespace IntraBox.Modules.Todo
                 RemindMinute = s.RemindMinute,
                 RemindNDays = s.RemindNDays,
                 RemindWeekday = s.RemindWeekday,
+                RemindTimes = s.RemindTimes,
+                RemindIntervalMin = s.RemindIntervalMin,
                 CreatedAt = s.CreatedAt,
                 UpdatedAt = s.UpdatedAt,
                 LastRemindedAt = s.LastRemindedAt,
@@ -473,9 +511,36 @@ namespace IntraBox.Modules.Todo
 
         private void UpdateDueHint()
         {
-            if (DueHint == null) return;
             DateTime? due = ParseDue();
-            DueHint.Visibility = IsDueAllowed(due) ? Visibility.Collapsed : Visibility.Visible;
+            bool past = TodoDue.IsDatePast(due);
+            if (DueHint != null)
+            {
+                if (!IsDueAllowed(due))
+                {
+                    DueHint.Text = "计划完成时间不能早于当前时间";
+                    DueHint.Visibility = Visibility.Visible;
+                }
+                else if (past)
+                {
+                    DueHint.Text = "计划完成日期已早于今天";
+                    DueHint.Visibility = Visibility.Visible;
+                }
+                else
+                    DueHint.Visibility = Visibility.Collapsed;
+            }
+            ApplyDueForeground(past);
+        }
+
+        private void ApplyDueForeground(bool overdue)
+        {
+            var brush = overdue
+                ? (TryFindResource("DangerBrush") as Brush)
+                : (TryFindResource("TextPrimaryBrush") as Brush);
+            if (brush == null)
+                brush = overdue ? Brushes.IndianRed : Brushes.Black;
+            if (DueDate != null) DueDate.Foreground = brush;
+            if (DueHourCombo != null) DueHourCombo.Foreground = brush;
+            if (DueMinuteCombo != null) DueMinuteCombo.Foreground = brush;
         }
 
         private void RemindKind_Changed(object sender, SelectionChangedEventArgs e)
@@ -491,6 +556,52 @@ namespace IntraBox.Modules.Todo
             RemindWeekCombo.Visibility = k == TodoRemindKind.Weekly ? Visibility.Visible : Visibility.Collapsed;
             RemindNBox.Visibility = k == TodoRemindKind.EveryNDays ? Visibility.Visible : Visibility.Collapsed;
             RemindExtraLabel.Text = k == TodoRemindKind.Weekly ? "星期" : (k == TodoRemindKind.EveryNDays ? "间隔天数" : "");
+            if (RemindRepeatPanel != null)
+                RemindRepeatPanel.Visibility = k == TodoRemindKind.Off ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private static bool RemindScheduleChanged(TodoItem a, TodoItem b)
+        {
+            if (a == null || b == null) return true;
+            return a.RemindKind != b.RemindKind
+                || a.RemindHour != b.RemindHour
+                || a.RemindMinute != b.RemindMinute
+                || a.RemindWeekday != b.RemindWeekday
+                || a.RemindNDays != b.RemindNDays
+                || TodoRemindRepeat.ClampTimes(a.RemindTimes) != TodoRemindRepeat.ClampTimes(b.RemindTimes)
+                || TodoRemindRepeat.ClampIntervalMin(a.RemindIntervalMin) != TodoRemindRepeat.ClampIntervalMin(b.RemindIntervalMin);
+        }
+
+        private void FillRemindRepeatCombos()
+        {
+            if (RemindTimesCombo != null && RemindTimesCombo.Items.Count == 0)
+            {
+                for (int i = 1; i <= 5; i++)
+                    RemindTimesCombo.Items.Add(i.ToString());
+                RemindTimesCombo.SelectedIndex = TodoRemindRepeat.DefaultTimes - 1;
+            }
+            if (RemindIntervalCombo != null && RemindIntervalCombo.Items.Count == 0)
+            {
+                int[] mins = { 5, 10, 15, 30 };
+                for (int i = 0; i < mins.Length; i++)
+                    RemindIntervalCombo.Items.Add(mins[i].ToString());
+                SelectComboInt(RemindIntervalCombo, TodoRemindRepeat.DefaultIntervalMin);
+            }
+        }
+
+        private static void SelectComboInt(ComboBox box, int value)
+        {
+            if (box == null) return;
+            for (int i = 0; i < box.Items.Count; i++)
+            {
+                int n;
+                if (int.TryParse(box.Items[i].ToString(), out n) && n == value)
+                {
+                    box.SelectedIndex = i;
+                    return;
+                }
+            }
+            if (box.Items.Count > 0) box.SelectedIndex = 0;
         }
 
         private void Font_Changed(object sender, SelectionChangedEventArgs e)

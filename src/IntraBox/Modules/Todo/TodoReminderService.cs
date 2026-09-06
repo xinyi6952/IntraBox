@@ -11,8 +11,10 @@ namespace IntraBox.Modules.Todo
     {
         private static DispatcherTimer _timer;
         private static readonly Dictionary<string, DateTime> _snooze = new Dictionary<string, DateTime>();
+        private static readonly HashSet<string> _queuedUids = new HashSet<string>();
         private static readonly object _sync = new object();
         private static bool _promptOpen;
+        private static string _showingUid;
         private static readonly Queue<TodoItem> _queue = new Queue<TodoItem>();
 
         public static void Start()
@@ -37,17 +39,157 @@ namespace IntraBox.Modules.Todo
             lock (_sync)
             {
                 _queue.Clear();
+                _queuedUids.Clear();
                 _snooze.Clear();
                 _promptOpen = false;
+                _showingUid = null;
             }
         }
 
         public static void Snooze(string uid, TimeSpan span)
         {
+            SnoozeUntil(uid, DateTime.Now.Add(span));
+        }
+
+        public static void SnoozeUntil(string uid, DateTime when)
+        {
             if (string.IsNullOrEmpty(uid)) return;
             lock (_sync)
             {
-                _snooze[uid] = DateTime.Now.Add(span);
+                _snooze[uid] = when;
+            }
+        }
+
+        public static void ClearSnooze(string uid)
+        {
+            ResetLiveRemind(uid);
+        }
+
+        /// <summary>改提醒规则后清掉稍后、排队中的同条，避免旧时刻再弹。</summary>
+        public static void ResetLiveRemind(string uid)
+        {
+            if (string.IsNullOrEmpty(uid)) return;
+            lock (_sync)
+            {
+                _snooze.Remove(uid);
+                _queuedUids.Remove(uid);
+                if (_queue.Count == 0) return;
+                var keep = new Queue<TodoItem>();
+                while (_queue.Count > 0)
+                {
+                    var x = _queue.Dequeue();
+                    if (x != null && x.Uid != uid)
+                        keep.Enqueue(x);
+                }
+                while (keep.Count > 0)
+                    _queue.Enqueue(keep.Dequeue());
+            }
+        }
+
+        /// <summary>关闭该任务提醒：落盘为关闭，并清掉稍后与排队。</summary>
+        public static void StopRemind(string uid)
+        {
+            if (string.IsNullOrEmpty(uid)) return;
+            TodoStore.SetRemindOff(uid);
+            ResetLiveRemind(uid);
+        }
+
+        public static bool ShouldFire(TodoItem it, DateTime now)
+        {
+            if (it == null || it.Completed) return false;
+            if (it.RemindKind == TodoRemindKind.Off) return false;
+            bool snoozeDue = false;
+            lock (_sync)
+            {
+                DateTime snoozeTo;
+                if (_snooze.TryGetValue(it.Uid, out snoozeTo))
+                {
+                    if (now < snoozeTo) return false;
+                    snoozeDue = true;
+                }
+            }
+            if (snoozeDue)
+            {
+                lock (_sync)
+                {
+                    _snooze.Remove(it.Uid);
+                }
+                return true;
+            }
+            if (!MatchesSchedule(it, now)) return false;
+            DateTime first = AtTime(now, it);
+            int times = TodoRemindRepeat.ClampTimes(it.RemindTimes);
+            int every = TodoRemindRepeat.ClampIntervalMin(it.RemindIntervalMin);
+            int grace = TodoRemindRepeat.FireWindowMin;
+            if (grace > every) grace = every;
+            for (int i = 0; i < times; i++)
+            {
+                DateTime slot = first.AddMinutes(i * every);
+                DateTime slotEnd = slot.AddMinutes(grace);
+                if (now < slot || now >= slotEnd) continue;
+                if (SlotCovered(it.LastRemindedAt, slot)) continue;
+                return true;
+            }
+            return false;
+        }
+
+        private static bool SlotCovered(DateTime? last, DateTime slot)
+        {
+            if (!last.HasValue) return false;
+            if (last.Value.Date != slot.Date) return false;
+            return last.Value >= slot;
+        }
+
+        /// <summary>到期项入队。同一 uid 已在队列则跳过；正在展示不挡同一任务的新档。</summary>
+        public static int EnqueueDueItems(IList<TodoItem> due)
+        {
+            if (due == null || due.Count == 0) return 0;
+            int added = 0;
+            lock (_sync)
+            {
+                for (int i = 0; i < due.Count; i++)
+                {
+                    var it = due[i];
+                    if (it == null || string.IsNullOrEmpty(it.Uid)) continue;
+                    if (_queuedUids.Contains(it.Uid)) continue;
+                    _queue.Enqueue(it);
+                    _queuedUids.Add(it.Uid);
+                    added++;
+                }
+            }
+            return added;
+        }
+
+        public static int QueuedCount
+        {
+            get { lock (_sync) { return _queue.Count; } }
+        }
+
+        /// <summary>取出下一条并占住当前窗位；已有窗打开时不取。</summary>
+        public static bool TryBeginPrompt(out TodoItem next, out int remain)
+        {
+            next = null;
+            remain = 0;
+            lock (_sync)
+            {
+                if (_promptOpen) return false;
+                if (_queue.Count == 0) return false;
+                next = _queue.Dequeue();
+                if (next != null && !string.IsNullOrEmpty(next.Uid))
+                    _queuedUids.Remove(next.Uid);
+                remain = _queue.Count;
+                _promptOpen = true;
+                _showingUid = next != null ? next.Uid : null;
+                return true;
+            }
+        }
+
+        public static void EndPrompt()
+        {
+            lock (_sync)
+            {
+                _promptOpen = false;
+                _showingUid = null;
             }
         }
 
@@ -62,26 +204,15 @@ namespace IntraBox.Modules.Todo
                     due.Add(items[i]);
             }
             if (due.Count == 0) return;
-            lock (_sync)
-            {
-                for (int i = 0; i < due.Count; i++)
-                    _queue.Enqueue(due[i]);
-            }
+            EnqueueDueItems(due);
             Pump();
         }
 
         private static void Pump()
         {
-            TodoItem next = null;
+            TodoItem next;
             int remain;
-            lock (_sync)
-            {
-                if (_promptOpen) return;
-                if (_queue.Count == 0) return;
-                next = _queue.Dequeue();
-                remain = _queue.Count;
-                _promptOpen = true;
-            }
+            if (!TryBeginPrompt(out next, out remain)) return;
             ShowPrompt(next, remain);
         }
 
@@ -90,40 +221,10 @@ namespace IntraBox.Modules.Todo
             var w = new TodoReminderWindow(item, remain);
             w.Closed += (s, e) =>
             {
-                lock (_sync) { _promptOpen = false; }
+                EndPrompt();
                 Pump();
             };
             w.Show();
-        }
-
-        public static bool ShouldFire(TodoItem it, DateTime now)
-        {
-            if (it == null || it.Completed) return false;
-            if (it.RemindKind == TodoRemindKind.Off) return false;
-            DateTime snoozeTo;
-            lock (_sync)
-            {
-                if (_snooze.TryGetValue(it.Uid, out snoozeTo) && now < snoozeTo)
-                    return false;
-            }
-            if (!MatchesSchedule(it, now)) return false;
-            if (it.LastRemindedAt.HasValue)
-            {
-                var last = it.LastRemindedAt.Value;
-                if (last.Date == now.Date
-                    && last.Hour == it.RemindHour
-                    && Math.Abs((last - AtTime(now, it)).TotalMinutes) < 1)
-                    return false;
-                if (last.Date == now.Date && it.RemindKind != TodoRemindKind.Off)
-                {
-                    // 同一天已提醒过则不再弹
-                    return false;
-                }
-            }
-            var fireAt = AtTime(now, it);
-            if (now < fireAt) return false;
-            if ((now - fireAt).TotalMinutes > 30) return false;
-            return true;
         }
 
         private static DateTime AtTime(DateTime now, TodoItem it)

@@ -39,6 +39,45 @@ namespace IntraBox.Modules.Todo
         }
     }
 
+    /// <summary>到点后重复：默认 3 次、间隔 10 分钟（闹钟式）。</summary>
+    public static class TodoRemindRepeat
+    {
+        public const int DefaultTimes = 3;
+        public const int DefaultIntervalMin = 10;
+        /// <summary>每次到点后允许弹出的宽限（分钟）。超时不补弹，等下一档。</summary>
+        public const int FireWindowMin = 2;
+        public const int MaxTimes = 9;
+        public const int MaxIntervalMin = 60;
+
+        public static int ClampTimes(int n)
+        {
+            if (n < 1) return DefaultTimes;
+            if (n > MaxTimes) return MaxTimes;
+            return n;
+        }
+
+        public static int ClampIntervalMin(int n)
+        {
+            if (n < 1) return DefaultIntervalMin;
+            if (n > MaxIntervalMin) return MaxIntervalMin;
+            return n;
+        }
+    }
+
+    /// <summary>计划完成日期早于当天则为过期（只比日期、不比时刻）。</summary>
+    public static class TodoDue
+    {
+        public static bool IsDatePast(DateTime? due)
+        {
+            return IsDatePast(due, DateTime.Today);
+        }
+
+        public static bool IsDatePast(DateTime? due, DateTime today)
+        {
+            return due.HasValue && due.Value.Date < today.Date;
+        }
+    }
+
     public sealed class TodoIndexFile
     {
         public int Version { get; set; }
@@ -60,6 +99,10 @@ namespace IntraBox.Modules.Todo
         public int RemindMinute { get; set; }
         public int RemindNDays { get; set; }
         public int RemindWeekday { get; set; }
+        /// <summary>到点后共提醒几次（含首次）。缺省或 0 按 3 次。</summary>
+        public int RemindTimes { get; set; }
+        /// <summary>重复间隔分钟。缺省或 0 按 10 分钟。</summary>
+        public int RemindIntervalMin { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public DateTime? LastRemindedAt { get; set; }
@@ -78,6 +121,8 @@ namespace IntraBox.Modules.Todo
                 RemindMinute = 0,
                 RemindNDays = 2,
                 RemindWeekday = 1,
+                RemindTimes = TodoRemindRepeat.DefaultTimes,
+                RemindIntervalMin = TodoRemindRepeat.DefaultIntervalMin,
                 CreatedAt = now,
                 UpdatedAt = now
             };

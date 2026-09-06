@@ -129,7 +129,8 @@
                             <GridViewColumn Header="计划完成" Width="128">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding DueText}" Style="{StaticResource TodoCellText}"
+                                        <TextBlock Text="{Binding DueText}" Foreground="{Binding DueBrush}"
+                                                   Style="{StaticResource TodoCellText}"
                                                    ToolTip="{Binding DueText}"/>
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
@@ -186,7 +187,8 @@
                     <Ellipse Width="8" Height="8" Fill="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0"/>
                     <TextBlock Text="低（待办）" VerticalAlignment="Center" Margin="0,0,16,0"/>
                     <Ellipse Width="8" Height="8" Fill="{DynamicResource SuccessBrush}" Margin="0,0,4,0"/>
-                    <TextBlock Text="已办" VerticalAlignment="Center"/>
+                    <TextBlock Text="已办" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <TextBlock Text="过期日期" Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
             </Grid>

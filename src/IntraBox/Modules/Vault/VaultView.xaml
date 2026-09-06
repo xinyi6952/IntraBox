@@ -96,14 +96,6 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="加密" Width="64">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding SecretText}" Style="{StaticResource VaultCellText}"
-                                               ToolTip="{Binding SecretText}"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
                         <GridViewColumn Header="创建时间" Width="140">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>

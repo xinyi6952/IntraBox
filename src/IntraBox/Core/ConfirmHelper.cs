@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 
 namespace IntraBox.Core
 {
@@ -18,6 +19,19 @@ namespace IntraBox.Core
         /// <summary>置顶窗口上弹出删除确认，避免对话框被挡住。</summary>
         public static bool DeleteOverTopmost(Window owner, string detail)
         {
+            return OverTopmost(owner, () => Delete(detail));
+        }
+
+        /// <summary>置顶窗口上的警告确认，默认选「否」防误触。</summary>
+        public static bool WarnOverTopmost(Window owner, string message, string title)
+        {
+            return OverTopmost(owner, () =>
+                MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+                    == MessageBoxResult.Yes);
+        }
+
+        private static bool OverTopmost(Window owner, System.Func<bool> show)
+        {
             bool top = false;
             if (owner != null)
             {
@@ -26,7 +40,7 @@ namespace IntraBox.Core
             }
             try
             {
-                return Delete(detail);
+                return show();
             }
             finally
             {

@@ -176,6 +176,20 @@ namespace IntraBox.Modules.Todo
             }
         }
 
+        public static void SetRemindOff(string uid)
+        {
+            if (string.IsNullOrEmpty(uid)) return;
+            lock (_sync)
+            {
+                if (!_loaded) LoadLocked();
+                var it = FindLocked(uid);
+                if (it == null) return;
+                it.RemindKind = TodoRemindKind.Off;
+                it.UpdatedAt = DateTime.Now;
+                SchedulePersistLocked();
+            }
+        }
+
         public static void Flush()
         {
             lock (_sync)
@@ -232,7 +246,10 @@ namespace IntraBox.Modules.Todo
                         WriteText(ws.Cell(r, 3), TodoPriority.Label(it.Priority));
                         WriteText(ws.Cell(r, 4), it.CreatedAt == default(DateTime) ? "" : it.CreatedAt.ToString("yyyy-MM-dd HH:mm"));
                         WriteText(ws.Cell(r, 5), it.UpdatedAt == default(DateTime) ? "" : it.UpdatedAt.ToString("yyyy-MM-dd HH:mm"));
-                        WriteText(ws.Cell(r, 6), it.DueAt.HasValue ? it.DueAt.Value.ToString("yyyy-MM-dd HH:mm") : "");
+                        var dueCell = ws.Cell(r, 6);
+                        WriteText(dueCell, it.DueAt.HasValue ? it.DueAt.Value.ToString("yyyy-MM-dd HH:mm") : "");
+                        if (TodoDue.IsDatePast(it.DueAt))
+                            dueCell.Style.Font.FontColor = XLColor.FromArgb(199, 34, 34);
                         WriteText(ws.Cell(r, 7), it.CompletedAt.HasValue ? it.CompletedAt.Value.ToString("yyyy-MM-dd HH:mm") : "");
                         WriteText(ws.Cell(r, 8), it.Completed ? "" : RemindSummary(it));
                         WriteText(ws.Cell(r, 9), TodoRichText.ExtractTitle(plain));
@@ -308,16 +325,19 @@ namespace IntraBox.Modules.Todo
         {
             if (it == null || it.Completed) return "";
             string hm = it.RemindHour.ToString("00") + ":" + it.RemindMinute.ToString("00");
+            int times = TodoRemindRepeat.ClampTimes(it.RemindTimes);
+            int every = TodoRemindRepeat.ClampIntervalMin(it.RemindIntervalMin);
+            string extra = times > 1 ? " · " + times + "次/" + every + "分" : "";
             switch (it.RemindKind)
             {
                 case TodoRemindKind.Off: return "关闭";
-                case TodoRemindKind.Weekdays: return "工作日 " + hm;
+                case TodoRemindKind.Weekdays: return "工作日 " + hm + extra;
                 case TodoRemindKind.Weekly:
-                    return "每周" + WeekdayName(it.RemindWeekday) + " " + hm;
+                    return "每周" + WeekdayName(it.RemindWeekday) + " " + hm + extra;
                 case TodoRemindKind.EveryNDays:
-                    return "每" + Math.Max(2, it.RemindNDays) + "天 " + hm;
-                case TodoRemindKind.DueDay: return "到期当天 " + hm;
-                default: return "每天 " + hm;
+                    return "每" + Math.Max(2, it.RemindNDays) + "天 " + hm + extra;
+                case TodoRemindKind.DueDay: return "到期当天 " + hm + extra;
+                default: return "每天 " + hm + extra;
             }
         }
 
@@ -333,6 +353,29 @@ namespace IntraBox.Modules.Todo
                 case 5: return "五";
                 default: return "六";
             }
+        }
+
+        /// <summary>反序列化 index.json 并补缺省（不读写当前数据根）。旧条目缺次数/间隔时按 3 次/10 分。</summary>
+        public static List<TodoItem> ParseIndexJson(string json)
+        {
+            var result = new List<TodoItem>();
+            if (string.IsNullOrEmpty(json)) return result;
+            try
+            {
+                var file = JsonConvert.DeserializeObject<TodoIndexFile>(json);
+                if (file == null || file.Items == null) return result;
+                for (int i = 0; i < file.Items.Count; i++)
+                {
+                    if (file.Items[i] == null) continue;
+                    NormalizeItem(file.Items[i]);
+                    result.Add(file.Items[i]);
+                }
+            }
+            catch
+            {
+                return new List<TodoItem>();
+            }
+            return result;
         }
 
         private static void LoadLocked()
@@ -449,6 +492,8 @@ namespace IntraBox.Modules.Todo
             item.RemindMinute = 0;
             item.RemindNDays = 2;
             item.RemindWeekday = 1;
+            item.RemindTimes = TodoRemindRepeat.DefaultTimes;
+            item.RemindIntervalMin = TodoRemindRepeat.DefaultIntervalMin;
             item.UpdatedAt = now;
         }
 
@@ -468,6 +513,8 @@ namespace IntraBox.Modules.Todo
             if (it.RemindMinute < 0 || it.RemindMinute > 59) it.RemindMinute = 0;
             if (it.RemindNDays < 2) it.RemindNDays = 2;
             if (it.RemindWeekday < 0 || it.RemindWeekday > 6) it.RemindWeekday = 1;
+            it.RemindTimes = TodoRemindRepeat.ClampTimes(it.RemindTimes);
+            it.RemindIntervalMin = TodoRemindRepeat.ClampIntervalMin(it.RemindIntervalMin);
             if (it.CreatedAt == default(DateTime)) it.CreatedAt = DateTime.Now;
             if (it.UpdatedAt == default(DateTime)) it.UpdatedAt = it.CreatedAt;
         }
@@ -561,6 +608,8 @@ namespace IntraBox.Modules.Todo
                 RemindMinute = s.RemindMinute,
                 RemindNDays = s.RemindNDays,
                 RemindWeekday = s.RemindWeekday,
+                RemindTimes = s.RemindTimes,
+                RemindIntervalMin = s.RemindIntervalMin,
                 CreatedAt = s.CreatedAt,
                 UpdatedAt = s.UpdatedAt,
                 LastRemindedAt = s.LastRemindedAt,

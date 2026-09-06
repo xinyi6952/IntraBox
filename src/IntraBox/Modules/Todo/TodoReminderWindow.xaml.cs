@@ -12,6 +12,9 @@ namespace IntraBox.Modules.Todo
     {
         private readonly TodoItem _item;
         private readonly bool _preview;
+        private readonly int _snoozeMin;
+
+        public bool StoppedRemind { get; private set; }
 
         public TodoReminderWindow(TodoItem item, int remain)
             : this(item, remain, false, null)
@@ -23,14 +26,39 @@ namespace IntraBox.Modules.Todo
             InitializeComponent();
             _item = item;
             _preview = preview;
+            _snoozeMin = TodoRemindRepeat.ClampIntervalMin(item != null ? item.RemindIntervalMin : 0);
+            if (SnoozeBtn != null)
+                SnoozeBtn.Content = "稍后 " + _snoozeMin + " 分钟";
             IdText.Text = item != null ? "任务 ID  " + item.Id : "";
             string title = titleOverride;
             if (string.IsNullOrEmpty(title)) title = LoadTitle(item);
             TitleText.Text = string.IsNullOrEmpty(title) ? "" : title;
             if (item != null && item.DueAt.HasValue)
+            {
                 DueText.Text = "计划完成  " + item.DueAt.Value.ToString("yyyy-MM-dd HH:mm");
+                if (TodoDue.IsDatePast(item.DueAt))
+                {
+                    var danger = TryFindResource("DangerBrush") as System.Windows.Media.Brush;
+                    DueText.Foreground = danger ?? System.Windows.Media.Brushes.IndianRed;
+                }
+            }
             else
                 DueText.Text = "未设置计划完成时间";
+            if (RemindText != null)
+            {
+                if (item != null && item.RemindKind != TodoRemindKind.Off)
+                {
+                    int times = TodoRemindRepeat.ClampTimes(item.RemindTimes);
+                    RemindText.Text = "提醒  " + item.RemindHour.ToString("D2") + ":" + item.RemindMinute.ToString("D2")
+                        + " · 共" + times + "次 / " + _snoozeMin + "分钟";
+                    RemindText.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    RemindText.Text = "";
+                    RemindText.Visibility = Visibility.Collapsed;
+                }
+            }
             if (preview)
                 MoreText.Text = "这是提醒预览，不会记入已提醒记录。";
             else
@@ -108,7 +136,23 @@ namespace IntraBox.Modules.Todo
         private void Snooze_Click(object sender, RoutedEventArgs e)
         {
             if (!_preview && _item != null)
-                TodoReminderService.Snooze(_item.Uid, TimeSpan.FromMinutes(15));
+                TodoReminderService.Snooze(_item.Uid, TimeSpan.FromMinutes(_snoozeMin));
+            Close();
+        }
+
+        private void Stop_Click(object sender, RoutedEventArgs e)
+        {
+            if (_item == null || string.IsNullOrEmpty(_item.Uid))
+            {
+                Close();
+                return;
+            }
+            if (!ConfirmHelper.WarnOverTopmost(this,
+                "关闭后本任务将不再弹出提醒，可在任务详情里重新打开提醒。\n\n确定不再提醒？",
+                "不再提醒"))
+                return;
+            TodoReminderService.StopRemind(_item.Uid);
+            StoppedRemind = true;
             Close();
         }
 

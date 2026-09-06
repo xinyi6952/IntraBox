@@ -161,8 +161,6 @@ namespace IntraBox.Modules.Vault
                 c = string.Compare(a.Title, b.Title, StringComparison.CurrentCultureIgnoreCase);
             else if (_sortKey == "count")
                 c = a.EntryCount.CompareTo(b.EntryCount);
-            else if (_sortKey == "secret")
-                c = a.HasSecret.CompareTo(b.HasSecret);
             else if (_sortKey == "created")
                 c = a.CreatedAt.CompareTo(b.CreatedAt);
             else if (_sortKey == "pin")
@@ -177,13 +175,12 @@ namespace IntraBox.Modules.Vault
         private void UpdateSortHeaders()
         {
             var view = VaultList != null ? VaultList.View as GridView : null;
-            if (view == null || view.Columns.Count < 6) return;
+            if (view == null || view.Columns.Count < 5) return;
             view.Columns[0].Header = SortTitle("置顶", "pin");
             view.Columns[1].Header = SortTitle("分类", "title");
             view.Columns[2].Header = SortTitle("条数", "count");
-            view.Columns[3].Header = SortTitle("加密", "secret");
-            view.Columns[4].Header = SortTitle("创建时间", "created");
-            view.Columns[5].Header = SortTitle("修改时间", "updated");
+            view.Columns[3].Header = SortTitle("创建时间", "created");
+            view.Columns[4].Header = SortTitle("修改时间", "updated");
         }
 
         private static string SortKeyFromHeader(string content)
@@ -192,7 +189,6 @@ namespace IntraBox.Modules.Vault
             if (content.StartsWith("置顶", StringComparison.Ordinal)) return "pin";
             if (content.StartsWith("分类", StringComparison.Ordinal)) return "title";
             if (content.StartsWith("条数", StringComparison.Ordinal)) return "count";
-            if (content.StartsWith("加密", StringComparison.Ordinal)) return "secret";
             if (content.StartsWith("创建时间", StringComparison.Ordinal)) return "created";
             if (content.StartsWith("修改时间", StringComparison.Ordinal)) return "updated";
             return null;
@@ -213,14 +209,14 @@ namespace IntraBox.Modules.Vault
         {
             if (VaultList == null) return;
             var gv = VaultList.View as GridView;
-            if (gv == null || gv.Columns.Count < 6) return;
+            if (gv == null || gv.Columns.Count < 5) return;
             double w = VaultList.ActualWidth - SystemParameters.VerticalScrollBarWidth - 8;
             if (w < 200) return;
-            double[] min = { 52, 140, 52, 52, 128, 128 };
-            double need = 52 + 140 + 52 + 52 + 128 + 128;
+            double[] min = { 52, 140, 52, 128, 128 };
+            double need = 52 + 140 + 52 + 128 + 128;
             if (w <= need)
             {
-                for (int i = 0; i < 6; i++)
+                for (int i = 0; i < 5; i++)
                     gv.Columns[i].Width = min[i];
                 return;
             }
@@ -228,23 +224,27 @@ namespace IntraBox.Modules.Vault
             gv.Columns[0].Width = 52;
             gv.Columns[1].Width = 140 + extra;
             gv.Columns[2].Width = 52;
-            gv.Columns[3].Width = 52;
+            gv.Columns[3].Width = 128;
             gv.Columns[4].Width = 128;
-            gv.Columns[5].Width = 128;
         }
 
         private void VaultList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            var row = VaultList.SelectedItem as VaultRow;
-            if (row != null) OpenDrawer(row.Uid);
+            MenuEdit_Click(sender, e);
         }
 
         private void VaultList_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (_skipListClick || _loading) return;
+            var src = e.OriginalSource as DependencyObject;
+            while (src != null && !(src is ListViewItem))
+            {
+                try { src = VisualTreeHelper.GetParent(src); }
+                catch { break; }
+            }
+            if (src == null) return;
             var row = VaultList.SelectedItem as VaultRow;
-            if (row != null && DrawerHost.Visibility == Visibility.Visible)
-                OpenDrawer(row.Uid);
+            if (row != null) OpenDrawer(row.Uid);
         }
 
         private void ListMenu_Opened(object sender, RoutedEventArgs e)
@@ -597,8 +597,6 @@ namespace IntraBox.Modules.Vault
             public string PinText { get; set; }
             public int EntryCount { get; set; }
             public string CountText { get; set; }
-            public bool HasSecret { get; set; }
-            public string SecretText { get; set; }
             public DateTime CreatedAt { get; set; }
             public string CreatedText { get; set; }
             public DateTime UpdatedAt { get; set; }
@@ -614,8 +612,6 @@ namespace IntraBox.Modules.Vault
                     PinText = it.Pinned ? "置顶" : "",
                     EntryCount = it.EntryCount,
                     CountText = it.EntryCount.ToString(),
-                    HasSecret = it.HasSecret,
-                    SecretText = it.HasSecret ? "有" : "",
                     CreatedAt = it.CreatedAt,
                     CreatedText = it.CreatedAt == default(DateTime) ? "" : it.CreatedAt.ToString("yyyy-MM-dd HH:mm"),
                     UpdatedAt = it.UpdatedAt,

@@ -8,6 +8,8 @@
     <SolidColorBrush x:Key="AccentPressedBrush" Color="#2C5A86"/>
     <SolidColorBrush x:Key="DangerBrush" Color="#C72222"/>
     <SolidColorBrush x:Key="WarningBrush" Color="#B88217"/>
+    <SolidColorBrush x:Key="WarningHoverBrush" Color="#C9941C"/>
+    <SolidColorBrush x:Key="WarningPressedBrush" Color="#9A6C12"/>
     <SolidColorBrush x:Key="HostsUnsavedRowBrush" Color="#F7E8B8"/>
     <SolidColorBrush x:Key="HostsUnsavedRowSelectedBrush" Color="#EDC85C"/>
     <SolidColorBrush x:Key="SuccessBrush" Color="#2E7D32"/>

@@ -154,12 +154,15 @@ namespace IntraBox.Modules.Todo
                 root.FontWeight = FontWeights.Bold;
 
             var stack = new StackPanel();
-            stack.Children.Add(new TextBlock
+            var dayText = new TextBlock
             {
                 Text = date.Day.ToString(),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 2, 0, 4)
-            });
+            };
+            if (TodoDue.IsDatePast(date) && HasOpenDueOn(date, items))
+                dayText.Foreground = TryBrush("DangerBrush", Brushes.IndianRed);
+            stack.Children.Add(dayText);
             var dots = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center };
             int shown = 0;
             for (int i = 0; i < items.Count && shown < 8; i++)
@@ -178,6 +181,19 @@ namespace IntraBox.Modules.Todo
             stack.Children.Add(dots);
             root.Content = stack;
             return root;
+        }
+
+        private static bool HasOpenDueOn(DateTime date, List<TodoItem> items)
+        {
+            if (items == null) return false;
+            DateTime day = date.Date;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var it = items[i];
+                if (it == null || it.Completed || !it.DueAt.HasValue) continue;
+                if (it.DueAt.Value.Date == day) return true;
+            }
+            return false;
         }
 
         private Brush MarkerBrush(TodoItem it)
@@ -658,6 +674,11 @@ namespace IntraBox.Modules.Todo
                 return;
             }
             var w = new TodoReminderWindow(item, 0, true, DrawerEditor.PeekTitle());
+            w.Closed += (s, ev) =>
+            {
+                if (w.StoppedRemind)
+                    DrawerEditor.ApplyRemindOff();
+            };
             w.Show();
         }
 
@@ -713,6 +734,7 @@ namespace IntraBox.Modules.Todo
             public string UpdatedText { get; set; }
             public DateTime? DueAt { get; set; }
             public string DueText { get; set; }
+            public Brush DueBrush { get; set; }
             public string CompletedText { get; set; }
             public string RemindText { get; set; }
             public bool Completed { get; set; }
@@ -749,10 +771,18 @@ namespace IntraBox.Modules.Todo
                     UpdatedText = it.UpdatedAt == default(DateTime) ? "" : it.UpdatedAt.ToString("yyyy-MM-dd HH:mm"),
                     DueAt = it.DueAt,
                     DueText = it.DueAt.HasValue ? it.DueAt.Value.ToString("yyyy-MM-dd HH:mm") : "",
+                    DueBrush = BrushOfDue(it.DueAt),
                     CompletedText = it.CompletedAt.HasValue ? it.CompletedAt.Value.ToString("yyyy-MM-dd HH:mm") : "",
                     RemindText = it.Completed ? "" : TodoStore.RemindSummary(it),
                     Completed = it.Completed
                 };
+            }
+
+            private static Brush BrushOfDue(DateTime? due)
+            {
+                if (TodoDue.IsDatePast(due))
+                    return ThemeBrush("DangerBrush", Brushes.IndianRed);
+                return ThemeBrush("TextPrimaryBrush", Brushes.Black);
             }
 
             private static Brush BrushOfPriority(int p)
@@ -760,13 +790,18 @@ namespace IntraBox.Modules.Todo
                 string key = "AccentBrush";
                 if (p == TodoPriority.High) key = "DangerBrush";
                 else if (p == TodoPriority.Low) key = "TextSecondaryBrush";
+                return ThemeBrush(key, Brushes.Gray);
+            }
+
+            private static Brush ThemeBrush(string key, Brush fallback)
+            {
                 var app = Application.Current;
                 if (app != null)
                 {
                     var b = app.TryFindResource(key) as Brush;
                     if (b != null) return b;
                 }
-                return Brushes.Gray;
+                return fallback;
             }
         }
     }

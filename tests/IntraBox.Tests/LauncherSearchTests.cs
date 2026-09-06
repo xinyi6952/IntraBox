@@ -113,21 +113,46 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
-        public void Target_拒绝脚本与非法URL()
+        public void Target_拒绝危险脚本_允许bat()
         {
             string err;
-            Assert.IsTrue(LauncherTarget.IsBlockedScript(@"C:\a.bat"));
+            Assert.IsFalse(LauncherTarget.IsBlockedScript(@"C:\a.bat"));
+            Assert.IsTrue(LauncherTarget.IsBatPath(@"C:\a.BAT"));
             Assert.IsTrue(LauncherTarget.IsBlockedScript(@"C:\a.PS1"));
+            Assert.IsTrue(LauncherTarget.IsBlockedScript(@"C:\a.cmd"));
             Assert.IsFalse(LauncherTarget.IsBlockedScript(@"C:\a.exe"));
+            Assert.IsTrue(LauncherTarget.IsAppPath(@"C:\run.bat"));
             Assert.IsTrue(LauncherTarget.IsAllowedUrl("http://git.local"));
             Assert.IsTrue(LauncherTarget.IsAllowedUrl("HTTPS://wiki"));
             Assert.IsFalse(LauncherTarget.IsAllowedUrl("file://c:/a"));
             Assert.IsFalse(LauncherTarget.IsAllowedUrl("javascript:alert(1)"));
             Assert.IsFalse(LauncherTarget.TryValidate(LauncherTarget.KindUrl, "ftp://x", out err));
-            Assert.IsFalse(LauncherTarget.TryValidate(LauncherTarget.KindApp, @"C:\run.bat", out err));
+            Assert.IsTrue(LauncherTarget.TryValidate(LauncherTarget.KindApp, @"C:\run.bat", out err));
+            Assert.IsTrue(LauncherTarget.TryValidate(LauncherTarget.KindFile, @"C:\run.bat", out err));
             Assert.IsFalse(LauncherTarget.TryValidate(LauncherTarget.KindFile, @"C:\run.cmd", out err));
             Assert.IsTrue(LauncherTarget.TryValidate(LauncherTarget.KindApp, @"C:\app.exe", out err));
             Assert.IsTrue(LauncherTarget.TryValidate(LauncherTarget.KindFolder, @"D:\share", out err));
+        }
+
+        [TestMethod]
+        public void Process_相同路径与已在运行判定()
+        {
+            Assert.IsTrue(LauncherProcess.SamePath(@"C:\App\foo.exe", @"c:\app\foo.exe"));
+            Assert.IsFalse(LauncherProcess.SamePath(@"C:\App\foo.exe", @"C:\App\bar.exe"));
+            Assert.IsTrue(LauncherProcess.ShouldCheckAlreadyRunning(LauncherTarget.KindApp, @"C:\a.exe", ""));
+            Assert.IsTrue(LauncherProcess.ShouldCheckAlreadyRunning(LauncherTarget.KindFile, @"C:\a.bat", ""));
+            Assert.IsTrue(LauncherProcess.ShouldCheckAlreadyRunning(LauncherTarget.KindFile, @"C:\a.txt", @"C:\edit.exe"));
+            Assert.IsFalse(LauncherProcess.ShouldCheckAlreadyRunning(LauncherTarget.KindFile, @"C:\a.txt", ""));
+            Assert.IsFalse(LauncherProcess.ShouldCheckAlreadyRunning(LauncherTarget.KindFolder, @"C:\x", ""));
+            Assert.IsFalse(LauncherProcess.ShouldCheckAlreadyRunning(LauncherTarget.KindUrl, "http://a", ""));
+            var images = new List<string> { @"C:\Windows\notepad.exe", @"D:\tools\app.exe" };
+            Assert.IsTrue(LauncherProcess.MatchProcessImages(@"d:\tools\app.exe", images));
+            Assert.IsFalse(LauncherProcess.MatchProcessImages(@"D:\tools\other.exe", images));
+            var titles = new List<string> { "build.bat", "无标题 - 记事本" };
+            Assert.IsTrue(LauncherProcess.MatchBatWindow(@"C:\work\build.bat", titles));
+            Assert.IsFalse(LauncherProcess.MatchBatWindow(@"C:\work\other.bat", titles));
+            Assert.AreEqual(@"C:\edit.exe", LauncherProcess.ResolveLaunchImage(LauncherTarget.KindFile, @"C:\a.txt", @"C:\edit.exe"));
+            Assert.AreEqual(@"C:\app.exe", LauncherProcess.ResolveLaunchImage(LauncherTarget.KindApp, @"C:\app.exe", ""));
         }
 
         private static LauncherHit Hit(string id, string title, bool pinned)

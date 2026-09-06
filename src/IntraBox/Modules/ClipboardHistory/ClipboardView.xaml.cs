@@ -16,6 +16,7 @@ namespace IntraBox.Modules.ClipboardHistory
     public partial class ClipboardView : UserControl, IModuleView
     {
         private ICollectionView _view;
+        private bool _loading = true;
 
         public ClipboardView()
         {
@@ -24,6 +25,15 @@ namespace IntraBox.Modules.ClipboardHistory
             _view = CollectionViewSource.GetDefaultView(ClipboardStore.Items);
             _view.Filter = FilterItem;
             HistoryList.ItemsSource = _view;
+            try
+            {
+                RecordImageCheck.IsChecked = ConfigManager.Instance.Settings.ClipboardRecordImages;
+            }
+            catch
+            {
+                RecordImageCheck.IsChecked = false;
+            }
+            _loading = false;
         }
 
         public void OnActivated()
@@ -211,6 +221,18 @@ namespace IntraBox.Modules.ClipboardHistory
         private void ClearSearch_Click(object sender, RoutedEventArgs e)
         {
             SearchBox.Text = "";
+        }
+
+        private void RecordImageCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            bool on = RecordImageCheck != null && RecordImageCheck.IsChecked == true;
+            try
+            {
+                ConfigManager.Instance.Settings.ClipboardRecordImages = on;
+                ConfigManager.Instance.Save();
+            }
+            catch { }
         }
 
         private bool FilterItem(object obj)

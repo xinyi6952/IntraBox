@@ -207,6 +207,12 @@ namespace IntraBox.Core
         /// <summary>一次 OpenClipboard：文本 + 图片像素。占用时返回 false。图片像素超限时仍返回宽高、bgra 为 null。</summary>
         public static bool TryReadClipboard(long maxPixelBytes, out string text, out int imageWidth, out int imageHeight, out byte[] imageBgra)
         {
+            return TryReadClipboard(maxPixelBytes, true, out text, out imageWidth, out imageHeight, out imageBgra);
+        }
+
+        /// <summary>一次 OpenClipboard。includeImage 为 false 时不解码图片，避免默认不记图时白占内存。</summary>
+        public static bool TryReadClipboard(long maxPixelBytes, bool includeImage, out string text, out int imageWidth, out int imageHeight, out byte[] imageBgra)
+        {
             text = null;
             imageWidth = 0;
             imageHeight = 0;
@@ -217,9 +223,10 @@ namespace IntraBox.Core
                 {
                     var data = Clipboard.GetDataObject();
                     if (data == null) return null;
-                    int w, h;
-                    byte[] bgra;
-                    ClipboardImage.TryDecode(data, maxPixelBytes, out w, out h, out bgra);
+                    int w = 0, h = 0;
+                    byte[] bgra = null;
+                    if (includeImage)
+                        ClipboardImage.TryDecode(data, maxPixelBytes, out w, out h, out bgra);
                     return Tuple.Create(ReadText(data), w, h, bgra);
                 }, null);
                 if (result == null) return false;

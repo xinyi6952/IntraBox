@@ -27,7 +27,15 @@ namespace IntraBox.Core
             string ext = Path.GetExtension(path.Trim());
             if (string.IsNullOrEmpty(ext)) return false;
             ext = ext.ToLowerInvariant();
-            return ext == ".bat" || ext == ".cmd" || ext == ".vbs" || ext == ".ps1";
+            return ext == ".cmd" || ext == ".vbs" || ext == ".ps1";
+        }
+
+        public static bool IsBatPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            string ext = Path.GetExtension(path.Trim());
+            if (string.IsNullOrEmpty(ext)) return false;
+            return ext.ToLowerInvariant() == ".bat";
         }
 
         public static bool IsAllowedUrl(string target)
@@ -45,7 +53,7 @@ namespace IntraBox.Core
             string ext = Path.GetExtension(path.Trim());
             if (string.IsNullOrEmpty(ext)) return false;
             ext = ext.ToLowerInvariant();
-            return ext == ".exe" || ext == ".lnk";
+            return ext == ".exe" || ext == ".lnk" || ext == ".bat";
         }
 
         /// <summary>校验收藏目标。成功时 error 为空。</summary>
@@ -74,12 +82,12 @@ namespace IntraBox.Core
             }
             if (IsBlockedScript(t))
             {
-                error = "不支持打开 .bat / .cmd / .vbs / .ps1。";
+                error = "不支持打开 .cmd / .vbs / .ps1。";
                 return false;
             }
             if (kind == KindApp && !IsAppPath(t))
             {
-                error = "程序请选择 .exe 或 .lnk。";
+                error = "程序请选择 .exe、.lnk 或 .bat。";
                 return false;
             }
             if (kind != KindApp && kind != KindFolder && kind != KindFile)
@@ -97,7 +105,7 @@ namespace IntraBox.Core
             if (kind != KindFile || string.IsNullOrWhiteSpace(openWith))
                 return true;
             string t = openWith.Trim();
-            if (IsBlockedScript(t))
+            if (IsBlockedScript(t) || IsBatPath(t))
             {
                 error = "打开方式不支持 .bat / .cmd / .vbs / .ps1。";
                 return false;

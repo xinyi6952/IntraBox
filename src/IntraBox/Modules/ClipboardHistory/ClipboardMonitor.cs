@@ -79,9 +79,11 @@ namespace IntraBox.Modules.ClipboardHistory
             string text;
             int w, h;
             byte[] bgra;
-            if (!ClipboardHelper.TryReadClipboard(SizeLimits.MaxFileBytes, out text, out w, out h, out bgra)) return;
+            bool recordImages = ClipboardStore.RecordImagesEnabled;
+            if (!ClipboardHelper.TryReadClipboard(SizeLimits.MaxFileBytes, recordImages, out text, out w, out h, out bgra)) return;
             CheckClipboardText(text);
-            CheckClipboardImage(w, h, bgra);
+            if (ClipboardStore.ShouldCaptureImage(recordImages, false))
+                CheckClipboardImage(w, h, bgra);
         }
 
         private static void CheckClipboardText(string text)

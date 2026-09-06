@@ -77,6 +77,10 @@ namespace IntraBox.Core
         [DataMember]
         public int ClipboardMaxItems { get; set; } = 20;
 
+        /// <summary>是否把剪贴板中的图片记入历史。默认 false；开关在剪贴板工具顶栏。</summary>
+        [DataMember]
+        public bool ClipboardRecordImages { get; set; }
+
         /// <summary>将条数夹取到 1–200（小于 1 变为 1，大于 200 变为 200）。</summary>
         public static int ClampClipboardMax(int n)
         {

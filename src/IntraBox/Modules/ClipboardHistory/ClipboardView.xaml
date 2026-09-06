@@ -12,6 +12,10 @@
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
             <TextBox x:Name="SearchBox" MinWidth="180" Margin="0,4,8,4" TextChanged="SearchBox_TextChanged"/>
             <Button Content="清空搜索" Margin="0,4,8,4" Click="ClearSearch_Click"/>
+            <CheckBox x:Name="RecordImageCheck" Content="记录剪切图片" Margin="8,4,8,4"
+                      VerticalAlignment="Center"
+                      ToolTip="勾选后才把复制的图片记入历史，默认不记录。取消勾选不影响已有条目。"
+                      Checked="RecordImageCheck_Changed" Unchecked="RecordImageCheck_Changed"/>
             <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
                        Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
         </WrapPanel>

@@ -12,11 +12,22 @@ namespace IntraBox.Modules.Launcher
         public static bool ConfirmIfNeeded(LauncherNode node, Window owner)
         {
             if (node == null || node.IsCategory) return false;
+            string detail = (node.Name ?? "") + "\n" + (node.Target ?? "");
+            if (LauncherProcess.IsAlreadyRunning(node.Kind, node.Target, node.OpenWith))
+            {
+                string again = "该程序已在运行，确定再打开一份？\n\n" + detail;
+                return AskOpen(owner, again);
+            }
             if (!LauncherTarget.NeedsOpenConfirm(node.Kind, node.ConfirmOpen)) return true;
-            string msg = "确定打开该程序？\n\n" + (node.Name ?? "") + "\n" + (node.Target ?? "");
+            string msg = "确定打开该程序？\n\n" + detail;
+            return AskOpen(owner, msg);
+        }
+
+        private static bool AskOpen(Window owner, string message)
+        {
             if (owner != null && owner.Topmost)
-                return ConfirmHelper.WarnOverTopmost(owner, msg, "打开确认");
-            return ConfirmHelper.Action(msg, "打开确认");
+                return ConfirmHelper.WarnOverTopmost(owner, message, "打开确认");
+            return ConfirmHelper.Action(message, "打开确认");
         }
 
         public static bool TryOpen(LauncherNode node)

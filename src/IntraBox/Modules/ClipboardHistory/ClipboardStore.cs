@@ -24,6 +24,22 @@ namespace IntraBox.Modules.ClipboardHistory
         /// <summary>写回图片期间为 true，避免 SetImage 重入监听时误记一条。</summary>
         public static bool SuppressImageCapture;
 
+        /// <summary>是否把剪贴板图片记入历史。读配置失败时视为关闭。</summary>
+        public static bool RecordImagesEnabled
+        {
+            get
+            {
+                try { return ConfigManager.Instance.Settings.ClipboardRecordImages; }
+                catch { return false; }
+            }
+        }
+
+        /// <summary>勾选记录图片且非写回抑制时才入库。</summary>
+        public static bool ShouldCaptureImage(bool recordImages, bool suppress)
+        {
+            return recordImages && !suppress;
+        }
+
         /// <summary>指纹相同则视为写回回声，不入库。</summary>
         public static bool ShouldSkipDuplicateImage(string sig, string lastSig)
         {

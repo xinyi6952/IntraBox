@@ -446,7 +446,7 @@ namespace IntraBox.Modules.Launcher
             FavFields.Visibility = _editCategory ? Visibility.Collapsed : Visibility.Visible;
             DrawerHint.Text = _editCategory
                 ? "分类相当于目录，可在其下新增收藏或子分类。"
-                : "程序选 .exe / .lnk；可勾选打开前二次确认（默认开）防止误触。内网地址须 http:// 或 https://。不支持 .bat / .cmd / .vbs / .ps1。文件可指定打开方式，留空则用系统默认。";
+                : "程序选 .exe / .lnk / .bat；可勾选打开前二次确认（默认开）防止误触。已在运行的相同程序再开一份会再确认。内网地址须 http:// 或 https://。不支持 .cmd / .vbs / .ps1。文件可指定打开方式，留空则用系统默认。";
             UpdateKindFields();
         }
 
@@ -551,7 +551,7 @@ namespace IntraBox.Modules.Launcher
             ofd.CheckFileExists = true;
             if (kind == LauncherTarget.KindApp)
             {
-                ofd.Filter = "程序 (*.exe;*.lnk)|*.exe;*.lnk|所有文件 (*.*)|*.*";
+                ofd.Filter = "程序 (*.exe;*.lnk;*.bat)|*.exe;*.lnk;*.bat|所有文件 (*.*)|*.*";
                 ofd.Title = "选择程序";
             }
             else

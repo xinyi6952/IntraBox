@@ -72,6 +72,21 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
+        public void ClipboardRecordImages_默认关闭()
+        {
+            Assert.IsFalse(new AppSettings().ClipboardRecordImages);
+        }
+
+        [TestMethod]
+        public void ShouldCaptureImage_默认关且写回时不入库()
+        {
+            Assert.IsFalse(ClipboardStore.ShouldCaptureImage(false, false));
+            Assert.IsFalse(ClipboardStore.ShouldCaptureImage(false, true));
+            Assert.IsFalse(ClipboardStore.ShouldCaptureImage(true, true));
+            Assert.IsTrue(ClipboardStore.ShouldCaptureImage(true, false));
+        }
+
+        [TestMethod]
         public void ClipItem_MakeShortPreview_图片用Preview_文本压成单行()
         {
             Assert.AreEqual("[图片] 1920×1080", ClipItem.MakeShortPreview(true, "ignored", "[图片] 1920×1080"));

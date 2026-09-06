@@ -27,6 +27,7 @@ using IntraBox.Modules.FileLock;
 using IntraBox.Modules.HostsEditor;
 using IntraBox.Modules.WinTopmost;
 using IntraBox.Modules.KeepAwake;
+using IntraBox.Modules.Launcher;
 using IntraBox.Modules.CertDecode;
 using IntraBox.Modules.UnicodeInspect;
 using IntraBox.Modules.Semver;
@@ -72,6 +73,7 @@ namespace IntraBox.Core
         {
             // 顺序与 NavOrder 默认一致（按日常使用频率）；真正展示顺序以 NavOrder 为准。
             Register("clipboard", "剪贴板历史", "效率工具", () => new ClipboardView());
+            Register("launcher", "启动器", "效率工具", () => new LauncherView());
             Register("todo", "任务计划", "效率工具", () => new TodoView());
             Register("notes", "笔记", "效率工具", () => new NotesView());
             Register("vault", "账号备忘", "效率工具", () => new VaultView());

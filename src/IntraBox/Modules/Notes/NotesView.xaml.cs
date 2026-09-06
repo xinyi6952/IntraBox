@@ -16,6 +16,8 @@ namespace IntraBox.Modules.Notes
 {
     public partial class NotesView : UserControl, IModuleView, ILeaveGuard
     {
+        public static string PendingOpenUid;
+
         private readonly List<NoteRow> _rows = new List<NoteRow>();
         private bool _loading;
         private bool _drawerMax = true;
@@ -35,6 +37,15 @@ namespace IntraBox.Modules.Notes
         public void OnActivated()
         {
             RefreshList();
+            OpenPending();
+        }
+
+        public void OpenPending()
+        {
+            string uid = PendingOpenUid;
+            PendingOpenUid = null;
+            if (string.IsNullOrEmpty(uid)) return;
+            OpenDrawer(uid);
         }
 
         public void OnDeactivated()

@@ -58,6 +58,7 @@ namespace IntraBox.Core
         public static string NotesIndexJson { get { return Path.Combine(NotesDir, "index.json"); } }
         public static string VaultDir { get { return Path.Combine(Root, "vault"); } }
         public static string VaultIndexJson { get { return Path.Combine(VaultDir, "index.json"); } }
+        public static string LauncherJson { get { return Path.Combine(Root, "launcher.json"); } }
 
         public static bool IsDefaultRoot
         {
@@ -155,6 +156,7 @@ namespace IntraBox.Core
             CopyFileIfExists(FileOrganizeJson, Path.Combine(dest, "fileorganize.json"));
             CopyFileIfExists(FileOrganizeUndoJson, Path.Combine(dest, "fileorganize-undo.json"));
             CopyFileIfExists(ErrorLog, Path.Combine(dest, "error.log"));
+            CopyFileIfExists(LauncherJson, Path.Combine(dest, "launcher.json"));
             string todosSrc = TodosDir;
             string todosDest = Path.Combine(dest, "todos");
             if (Directory.Exists(todosSrc))

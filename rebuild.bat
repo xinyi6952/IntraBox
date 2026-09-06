@@ -13,8 +13,24 @@ REM  tool output render safely in the console.
 REM ============================================================
 setlocal
 cd /d "%~dp0"
-echo IntraBox rebuild starting...
 chcp 65001 >nul
+echo.
+echo ============================================================
+echo  WARNING: rebuild will DELETE local IntraBox data files
+echo           (config, history, todos, notes, vault, launcher),
+echo           then wipe caches and dist\IntraBox\.
+echo  A confirmation dialog follows. Default is No.
+echo ============================================================
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -File "tools\confirm-rebuild.ps1"
+if errorlevel 1 (
+    echo Aborted. Local data was not deleted.
+    echo.
+    pause
+    exit /b 0
+)
+
+echo IntraBox rebuild starting...
 set "LOG=%~dp0build.log"
 echo ==== IntraBox REBUILD %DATE% %TIME% ==== > "%LOG%"
 

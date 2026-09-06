@@ -89,6 +89,8 @@ namespace IntraBox
             {
                 HotkeyService.Instance.CaptureRequested += (s, ev) => CaptureOverlayWindow.ShowNew();
                 HotkeyService.Instance.RulerRequested += (s, ev) => ScreenRulerOverlayWindow.ShowNew();
+                HotkeyService.Instance.LauncherRequested += (s, ev) =>
+                    IntraBox.Modules.Launcher.LauncherOverlayWindow.Toggle();
             }
             TryShowWelcome(window);
             window.RestoreLastModule();
@@ -96,6 +98,7 @@ namespace IntraBox
             IntraBox.Modules.Todo.TodoStore.Reload();
             IntraBox.Modules.Notes.NoteStore.Reload();
             IntraBox.Modules.Vault.VaultStore.Reload();
+            IntraBox.Modules.Launcher.LauncherStore.Reload();
             IntraBox.Modules.Todo.TodoReminderService.Start();
 
             StartShowWindowListener();
@@ -124,6 +127,7 @@ namespace IntraBox
                 IntraBox.Modules.Todo.TodoStore.Flush();
                 IntraBox.Modules.Notes.NoteStore.Flush();
                 IntraBox.Modules.Vault.VaultStore.Flush();
+                IntraBox.Modules.Launcher.LauncherStore.Flush();
                 IntraBox.Modules.Todo.TodoReminderService.Stop();
                 ConfigManager.Instance.Save();
                 HotkeyService.Uninstall();

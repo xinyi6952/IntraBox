@@ -24,6 +24,10 @@ namespace IntraBox.Modules.Settings
         private bool _hkAlt = true;
         private bool _hkShift;
         private int _hkVk = 0x41;
+        private bool _hkLCtrl = true;
+        private bool _hkLAlt = true;
+        private bool _hkLShift;
+        private int _hkLVk = 0x4C;
         private List<ToolVisItem> _toolItems;
         private List<ToolVisGroup> _toolGroups;
         private List<NavSortGroup> _sortGroups;
@@ -55,6 +59,11 @@ namespace IntraBox.Modules.Settings
             _hkShift = s.CaptureHotkeyShift;
             _hkVk = s.CaptureHotkeyVk > 0 ? s.CaptureHotkeyVk : 0x41;
             RefreshHotkeyBox();
+            _hkLCtrl = s.LauncherHotkeyCtrl;
+            _hkLAlt = s.LauncherHotkeyAlt;
+            _hkLShift = s.LauncherHotkeyShift;
+            _hkLVk = s.LauncherHotkeyVk > 0 ? s.LauncherHotkeyVk : 0x4C;
+            RefreshLauncherHotkeyBox();
             LoadToolVisibility();
             LoadNavSort(false);
             ShowSortUi(false);
@@ -565,6 +574,77 @@ namespace IntraBox.Modules.Settings
             s.CaptureHotkeyAlt = _hkAlt;
             s.CaptureHotkeyShift = _hkShift;
             s.CaptureHotkeyVk = _hkVk;
+            ConfigManager.Instance.Save();
+        }
+
+        private void RefreshLauncherHotkeyBox()
+        {
+            if (LauncherHotkeyBox == null) return;
+            uint mod = 0;
+            if (_hkLCtrl) mod |= 0x0002;
+            if (_hkLAlt) mod |= 0x0001;
+            if (_hkLShift) mod |= 0x0004;
+            LauncherHotkeyBox.Text = HotkeyService.Format(mod, (uint)_hkLVk);
+        }
+
+        private void LauncherHotkeyBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            e.Handled = true;
+            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+            if (key == Key.LeftCtrl || key == Key.RightCtrl || key == Key.LeftAlt || key == Key.RightAlt
+                || key == Key.LeftShift || key == Key.RightShift || key == Key.System || key == Key.Tab)
+                return;
+            bool ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+            bool alt = (Keyboard.Modifiers & ModifierKeys.Alt) != 0;
+            bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+            if (!ctrl && !alt)
+            {
+                MsgText.Text = "请至少加上 Ctrl 或 Alt，以免占用普通按键。";
+                return;
+            }
+            int vk = KeyInterop.VirtualKeyFromKey(key);
+            if (vk <= 0)
+            {
+                MsgText.Text = "无法识别该按键。";
+                return;
+            }
+            if (HotkeyService.Instance != null && !HotkeyService.Instance.RebindLauncher(ctrl, alt, shift, vk))
+            {
+                MsgText.Text = "启动器热键注册失败，可能与截屏热键冲突或已被占用。";
+                return;
+            }
+            _hkLCtrl = ctrl;
+            _hkLAlt = alt;
+            _hkLShift = shift;
+            _hkLVk = vk;
+            PersistLauncherHotkey();
+            RefreshLauncherHotkeyBox();
+            MsgText.Text = "启动器热键已改为 " + LauncherHotkeyBox.Text + "。";
+        }
+
+        private void LauncherHotkeyReset_Click(object sender, RoutedEventArgs e)
+        {
+            if (HotkeyService.Instance != null && !HotkeyService.Instance.RebindLauncher(true, true, false, 0x4C))
+            {
+                MsgText.Text = "无法恢复启动器默认热键（可能被占用）。";
+                return;
+            }
+            _hkLCtrl = true;
+            _hkLAlt = true;
+            _hkLShift = false;
+            _hkLVk = 0x4C;
+            PersistLauncherHotkey();
+            RefreshLauncherHotkeyBox();
+            MsgText.Text = "已恢复启动器默认 Ctrl+Alt+L。";
+        }
+
+        private void PersistLauncherHotkey()
+        {
+            var s = ConfigManager.Instance.Settings;
+            s.LauncherHotkeyCtrl = _hkLCtrl;
+            s.LauncherHotkeyAlt = _hkLAlt;
+            s.LauncherHotkeyShift = _hkLShift;
+            s.LauncherHotkeyVk = _hkLVk;
             ConfigManager.Instance.Save();
         }
 

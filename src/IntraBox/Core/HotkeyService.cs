@@ -13,17 +13,21 @@ namespace IntraBox.Core
     {
         public const int HotkeyIdCapture = 0x4942; // 'IB'
         public const int HotkeyIdRuler = 0x4943;
+        public const int HotkeyIdLauncher = 0x4944;
         private const int WmHotkey = 0x0312;
         private const uint ModAlt = 0x0001;
         private const uint ModControl = 0x0002;
         private const uint ModShift = 0x0004;
         private const uint VkA = 0x41;
         private const uint VkM = 0x4D;
+        private const uint VkL = 0x4C;
 
         private uint _mod = ModControl | ModAlt;
         private uint _vk = VkA;
         private uint _rulerMod = ModControl | ModShift;
         private uint _rulerVk = VkM;
+        private uint _launcherMod = ModControl | ModAlt;
+        private uint _launcherVk = VkL;
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
@@ -35,8 +39,10 @@ namespace IntraBox.Core
 
         public event EventHandler CaptureRequested;
         public event EventHandler RulerRequested;
+        public event EventHandler LauncherRequested;
 
         public bool Registered { get; private set; }
+        public bool LauncherRegistered { get; private set; }
 
         private HwndSource _source;
         private IntPtr _hwnd;
@@ -85,12 +91,28 @@ namespace IntraBox.Core
                 _rulerVk = VkM;
                 RegisterHotKey(_hwnd, HotkeyIdRuler, _rulerMod, _rulerVk);
             }
+            _launcherMod = BuildModifiers(s.LauncherHotkeyCtrl, s.LauncherHotkeyAlt, s.LauncherHotkeyShift);
+            _launcherVk = s.LauncherHotkeyVk > 0 ? (uint)s.LauncherHotkeyVk : VkL;
+            if (_launcherMod == 0) _launcherMod = ModControl | ModAlt;
+            LauncherRegistered = RegisterHotKey(_hwnd, HotkeyIdLauncher, _launcherMod, _launcherVk);
+            if (!LauncherRegistered)
+            {
+                _launcherMod = ModControl | ModAlt;
+                _launcherVk = VkL;
+                LauncherRegistered = RegisterHotKey(_hwnd, HotkeyIdLauncher, _launcherMod, _launcherVk);
+            }
         }
 
-        /// <summary>当前热键的可读文本，如 Ctrl+Alt+A。</summary>
+        /// <summary>当前截屏热键的可读文本，如 Ctrl+Alt+A。</summary>
         public string DisplayText
         {
             get { return Format(_mod, _vk); }
+        }
+
+        /// <summary>当前启动器热键的可读文本，如 Ctrl+Alt+L。</summary>
+        public string DisplayTextLauncher
+        {
+            get { return Format(_launcherMod, _launcherVk); }
         }
 
         /// <summary>重新注册热键。失败时保留原绑定并返回 false。</summary>
@@ -110,6 +132,26 @@ namespace IntraBox.Core
                 return true;
             }
             Registered = RegisterHotKey(_hwnd, HotkeyIdCapture, _mod, _vk);
+            return false;
+        }
+
+        /// <summary>重新注册启动器热键。失败时保留原绑定并返回 false。不改截屏热键。</summary>
+        public bool RebindLauncher(bool ctrl, bool alt, bool shift, int vk)
+        {
+            if (_hwnd == IntPtr.Zero) return false;
+            if (vk <= 0) vk = (int)VkL;
+            uint mod = BuildModifiers(ctrl, alt, shift);
+            if (mod == 0) return false;
+            try { UnregisterHotKey(_hwnd, HotkeyIdLauncher); } catch { }
+            bool ok = RegisterHotKey(_hwnd, HotkeyIdLauncher, mod, (uint)vk);
+            if (ok)
+            {
+                _launcherMod = mod;
+                _launcherVk = (uint)vk;
+                LauncherRegistered = true;
+                return true;
+            }
+            LauncherRegistered = RegisterHotKey(_hwnd, HotkeyIdLauncher, _launcherMod, _launcherVk);
             return false;
         }
 
@@ -151,6 +193,12 @@ namespace IntraBox.Core
                     if (handler != null) handler(this, EventArgs.Empty);
                     handled = true;
                 }
+                else if (id == HotkeyIdLauncher)
+                {
+                    var handler = LauncherRequested;
+                    if (handler != null) handler(this, EventArgs.Empty);
+                    handled = true;
+                }
             }
             return IntPtr.Zero;
         }
@@ -161,6 +209,7 @@ namespace IntraBox.Core
             {
                 try { UnregisterHotKey(_hwnd, HotkeyIdCapture); } catch { }
                 try { UnregisterHotKey(_hwnd, HotkeyIdRuler); } catch { }
+                try { UnregisterHotKey(_hwnd, HotkeyIdLauncher); } catch { }
             }
             if (_source != null)
             {
@@ -168,6 +217,7 @@ namespace IntraBox.Core
                 _source = null;
             }
             Registered = false;
+            LauncherRegistered = false;
             _hwnd = IntPtr.Zero;
         }
     }

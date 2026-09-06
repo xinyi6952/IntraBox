@@ -31,7 +31,7 @@ namespace IntraBox.Core
 
         public static readonly string[] DefaultToolKeys =
         {
-            "clipboard", "todo", "notes", "vault",
+            "clipboard", "launcher", "todo", "notes", "vault",
             "machineinfo", "hostseditor", "filelock", "wintopmost", "keepawake", "regbrowse",
             "formatter",
             "screenshot", "screenruler",

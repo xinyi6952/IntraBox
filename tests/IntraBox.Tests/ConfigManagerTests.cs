@@ -23,40 +23,45 @@ namespace IntraBox.Tests
             Assert.AreEqual("clipboard", next[0]);
             Assert.AreEqual("screenshot", next[1]);
             Assert.AreEqual("notes", next[2]);
-            Assert.AreEqual("todo", next[3]);
-            Assert.AreEqual("vault", next[4]);
-            Assert.AreEqual(5, next.Length);
+            Assert.AreEqual("launcher", next[3]);
+            Assert.AreEqual("todo", next[4]);
+            Assert.AreEqual("vault", next[5]);
+            Assert.AreEqual(6, next.Length);
 
-            int notes = 0, todo = 0, vault = 0;
+            int notes = 0, todo = 0, vault = 0, launcher = 0;
             for (int i = 0; i < next.Length; i++)
             {
                 if (next[i] == "notes") notes++;
                 if (next[i] == "todo") todo++;
                 if (next[i] == "vault") vault++;
+                if (next[i] == "launcher") launcher++;
             }
             Assert.AreEqual(1, notes);
             Assert.AreEqual(1, todo);
             Assert.AreEqual(1, vault);
+            Assert.AreEqual(1, launcher);
         }
 
         [TestMethod]
         public void AppendNewVisibleToolKeys_已含全部新key_原样返回()
         {
-            var current = new[] { "clipboard", "todo", "notes", "vault", "screenshot" };
+            var current = new[] { "clipboard", "launcher", "todo", "notes", "vault", "screenshot" };
             Assert.AreSame(current, ConfigManager.AppendNewVisibleToolKeys(current));
         }
 
         [TestMethod]
         public void AppendNewVisibleToolKeys_追加顺序与效率工具默认一致()
         {
-            Assert.AreEqual("todo", NavOrder.DefaultToolKeys[1]);
-            Assert.AreEqual("notes", NavOrder.DefaultToolKeys[2]);
-            Assert.AreEqual("vault", NavOrder.DefaultToolKeys[3]);
+            Assert.AreEqual("launcher", NavOrder.DefaultToolKeys[1]);
+            Assert.AreEqual("todo", NavOrder.DefaultToolKeys[2]);
+            Assert.AreEqual("notes", NavOrder.DefaultToolKeys[3]);
+            Assert.AreEqual("vault", NavOrder.DefaultToolKeys[4]);
             var next = ConfigManager.AppendNewVisibleToolKeys(new[] { "clipboard" });
             Assert.AreEqual("clipboard", next[0]);
-            Assert.AreEqual("todo", next[1]);
-            Assert.AreEqual("notes", next[2]);
-            Assert.AreEqual("vault", next[3]);
+            Assert.AreEqual("launcher", next[1]);
+            Assert.AreEqual("todo", next[2]);
+            Assert.AreEqual("notes", next[3]);
+            Assert.AreEqual("vault", next[4]);
         }
 
         [TestMethod]

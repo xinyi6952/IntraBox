@@ -124,6 +124,22 @@ namespace IntraBox.Core
         [DataMember]
         public int RulerHotkeyVk { get; set; } = 0x4D;
 
+        /// <summary>启动器热键 Ctrl。</summary>
+        [DataMember]
+        public bool LauncherHotkeyCtrl { get; set; } = true;
+
+        /// <summary>启动器热键 Alt。</summary>
+        [DataMember]
+        public bool LauncherHotkeyAlt { get; set; } = true;
+
+        /// <summary>启动器热键 Shift。</summary>
+        [DataMember]
+        public bool LauncherHotkeyShift { get; set; } = false;
+
+        /// <summary>启动器热键虚拟键码，默认 L=0x4C。</summary>
+        [DataMember]
+        public int LauncherHotkeyVk { get; set; } = 0x4C;
+
         /// <summary>笔记是否自动保存。默认关闭，需点保存或 Ctrl+S。</summary>
         [DataMember]
         public bool NotesAutoSave { get; set; }

@@ -116,20 +116,62 @@ namespace IntraBox
             PersistLastModule(info.Key);
         }
 
-        /// <summary>提醒弹窗「打开任务」：切到任务计划并选中指定 uid。</summary>
+        /// <summary>提醒弹窗「打开任务」或启动器：切到任务计划并选中指定 uid。</summary>
         public void OpenTodo(string uid)
         {
             IntraBox.Modules.Todo.TodoView.PendingOpenUid = uid;
-            var info = ToolVisibility.Find("todo");
-            if (info == null) return;
-            if (_loader.CurrentInfo != null && _loader.CurrentInfo.Key == "todo")
+            OpenModule("todo", delegate
             {
                 var view = _loader.CurrentView as IntraBox.Modules.Todo.TodoView;
                 if (view != null) view.OpenPending();
+            });
+        }
+
+        /// <summary>启动器：切到笔记并打开指定篇。</summary>
+        public void OpenNote(string uid)
+        {
+            IntraBox.Modules.Notes.NotesView.PendingOpenUid = uid;
+            OpenModule("notes", delegate
+            {
+                var view = _loader.CurrentView as IntraBox.Modules.Notes.NotesView;
+                if (view != null) view.OpenPending();
+            });
+        }
+
+        /// <summary>启动器：切到账号备忘并打开指定分类。</summary>
+        public void OpenVault(string uid)
+        {
+            IntraBox.Modules.Vault.VaultView.PendingOpenUid = uid;
+            OpenModule("vault", delegate
+            {
+                var view = _loader.CurrentView as IntraBox.Modules.Vault.VaultView;
+                if (view != null) view.OpenPending();
+            });
+        }
+
+        /// <summary>启动器：切到指定工具（含设置）。</summary>
+        public void OpenTool(string key)
+        {
+            if (string.IsNullOrEmpty(key) || key == ToolVisibility.SettingsKey)
+            {
                 WindowRestore.ShowAndRestore(this);
+                OpenSettings();
                 return;
             }
-            if (!ToolVisibility.IsVisible("todo"))
+            OpenModule(key, null);
+        }
+
+        private void OpenModule(string key, Action ifAlreadyCurrent)
+        {
+            WindowRestore.ShowAndRestore(this);
+            var info = ToolVisibility.Find(key);
+            if (info == null) return;
+            if (_loader.CurrentInfo != null && _loader.CurrentInfo.Key == key)
+            {
+                if (ifAlreadyCurrent != null) ifAlreadyCurrent();
+                return;
+            }
+            if (!ToolVisibility.IsVisible(key))
             {
                 if (!_loader.Activate(info, WorkspaceHost)) return;
                 SetSettingsSelected(false);
@@ -143,7 +185,7 @@ namespace IntraBox
             }
             foreach (ModuleInfo m in NavList.Items)
             {
-                if (m.Key == "todo")
+                if (m.Key == key)
                 {
                     NavList.SelectedItem = m;
                     break;

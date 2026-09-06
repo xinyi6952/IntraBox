@@ -15,6 +15,8 @@ namespace IntraBox.Modules.Vault
 {
     public partial class VaultView : UserControl, IModuleView, ILeaveGuard
     {
+        public static string PendingOpenUid;
+
         private readonly List<VaultRow> _rows = new List<VaultRow>();
         private bool _loading;
         private bool _drawerMax = true;
@@ -39,6 +41,15 @@ namespace IntraBox.Modules.Vault
         public void OnActivated()
         {
             RefreshList();
+            OpenPending();
+        }
+
+        public void OpenPending()
+        {
+            string uid = PendingOpenUid;
+            PendingOpenUid = null;
+            if (string.IsNullOrEmpty(uid)) return;
+            OpenDrawer(uid);
         }
 
         public void OnDeactivated()

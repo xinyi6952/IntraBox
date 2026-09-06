@@ -90,6 +90,18 @@
                     <Button Content="恢复默认" Margin="8,0,0,0" Click="HotkeyReset_Click"/>
                 </StackPanel>
 
+                <TextBlock Text="启动器快捷键" FontWeight="SemiBold" Margin="0,0,0,6"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="呼出启动器浮层。默认 Ctrl+Alt+L。须包含 Ctrl 或 Alt。托盘隐藏时仍然有效。"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                    <TextBox x:Name="LauncherHotkeyBox" Width="200" IsReadOnly="True"
+                             ToolTip="点击后按下新的快捷键"
+                             PreviewKeyDown="LauncherHotkeyBox_PreviewKeyDown"/>
+                    <Button Content="恢复默认" Margin="8,0,0,0" Click="LauncherHotkeyReset_Click"/>
+                </StackPanel>
+
                 <TextBlock Text="数据目录" FontWeight="SemiBold" Margin="0,0,0,6"
                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"

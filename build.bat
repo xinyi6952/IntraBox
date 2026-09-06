@@ -60,7 +60,7 @@ copy /Y "docs\*.txt" "dist\IntraBox\" >> "%LOG%" 2>&1
 REM Mirror bin\Release into dist\IntraBox (copy + delete extras).
 REM /XF excludes: pdb + personal data (config/history/fileorganize/undo) + docs txt
 REM /XD excludes: the .claude working folder
-robocopy "src\IntraBox\bin\Release" "dist\IntraBox" /MIR /NFL /NDL /NJH /NP /R:2 /W:1 /XF *.pdb *.txt config.json history.json fileorganize.json fileorganize-undo.json /XD .claude >> "%LOG%" 2>&1
+robocopy "src\IntraBox\bin\Release" "dist\IntraBox" /MIR /NFL /NDL /NJH /NP /R:2 /W:1 /XF *.pdb *.txt config.json history.json fileorganize.json fileorganize-undo.json launcher.json /XD .claude >> "%LOG%" 2>&1
 set "RC=%ERRORLEVEL%"
 REM robocopy exit codes 0-7 = success, >=8 = failure
 REM cwd-in-dir does NOT block robocopy writes; the real risk is a RUNNING

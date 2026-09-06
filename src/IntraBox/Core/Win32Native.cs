@@ -40,6 +40,9 @@ namespace IntraBox.Core
         public const int WsExToolwindow = 0x00000080;
         public const int WM_CLIPBOARDUPDATE = 0x031D;
 
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        public static extern int FindExecutable(string lpFile, string lpDirectory, StringBuilder lpResult);
+
         [DllImport("user32.dll")]
         public static extern bool AddClipboardFormatListener(IntPtr hwnd);
 

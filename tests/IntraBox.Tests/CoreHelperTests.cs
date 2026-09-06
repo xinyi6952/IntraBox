@@ -147,16 +147,18 @@ namespace IntraBox.Tests
                 Assert.AreEqual("效率工具", NavOrder.DefaultCategories[0]);
                 Assert.AreEqual("系统工具", NavOrder.DefaultCategories[1]);
                 Assert.AreEqual("clipboard", NavOrder.DefaultToolKeys[0]);
-                Assert.AreEqual("todo", NavOrder.DefaultToolKeys[1]);
-                Assert.AreEqual("notes", NavOrder.DefaultToolKeys[2]);
-                Assert.AreEqual("vault", NavOrder.DefaultToolKeys[3]);
+                Assert.AreEqual("launcher", NavOrder.DefaultToolKeys[1]);
+                Assert.AreEqual("todo", NavOrder.DefaultToolKeys[2]);
+                Assert.AreEqual("notes", NavOrder.DefaultToolKeys[3]);
+                Assert.AreEqual("vault", NavOrder.DefaultToolKeys[4]);
                 var list = ToolVisibility.ToggleableToolsDefault();
-                Assert.IsTrue(list.Count > 4);
+                Assert.IsTrue(list.Count > 5);
                 Assert.AreEqual("clipboard", list[0].Key);
-                Assert.AreEqual("todo", list[1].Key);
-                Assert.AreEqual("notes", list[2].Key);
-                Assert.AreEqual("vault", list[3].Key);
-                Assert.AreEqual("machineinfo", list[4].Key);
+                Assert.AreEqual("launcher", list[1].Key);
+                Assert.AreEqual("todo", list[2].Key);
+                Assert.AreEqual("notes", list[3].Key);
+                Assert.AreEqual("vault", list[4].Key);
+                Assert.AreEqual("machineinfo", list[5].Key);
                 Assert.AreEqual("settings", ToolVisibility.SettingsKey);
                 Assert.IsTrue(list.Count > 3, "应含笔记模块");
             }

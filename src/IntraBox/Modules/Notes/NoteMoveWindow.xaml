@@ -1,4 +1,4 @@
-﻿<Window x:Class="IntraBox.Modules.Launcher.LauncherMoveWindow"
+﻿<Window x:Class="IntraBox.Modules.Notes.NoteMoveWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="移动到目录" Width="420" Height="480" MinWidth="360" MinHeight="320"
@@ -15,7 +15,7 @@
         </Grid.RowDefinitions>
         <TextBlock x:Name="HintText" Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
                    Foreground="{DynamicResource TextSecondaryBrush}"
-                   Text="选择一个目录，收藏将移动到该目录下。可选「根目录」移出目录。"/>
+                   Text="选择一个目录，笔记将移动到该目录下。可选「根目录」移出目录。"/>
         <TreeView x:Name="CatTree" Grid.Row="1" BorderThickness="1"
                   MouseDoubleClick="CatTree_MouseDoubleClick"/>
         <TextBlock x:Name="ErrorText" Grid.Row="2" Margin="0,8,0,8" TextWrapping="Wrap"

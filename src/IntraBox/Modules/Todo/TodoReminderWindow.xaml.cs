@@ -14,8 +14,6 @@ namespace IntraBox.Modules.Todo
         private readonly bool _preview;
         private readonly int _snoozeMin;
 
-        public bool StoppedRemind { get; private set; }
-
         public TodoReminderWindow(TodoItem item, int remain)
             : this(item, remain, false, null)
         {
@@ -148,11 +146,11 @@ namespace IntraBox.Modules.Todo
                 return;
             }
             if (!ConfirmHelper.WarnOverTopmost(this,
-                "关闭后本任务将不再弹出提醒，可在任务详情里重新打开提醒。\n\n确定不再提醒？",
-                "不再提醒"))
+                "今日内本任务将不再弹出提醒，明天起仍按原频次提醒。\n\n确定今日不再提醒？",
+                "今日不再提醒"))
                 return;
-            TodoReminderService.StopRemind(_item.Uid);
-            StoppedRemind = true;
+            if (!_preview)
+                TodoReminderService.MuteToday(_item.Uid);
             Close();
         }
 

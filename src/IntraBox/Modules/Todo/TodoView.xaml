@@ -237,6 +237,14 @@
                                     <Button x:Name="DrawerCloseFooterBtn" Content="关闭" Visibility="Collapsed"
                                             Style="{StaticResource PrimaryButton}" Click="DrawerClose_Click"/>
                                 </StackPanel>
+                                <CheckBox x:Name="ReadOnlyCheck" DockPanel.Dock="Left" Content="锁定" Margin="0,0,12,0"
+                                          VerticalAlignment="Center"
+                                          ToolTip="勾选后只能查看，不能编辑或删除。锁定时即使勾选自动保存也不会写入。"
+                                          Checked="ReadOnlyCheck_Changed" Unchecked="ReadOnlyCheck_Changed"/>
+                                <CheckBox x:Name="AutoSaveCheck" DockPanel.Dock="Left" Content="自动保存" Margin="0,0,12,0"
+                                          VerticalAlignment="Center"
+                                          ToolTip="勾选后修改会自动写入。锁定时即使勾选也不会自动保存。"
+                                          Checked="AutoSaveCheck_Changed" Unchecked="AutoSaveCheck_Changed"/>
                                 <TextBlock x:Name="DrawerMsg" VerticalAlignment="Center" TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </DockPanel>

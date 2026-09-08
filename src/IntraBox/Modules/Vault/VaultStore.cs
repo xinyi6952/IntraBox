@@ -97,9 +97,21 @@ namespace IntraBox.Modules.Vault
             lock (_sync)
             {
                 var it = FindLocked(uid);
-                if (it == null) return;
+                if (it == null || it.ReadOnly) return;
                 it.Pinned = pinned;
                 it.UpdatedAt = DateTime.Now;
+                SchedulePersistLocked();
+            }
+        }
+
+        public static void SetReadOnly(string uid, bool readOnly)
+        {
+            EnsureLoaded();
+            lock (_sync)
+            {
+                var it = FindLocked(uid);
+                if (it == null) return;
+                it.ReadOnly = readOnly;
                 SchedulePersistLocked();
             }
         }
@@ -112,6 +124,7 @@ namespace IntraBox.Modules.Vault
             {
                 int i = IndexOfLocked(uid);
                 if (i < 0) return;
+                if (_items[i].ReadOnly) return;
                 _items.RemoveAt(i);
                 try
                 {
@@ -153,6 +166,14 @@ namespace IntraBox.Modules.Vault
         public static string SaveBody(VaultItem meta, VaultBody body, byte[] key)
         {
             if (meta == null) return "分类无效";
+            if (meta.ReadOnly) return "已锁定，不能保存";
+            EnsureLoaded();
+            lock (_sync)
+            {
+                var existing = FindLocked(meta.Uid);
+                if (existing != null && existing.ReadOnly)
+                    return "已锁定，不能保存";
+            }
             if (body == null) body = NewEmptyBody();
             var kept = new List<VaultEntry>();
             if (body.Entries != null)
@@ -516,6 +537,7 @@ namespace IntraBox.Modules.Vault
                 Uid = s.Uid,
                 Title = s.Title,
                 Pinned = s.Pinned,
+                ReadOnly = s.ReadOnly,
                 CreatedAt = s.CreatedAt,
                 UpdatedAt = s.UpdatedAt,
                 EntryCount = s.EntryCount,

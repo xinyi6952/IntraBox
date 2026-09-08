@@ -6,8 +6,8 @@ IntraBox（内聚）是一个纯本地运行的聚合效率工具，其中包含
 
 如果你发现安全漏洞，请**私密**上报，切勿在公开 Issue 中披露细节：
 
-- 推荐：在 GitHub 开启 [Security Advisory](https://github.com/xinyi6952/IntraBox/security/advisories/new)（私密）
-- 或联系维护者邮箱（见仓库简介）
+- 推荐：在 [Gitee](https://gitee.com/xinyi6952/IntraBox) 开**私密 Issue**（或联系维护者邮箱，见仓库简介）
+- 补充：也可在 GitHub 开启 [Security Advisory](https://github.com/xinyi6952/IntraBox/security/advisories/new)（私密）。GitHub 仅为镜像，日常版本管理以 Gitee 为准，见 [开源仓库](docs/开源仓库.md)
 
 报告请尽量包含：
 

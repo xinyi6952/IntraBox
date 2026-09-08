@@ -2,7 +2,7 @@
 
 namespace IntraBox.Core
 {
-    /// <summary>启动器树节点：分类目录或收藏。</summary>
+    /// <summary>启动器树节点：目录或收藏。</summary>
     public sealed class LauncherNode
     {
         public string Uid { get; set; }

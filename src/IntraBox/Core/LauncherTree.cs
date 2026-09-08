@@ -90,7 +90,7 @@ namespace IntraBox.Core
             return result;
         }
 
-        /// <summary>仅分类、全部展开，供移动目标选择。</summary>
+        /// <summary>仅目录、全部展开，供移动目标选择。</summary>
         public static List<LauncherFlatRow> FlattenCategories(IList<LauncherNode> nodes)
         {
             var result = new List<LauncherFlatRow>();
@@ -115,7 +115,7 @@ namespace IntraBox.Core
                 var parent = Find(nodes, p);
                 if (parent == null || !parent.IsCategory)
                 {
-                    error = "目标分类不存在。";
+                    error = "目标目录不存在。";
                     return false;
                 }
             }
@@ -123,7 +123,7 @@ namespace IntraBox.Core
                 return true;
             if (ChildDepth(nodes, p) >= MaxDepth)
             {
-                error = "分类层级已达上限。";
+                error = "目录层级已达上限。";
                 return false;
             }
             return true;

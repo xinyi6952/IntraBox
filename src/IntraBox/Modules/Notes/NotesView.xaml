@@ -28,6 +28,11 @@
                                 <Path Style="{StaticResource MenuIconPath}" Data="M3,12 L3,4 L6,8 L9,4 L9,12 M11,4 L13,4 13,12"/>
                             </MenuItem.Icon>
                         </MenuItem>
+                        <MenuItem Header="目录" Click="NewFolder_Click" Style="{StaticResource ContextMenuItemStyle}">
+                            <MenuItem.Icon>
+                                <Path Style="{StaticResource MenuIconPath}" Data="M3,4 L8,4 8,12 3,12 Z M8,6 L13,6 13,12 8,12"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
                     </ContextMenu>
                 </Button.ContextMenu>
             </Button>
@@ -54,6 +59,26 @@
                         <MenuItem Header="编辑" Click="MenuEdit_Click" Style="{StaticResource ContextMenuItemStyle}">
                             <MenuItem.Icon>
                                 <Path Style="{StaticResource MenuIconPath}" Data="M3,13 L5,15 13,7 11,5 Z M12,4 L14,6"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="移动" Click="MenuMove_Click" Style="{StaticResource ContextMenuItemStyle}">
+                            <MenuItem.Icon>
+                                <Path Style="{StaticResource MenuIconPath}" Data="M3,8 L8,3 13,8 M8,3 L8,8 M3,12 L13,12"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="新增普通笔记" Click="MenuAddRich_Click" Style="{StaticResource ContextMenuItemStyle}">
+                            <MenuItem.Icon>
+                                <Path Style="{StaticResource MenuIconPath}" Data="M4,2 L12,2 12,14 4,14 Z M6,5 L10,5 M6,8 L10,8 M6,11 L9,11"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="新增 Markdown" Click="MenuAddMd_Click" Style="{StaticResource ContextMenuItemStyle}">
+                            <MenuItem.Icon>
+                                <Path Style="{StaticResource MenuIconPath}" Data="M3,12 L3,4 L6,8 L9,4 L9,12 M11,4 L13,4 13,12"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="新增目录" Click="MenuAddFolder_Click" Style="{StaticResource ContextMenuItemStyle}">
+                            <MenuItem.Icon>
+                                <Path Style="{StaticResource MenuIconPath}" Data="M3,4 L8,4 8,12 3,12 Z M8,6 L13,6 13,12 8,12"/>
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="置顶" Click="MenuPin_Click" Style="{StaticResource ContextMenuItemStyle}">
@@ -104,8 +129,18 @@
                         <GridViewColumn Header="标题" Width="220">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Title}" Style="{StaticResource NoteCellText}"
-                                               ToolTip="{Binding Title}"/>
+                                    <Grid Margin="{Binding Indent}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="18"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Width="18" Height="18" MinWidth="18" MinHeight="18" Padding="0"
+                                                FontSize="11" Click="Expand_Click"
+                                                Visibility="{Binding ExpanderVisibility}"
+                                                Content="{Binding ExpanderGlyph}" ToolTip="展开/折叠"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Title}" Style="{StaticResource NoteCellText}"
+                                                   ToolTip="{Binding Title}" Margin="4,0,0,0"/>
+                                    </Grid>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>

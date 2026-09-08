@@ -4,6 +4,11 @@
 
 面向内网工作者与开发者的**绿色免安装聚合效率工具**，纯本地运行、无网络依赖、无遥测。
 
+- **主仓库（版本管理）**：[Gitee](https://gitee.com/xinyi6952/IntraBox)
+- **镜像（自动同步）**：[GitHub](https://github.com/xinyi6952/IntraBox)
+
+日常 clone / push / Issue / Pull Request 请走 Gitee。GitHub 由 Gitee 仓库镜像推送同步，不作为日常 origin。说明见 [开源仓库](docs/开源仓库.md)。
+
 > **免责声明**：本工具仅供合法、授权的用途（系统管理、开发调试、安全测试等）。其中包含 Hosts 编辑、端口/文件占用查看、加解密、证书解码等能力，请勿用于任何未经授权的活动，使用者需对自身行为负责。
 
 ## 特性
@@ -48,14 +53,14 @@ IntraBox/
 ├── tests/IntraBox.Tests/        单元测试项目（MSTest）
 ├── dist/IntraBox/               绿色发布目录（主程序 + 依赖 + 文档）
 ├── redist/                      运行时离线安装包（.NET Framework 4.8 + VC++ 运行库）
-├── docs/                        产品设计、测试用例、代码评审清单、代码提交规范
+├── docs/                        产品设计、测试用例、评审/提交规范、开源仓库说明
 └── tools/                       开发辅助脚本（图标生成、BOM 检查）
 ```
 
 ## 构建
 
-- **增量构建**：双击 `build.bat`（已含进程占用检查），产物同步到 `dist/IntraBox/`。
-- **完全重建**：双击 `rebuild.bat` —— 执行前会弹出确认（默认「否」）。确认后删除编译缓存、`dist/IntraBox/`，并清空运行时数据（`%LOCALAPPDATA%\IntraBox\Data`：配置/历史/待办/笔记/账号备忘/启动器等），下次启动回到首次默认（欢迎引导、示例待办）。取消则不删任何文件。
+- **增量构建**：双击 `build.bat`。若托盘里 IntraBox 仍在运行，会弹出确认（默认「否」）；确认后结束进程再编译，产物同步到 `dist/IntraBox/`。
+- **完全重建**：双击 `rebuild.bat` —— 执行前会弹出确认（默认「否」）。确认后若 IntraBox 仍在运行会再询问是否结束进程（默认「否」）。都确认后才删除编译缓存、`dist/IntraBox/`，并清空运行时数据（`%LOCALAPPDATA%\IntraBox\Data`：配置/历史/待办/笔记/账号备忘/启动器等），下次启动回到首次默认（欢迎引导、示例待办）。任一确认取消则不删文件、不结束进程。
 
 > 运行环境：Win10 1903+ 已预装 .NET Framework 4.8；Win7 SP1 需先装 [.NET Framework 4.8](https://dotnet.microsoft.com/download/dotnet-framework/net48) 与 VC++ 运行库。
 
@@ -88,6 +93,7 @@ IntraBox/
 
 ## 贡献与安全
 
+- 主仓库在 [Gitee](https://gitee.com/xinyi6952/IntraBox)；GitHub 为镜像。托管说明见 [开源仓库](docs/开源仓库.md)
 - 贡献指南见 [CONTRIBUTING.md](CONTRIBUTING.md)；AI 助手见 [AGENTS.md](AGENTS.md)
 - 评审见 [代码评审清单](docs/代码评审清单.md)，提交见 [代码提交规范](docs/代码提交规范.md)
 - 行为准则见 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)

@@ -29,4 +29,4 @@
 
 ## 完整许可证文本
 
-各组件许可证全文参见对应 NuGet 包及上游仓库。如有遗漏或错误，欢迎提交 Issue 指正。
+各组件许可证全文参见对应 NuGet 包及上游仓库。如有遗漏或错误，欢迎在 [Gitee](https://gitee.com/xinyi6952/IntraBox/issues) 提交 Issue 指正。

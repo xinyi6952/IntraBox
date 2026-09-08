@@ -15,8 +15,15 @@ namespace IntraBox.Modules.Todo
 {
     public static class TodoRichText
     {
+        public const string LabelTitle = "【任务标题】";
+        public const string LabelSource = "【任务来源】";
+        public const string LabelDesc = "【任务描述】";
+
         public const string Template =
-            "任务标题: \r\n任务来源:\r\n任务描述:\r\n";
+            "【任务标题】: \r\n【任务来源】:\r\n【任务描述】:\r\n";
+
+        public const string FormatBrokenMessage =
+            "任务详情格式错误。请保留并按顺序使用加粗标签：\n【任务标题】:\n【任务来源】:\n【任务描述】:\n\n是否继续保存？";
 
         private const double ThumbMaxWidth = 200;
         private const double ThumbMaxHeight = 120;
@@ -29,37 +36,33 @@ namespace IntraBox.Modules.Todo
 
         public static string ExtractTitle(string plain)
         {
-            if (string.IsNullOrEmpty(plain)) return "";
-            var lines = plain.Replace("\r\n", "\n").Split('\n');
-            const string prefix = "任务标题:";
-            for (int i = 0; i < lines.Length; i++)
-            {
-                string line = lines[i].TrimStart();
-                if (line.StartsWith(prefix, StringComparison.Ordinal))
-                    return line.Substring(prefix.Length).Trim();
-            }
-            return "";
+            return ExtractField(plain, "任务标题");
+        }
+
+        public static bool HasFieldTemplate(string plain)
+        {
+            int title, source, desc;
+            return TryFindFieldLines(plain, out title, out source, out desc);
         }
 
         public static string ExtractField(string plain, string name)
         {
-            if (string.IsNullOrEmpty(plain)) return "";
-            var lines = plain.Replace("\r\n", "\n").Split('\n');
-            string prefix = name + ":";
+            if (string.IsNullOrEmpty(plain) || string.IsNullOrEmpty(name)) return "";
+            var lines = SplitLines(plain);
             var sb = new StringBuilder();
             bool grab = false;
             for (int i = 0; i < lines.Length; i++)
             {
                 string raw = lines[i];
                 string trimStart = raw.TrimStart();
-                if (trimStart.StartsWith("任务标题:", StringComparison.Ordinal)
-                    || trimStart.StartsWith("任务来源:", StringComparison.Ordinal)
-                    || trimStart.StartsWith("任务描述:", StringComparison.Ordinal))
+                string headerName;
+                string rest;
+                int style;
+                if (TryMatchHeader(trimStart, out headerName, out rest, out style))
                 {
-                    if (trimStart.StartsWith(prefix, StringComparison.Ordinal))
+                    if (string.Equals(headerName, name, StringComparison.Ordinal))
                     {
                         grab = true;
-                        string rest = trimStart.Substring(prefix.Length).Trim();
                         if (rest.Length > 0) sb.AppendLine(rest);
                     }
                     else
@@ -75,30 +78,24 @@ namespace IntraBox.Modules.Todo
 
         public static FlowDocument CreateTemplateDocument()
         {
-            var doc = new FlowDocument();
-            doc.FontFamily = new System.Windows.Media.FontFamily("Microsoft YaHei, 微软雅黑, Segoe UI");
-            doc.FontSize = 14;
-            doc.Blocks.Add(new Paragraph(new Run("任务标题: ")));
-            doc.Blocks.Add(new Paragraph(new Run("任务来源:")));
-            doc.Blocks.Add(new Paragraph(new Run("任务描述:")));
+            var doc = NewDoc();
+            doc.Blocks.Add(FieldLine(LabelTitle, " "));
+            doc.Blocks.Add(FieldLine(LabelSource, " "));
+            doc.Blocks.Add(FieldLine(LabelDesc, " "));
             return doc;
         }
 
         public static FlowDocument CreateSampleDocument()
         {
-            var doc = new FlowDocument();
-            doc.FontFamily = new System.Windows.Media.FontFamily("Microsoft YaHei, 微软雅黑, Segoe UI");
-            doc.FontSize = 14;
-            doc.Blocks.Add(Line("任务标题: 【示例】周五 18:00 前提交接口联调说明"));
-            doc.Blocks.Add(Line("任务来源: 内网工单 WO-2026-0918（可取消「自动生成」后把工单号填到任务 ID）"));
-            var desc = new Paragraph();
-            desc.Margin = new Thickness(0, 0, 0, 6);
-            desc.Inlines.Add(new Run("任务描述:"));
+            var doc = NewDoc();
+            doc.Blocks.Add(FieldLine(LabelTitle, " 【示例】周五 18:00 前提交接口联调说明"));
+            doc.Blocks.Add(FieldLine(LabelSource, " 内网工单 WO-2026-0918（可取消「自动生成」后把工单号填到任务 ID）"));
+            var desc = FieldLine(LabelDesc, " ");
             desc.Inlines.Add(new LineBreak());
-            desc.Inlines.Add(new Run("何时建任务：有截止日期、要周期性提醒、要对照工单的事项。随手备忘请用「笔记」，不要建任务。本条可删。"));
+            desc.Inlines.Add(NormalRun("何时建任务：有截止日期、要周期性提醒、要对照工单的事项。随手备忘请用「笔记」，不要建任务。本条可删。"));
             desc.Inlines.Add(new LineBreak());
             desc.Inlines.Add(new LineBreak());
-            desc.Inlines.Add(new Run("怎么用（对照本条）："));
+            desc.Inlines.Add(NormalRun("怎么用（对照本条）："));
             doc.Blocks.Add(desc);
             doc.Blocks.Add(Numbers(
                 "标题写清交付物和截止；优先级选「高」，计划完成设到本周五 18:00。",
@@ -112,11 +109,115 @@ namespace IntraBox.Modules.Todo
             return doc;
         }
 
-        private static Paragraph Line(string text)
+        private static FlowDocument NewDoc()
         {
-            var p = new Paragraph(new Run(text ?? ""));
+            var doc = new FlowDocument();
+            doc.FontFamily = new FontFamily("Microsoft YaHei, 微软雅黑, Segoe UI");
+            doc.FontSize = 14;
+            return doc;
+        }
+
+        private static Paragraph FieldLine(string label, string value)
+        {
+            var p = new Paragraph();
             p.Margin = new Thickness(0, 0, 0, 6);
+            var lab = new Run(label + ":");
+            lab.FontWeight = FontWeights.Bold;
+            p.Inlines.Add(lab);
+            p.Inlines.Add(NormalRun(value ?? ""));
             return p;
+        }
+
+        private static Run NormalRun(string text)
+        {
+            var run = new Run(text ?? "");
+            run.FontWeight = FontWeights.Normal;
+            return run;
+        }
+
+        private static string[] SplitLines(string plain)
+        {
+            return plain.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        }
+
+        private static bool TryFindFieldLines(string plain, out int title, out int source, out int desc)
+        {
+            title = source = desc = -1;
+            if (string.IsNullOrEmpty(plain)) return false;
+            var lines = SplitLines(plain);
+            int first = -1;
+            int style = 0;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string t = lines[i].TrimStart();
+                if (t.Length == 0) continue;
+                if (first < 0) first = i;
+                string name;
+                string rest;
+                int s;
+                if (!TryMatchHeader(t, out name, out rest, out s)) continue;
+                if (style == 0) style = s;
+                else if (style != s) return false;
+                if (name == "任务标题" && title < 0) title = i;
+                else if (name == "任务来源" && source < 0) source = i;
+                else if (name == "任务描述" && desc < 0) desc = i;
+            }
+            if (title < 0 || source < 0 || desc < 0) return false;
+            if (title != first) return false;
+            return title < source && source < desc;
+        }
+
+        private static bool TryMatchHeader(string trimStart, out string name, out string rest, out int style)
+        {
+            name = null;
+            rest = "";
+            style = 0;
+            if (string.IsNullOrEmpty(trimStart)) return false;
+            if (MatchPrefix(trimStart, LabelTitle + ":", out rest))
+            {
+                name = "任务标题";
+                style = 1;
+                return true;
+            }
+            if (MatchPrefix(trimStart, LabelSource + ":", out rest))
+            {
+                name = "任务来源";
+                style = 1;
+                return true;
+            }
+            if (MatchPrefix(trimStart, LabelDesc + ":", out rest))
+            {
+                name = "任务描述";
+                style = 1;
+                return true;
+            }
+            if (MatchPrefix(trimStart, "任务标题:", out rest))
+            {
+                name = "任务标题";
+                style = 2;
+                return true;
+            }
+            if (MatchPrefix(trimStart, "任务来源:", out rest))
+            {
+                name = "任务来源";
+                style = 2;
+                return true;
+            }
+            if (MatchPrefix(trimStart, "任务描述:", out rest))
+            {
+                name = "任务描述";
+                style = 2;
+                return true;
+            }
+            return false;
+        }
+
+        private static bool MatchPrefix(string line, string prefix, out string rest)
+        {
+            rest = "";
+            if (!line.StartsWith(prefix, StringComparison.Ordinal)) return false;
+            rest = line.Substring(prefix.Length).Trim();
+            return true;
         }
 
         private static System.Windows.Documents.List Numbers(params string[] items)
@@ -150,84 +251,7 @@ namespace IntraBox.Modules.Todo
 
         public static string ContentStamp(FlowDocument doc)
         {
-            var sb = new StringBuilder();
-            if (doc != null)
-            {
-                foreach (var block in doc.Blocks)
-                    AppendStamp(sb, block);
-            }
-            return sb.ToString();
-        }
-
-        private static void AppendStamp(StringBuilder sb, Block block)
-        {
-            var p = block as Paragraph;
-            if (p != null)
-            {
-                sb.Append('P');
-                sb.Append((int)p.TextAlignment);
-                sb.Append('/');
-                sb.Append(p.FontSize);
-                foreach (var inline in p.Inlines)
-                    AppendInlineStamp(sb, inline);
-                sb.Append('\n');
-                return;
-            }
-            var list = block as System.Windows.Documents.List;
-            if (list != null)
-            {
-                sb.Append('L');
-                sb.Append((int)list.MarkerStyle);
-                foreach (var item in list.ListItems)
-                {
-                    foreach (var inner in item.Blocks)
-                        AppendStamp(sb, inner);
-                }
-                return;
-            }
-            var sec = block as Section;
-            if (sec != null)
-            {
-                foreach (var inner in sec.Blocks)
-                    AppendStamp(sb, inner);
-            }
-        }
-
-        private static void AppendInlineStamp(StringBuilder sb, Inline inline)
-        {
-            var run = inline as Run;
-            if (run != null)
-            {
-                sb.Append(run.Text);
-                sb.Append('#');
-                sb.Append(run.FontWeight);
-                sb.Append(run.FontStyle);
-                if (run.TextDecorations != null && run.TextDecorations.Count > 0)
-                    sb.Append('U');
-                var brush = run.Foreground as SolidColorBrush;
-                if (brush != null) sb.Append(brush.Color);
-                return;
-            }
-            var span = inline as Span;
-            if (span != null)
-            {
-                foreach (var child in span.Inlines)
-                    AppendInlineStamp(sb, child);
-                return;
-            }
-            if (inline is LineBreak)
-            {
-                sb.Append('\n');
-                return;
-            }
-            var ui = inline as InlineUIContainer;
-            if (ui != null)
-            {
-                var img = ui.Child as Image;
-                sb.Append("[img:");
-                sb.Append(img != null ? img.Tag as string : "");
-                sb.Append(']');
-            }
+            return FlowDocStamp.From(doc);
         }
 
         public static void LoadInto(RichTextBox box, string uid)

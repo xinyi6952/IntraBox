@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -56,6 +57,15 @@ namespace IntraBox.Modules.Launcher
         public bool CanLeave()
         {
             return CloseDrawer();
+        }
+
+        private void NewBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var menu = NewBtn != null ? NewBtn.ContextMenu : null;
+            if (menu == null) return;
+            menu.PlacementTarget = NewBtn;
+            menu.Placement = PlacementMode.Bottom;
+            menu.IsOpen = true;
         }
 
         private void NewFav_Click(object sender, RoutedEventArgs e)
@@ -209,7 +219,7 @@ namespace IntraBox.Modules.Launcher
                 mi.IsEnabled = has;
                 if (h == "打开" || h == "移动")
                     mi.Visibility = has && !cat ? Visibility.Visible : Visibility.Collapsed;
-                if (h == "新增收藏" || h == "新增分类")
+                if (h == "新增收藏" || h == "新增目录")
                     mi.Visibility = cat ? Visibility.Visible : Visibility.Collapsed;
                 if (h == "置顶") mi.Visibility = has && !pin ? Visibility.Visible : Visibility.Collapsed;
                 if (h == "取消置顶") mi.Visibility = pin ? Visibility.Visible : Visibility.Collapsed;
@@ -406,7 +416,7 @@ namespace IntraBox.Modules.Launcher
             ApplyEditMode();
             _loading = false;
             RememberLoaded();
-            DrawerTitle.Text = category ? "新建分类" : "新建收藏";
+            DrawerTitle.Text = category ? "新建目录" : "新建收藏";
             SetDrawerMsg("", false);
             DrawerHost.Visibility = Visibility.Visible;
             SetDrawerMaximized(false);
@@ -435,7 +445,7 @@ namespace IntraBox.Modules.Launcher
             ApplyEditMode();
             _loading = false;
             RememberLoaded();
-            DrawerTitle.Text = item.IsCategory ? "编辑分类" : "编辑收藏";
+            DrawerTitle.Text = item.IsCategory ? "编辑目录" : "编辑收藏";
             SetDrawerMsg("", false);
             DrawerHost.Visibility = Visibility.Visible;
             SetDrawerMaximized(false);
@@ -445,7 +455,7 @@ namespace IntraBox.Modules.Launcher
         {
             FavFields.Visibility = _editCategory ? Visibility.Collapsed : Visibility.Visible;
             DrawerHint.Text = _editCategory
-                ? "分类相当于目录，可在其下新增收藏或子分类。"
+                ? "目录可嵌套，可在其下新增收藏或子目录。"
                 : "程序选 .exe / .lnk / .bat；可勾选打开前二次确认（默认开）防止误触。已在运行的相同程序再开一份会再确认。内网地址须 http:// 或 https://。不支持 .cmd / .vbs / .ps1。文件可指定打开方式，留空则用系统默认。";
             UpdateKindFields();
         }
@@ -629,7 +639,7 @@ namespace IntraBox.Modules.Launcher
                 return;
             }
             SetDrawerMsg("已保存", false);
-            DrawerTitle.Text = _editCategory ? "编辑分类" : "编辑收藏";
+            DrawerTitle.Text = _editCategory ? "编辑目录" : "编辑收藏";
             RefreshList();
             MsgText.Text = "已保存";
         }
@@ -655,7 +665,7 @@ namespace IntraBox.Modules.Launcher
                 HideDrawer();
                 return true;
             }
-            string what = _editCategory ? "当前分类" : "当前收藏";
+            string what = _editCategory ? "当前目录" : "当前收藏";
             var r = ConfirmHelper.Unsaved(what + "有未保存的修改，是否保存？", "未保存确认");
             if (r == MessageBoxResult.Cancel) return false;
             if (r == MessageBoxResult.Yes)
@@ -751,7 +761,7 @@ namespace IntraBox.Modules.Launcher
                     Uid = n.Uid,
                     ParentUid = n.ParentUid ?? "",
                     Name = n.Name ?? "",
-                    KindText = cat ? "分类" : LauncherTarget.KindLabel(n.Kind),
+                    KindText = cat ? "目录" : LauncherTarget.KindLabel(n.Kind),
                     Target = cat ? "" : (n.Target ?? ""),
                     OpenWithText = cat ? "" : LauncherTarget.OpenWithLabel(n.Kind, n.OpenWith),
                     Pinned = n.Pinned,

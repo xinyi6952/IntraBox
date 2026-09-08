@@ -1,6 +1,11 @@
 # 贡献指南
 
-感谢你对 IntraBox（内聚）的关注！欢迎提交 Issue 和 Pull Request。
+感谢你对 IntraBox（内聚）的关注！欢迎在 **Gitee 主仓库**提交 Issue 和 Pull Request。
+
+源码托管：**Gitee 管理版本，GitHub 自动镜像**。不要向 GitHub 日常 push，也不要把 GitHub PR 当作主贡献入口。详见 [开源仓库](docs/开源仓库.md)。
+
+- 主仓库：https://gitee.com/xinyi6952/IntraBox
+- 镜像：https://github.com/xinyi6952/IntraBox
 
 ## 环境要求
 
@@ -10,7 +15,8 @@
 
 ## 构建与测试
 
-- 双击 `build.bat`：编译 + 同步到 `dist/IntraBox/`
+- 双击 `build.bat`：若 IntraBox 在跑会询问是否结束进程（默认否），确认后再编译并同步到 `dist/IntraBox/`
+- 双击 `rebuild.bat`：先确认清空本机数据，若 IntraBox 在跑会再确认结束进程；取消任一则中止
 - 双击 `test.bat`：构建测试项目并运行全部 MSTest 用例
 - 命令行等价：
 
@@ -28,10 +34,12 @@ vstest.console.exe tests\IntraBox.Tests\bin\Release\IntraBox.Tests.dll
 
 ## 提交流程
 
-1. Fork 本仓库并创建分支（如 `feature/xxx` 或 `fix/xxx`）
+1. Fork [Gitee 主仓库](https://gitee.com/xinyi6952/IntraBox) 并创建分支（如 `feature/xxx` 或 `fix/xxx`）
 2. 提交信息按 [代码提交规范](docs/代码提交规范.md)：多改动点用无序列表；一条需求默认一条 commit；不要附带 AI 工具身份
 3. 确保 `test.bat` 全绿
-4. 提交 Pull Request，描述改动动机与影响；涉及已有功能时对照 [代码评审清单](docs/代码评审清单.md) 的触发表做防回归检查
+4. 向 Gitee 的 `main` 提交 Pull Request，描述改动动机与影响；涉及已有功能时对照 [代码评审清单](docs/代码评审清单.md) 的触发表做防回归检查
+
+Issue 请开在 Gitee：https://gitee.com/xinyi6952/IntraBox/issues
 
 ## AI 助手
 

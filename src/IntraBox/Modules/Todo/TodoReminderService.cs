@@ -86,18 +86,25 @@ namespace IntraBox.Modules.Todo
             }
         }
 
-        /// <summary>关闭该任务提醒：落盘为关闭，并清掉稍后与排队。</summary>
-        public static void StopRemind(string uid)
+        /// <summary>今日不再提醒：落盘当天静音，并清掉稍后与排队。频次不变。</summary>
+        public static void MuteToday(string uid)
         {
             if (string.IsNullOrEmpty(uid)) return;
-            TodoStore.SetRemindOff(uid);
+            TodoStore.SetMuteRemindToday(uid, DateTime.Now);
             ResetLiveRemind(uid);
+        }
+
+        public static bool IsMutedToday(TodoItem it, DateTime now)
+        {
+            if (it == null || !it.MuteRemindOn.HasValue) return false;
+            return it.MuteRemindOn.Value.Date == now.Date;
         }
 
         public static bool ShouldFire(TodoItem it, DateTime now)
         {
             if (it == null || it.Completed) return false;
             if (it.RemindKind == TodoRemindKind.Off) return false;
+            if (IsMutedToday(it, now)) return false;
             bool snoozeDue = false;
             lock (_sync)
             {

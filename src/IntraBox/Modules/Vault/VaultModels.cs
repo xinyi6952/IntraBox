@@ -362,6 +362,8 @@ namespace IntraBox.Modules.Vault
         public string Uid { get; set; }
         public string Title { get; set; }
         public bool Pinned { get; set; }
+        /// <summary>锁定后只能查看，不能编辑或删除；即使勾选自动保存也不写入。</summary>
+        public bool ReadOnly { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public int EntryCount { get; set; }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using IntraBox.Core;
 using IntraBox.Modules.ClipboardHistory;
@@ -78,12 +79,16 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
-        public void ShouldCaptureImage_默认关且写回时不入库()
+        public void TodoAutoSave_默认关闭()
         {
-            Assert.IsFalse(ClipboardStore.ShouldCaptureImage(false, false));
-            Assert.IsFalse(ClipboardStore.ShouldCaptureImage(false, true));
-            Assert.IsFalse(ClipboardStore.ShouldCaptureImage(true, true));
-            Assert.IsTrue(ClipboardStore.ShouldCaptureImage(true, false));
+            Assert.IsFalse(new AppSettings().TodoAutoSave);
+        }
+
+        [TestMethod]
+        public void ShouldCaptureImage_跟随记录开关()
+        {
+            Assert.IsFalse(ClipboardStore.ShouldCaptureImage(false));
+            Assert.IsTrue(ClipboardStore.ShouldCaptureImage(true));
         }
 
         [TestMethod]
@@ -103,6 +108,75 @@ namespace IntraBox.Tests
         public void ClipboardStore_Add空项_拒绝()
         {
             Assert.IsFalse(ClipboardStore.Add(null));
+        }
+
+        [TestMethod]
+        public void ClipboardStore_空白文本不入库_重复以最后一次为准()
+        {
+            Assert.IsTrue(ClipboardStore.IsBlankText(null));
+            Assert.IsTrue(ClipboardStore.IsBlankText(""));
+            Assert.IsTrue(ClipboardStore.IsBlankText("  \t\r\n  "));
+            Assert.IsFalse(ClipboardStore.IsBlankText("a"));
+
+            ClipboardStore.Items.Clear();
+            try
+            {
+                Assert.IsFalse(ClipboardStore.Add(new ClipItem { Text = "   " }));
+                Assert.AreEqual(0, ClipboardStore.Items.Count);
+
+                var first = new ClipItem { Text = "hello", Time = new DateTime(2026, 9, 1, 10, 0, 0) };
+                Assert.IsTrue(ClipboardStore.Add(first));
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { Text = "other", Time = new DateTime(2026, 9, 1, 11, 0, 0) }));
+                var again = new ClipItem { Text = "hello", Time = new DateTime(2026, 9, 1, 12, 0, 0) };
+                Assert.IsTrue(ClipboardStore.Add(again));
+                Assert.AreEqual(2, ClipboardStore.Items.Count);
+                Assert.AreEqual("hello", ClipboardStore.Items[0].Text);
+                Assert.AreEqual(new DateTime(2026, 9, 1, 12, 0, 0), ClipboardStore.Items[0].Time);
+                Assert.AreEqual("other", ClipboardStore.Items[1].Text);
+
+                var pinned = new ClipItem { Text = "hello", Time = new DateTime(2026, 9, 1, 13, 0, 0) };
+                ClipboardStore.Items[0].IsPinned = true;
+                Assert.IsTrue(ClipboardStore.Add(pinned));
+                Assert.AreEqual(2, ClipboardStore.Items.Count);
+                Assert.AreEqual("hello", ClipboardStore.Items[0].Text);
+                Assert.IsTrue(ClipboardStore.Items[0].IsPinned);
+                Assert.AreEqual(new DateTime(2026, 9, 1, 13, 0, 0), ClipboardStore.Items[0].Time);
+            }
+            finally
+            {
+                ClipboardStore.Items.Clear();
+            }
+        }
+
+        [TestMethod]
+        public void ClipboardStore_重复图片_以最后一次为准()
+        {
+            ClipboardStore.Items.Clear();
+            try
+            {
+                var oldImg = new ClipItem
+                {
+                    IsImage = true,
+                    ImageSig = "sig-a",
+                    Preview = "[图片] 1×1",
+                    Time = new DateTime(2026, 9, 1, 10, 0, 0)
+                };
+                Assert.IsTrue(ClipboardStore.Add(oldImg));
+                var neu = new ClipItem
+                {
+                    IsImage = true,
+                    ImageSig = "sig-a",
+                    Preview = "[图片] 1×1",
+                    Time = new DateTime(2026, 9, 1, 12, 0, 0)
+                };
+                Assert.IsTrue(ClipboardStore.Add(neu));
+                Assert.AreEqual(1, ClipboardStore.Items.Count);
+                Assert.AreEqual(new DateTime(2026, 9, 1, 12, 0, 0), ClipboardStore.Items[0].Time);
+            }
+            finally
+            {
+                ClipboardStore.Items.Clear();
+            }
         }
     }
 }

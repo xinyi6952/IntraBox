@@ -19,11 +19,11 @@
         <TextBox x:Name="RemarkBox" Grid.Row="1" Margin="0,0,0,8"
                  BorderThickness="1" Padding="8,6" ToolTip="说明（可选）"
                  TextChanged="Field_Changed"/>
-        <WrapPanel Grid.Row="2" Margin="0,0,0,8" VerticalAlignment="Center">
-            <Button Content="添加一行" Click="AddRow_Click" Margin="0,0,8,4"/>
+        <WrapPanel x:Name="ToolbarPanel" Grid.Row="2" Margin="0,0,0,8" VerticalAlignment="Center">
+            <Button x:Name="AddRowBtn" Content="添加一行" Click="AddRow_Click" Margin="0,0,8,4"/>
             <Button Content="复制全部" Click="CopyAll_Click" Margin="0,0,8,4"/>
             <Button Content="导出" Click="Export_Click" Margin="0,0,8,4"/>
-            <Button Content="导入" Click="Import_Click" Margin="0,0,8,4"/>
+            <Button x:Name="ImportBtn" Content="导入" Click="Import_Click" Margin="0,0,8,4"/>
             <Button x:Name="PwdBtn" Content="设置查看密码" Click="Password_Click" Margin="0,0,8,4"/>
             <TextBlock x:Name="LockHint" VerticalAlignment="Center" Margin="4,0,0,4"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -69,10 +69,12 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="0" Margin="0,0,6,0"
                                          Text="{Binding PlatformsText, UpdateSourceTrigger=PropertyChanged}"
+                                         IsReadOnly="{Binding EditorLocked}"
                                          ToolTip="多个平台可用 / 分隔"
                                          TextChanged="RowField_Changed"/>
                                 <TextBox Grid.Column="1" Margin="0,0,6,0"
                                          Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
+                                         IsReadOnly="{Binding EditorLocked}"
                                          TextChanged="RowField_Changed"/>
                                 <Grid Grid.Column="2" Margin="0,0,6,0" Background="Transparent"
                                       PreviewMouseLeftButtonDown="SecretCell_PreviewMouseDown">
@@ -90,6 +92,7 @@
                                 </Grid>
                                 <CheckBox Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Center"
                                           Margin="8,0" ToolTip="勾选后账号密码加密且不显示明文；取消勾选需验证查看密码后显示明文"
+                                          IsEnabled="{Binding CanEditRow}"
                                           IsChecked="{Binding Masked, Mode=TwoWay}"
                                           Click="Mask_Click"/>
                                 <Button Grid.Column="5" Content="复制" MinWidth="64" Margin="8,0,6,0"
@@ -130,7 +133,8 @@
                                     </Button.ContextMenu>
                                 </Button>
                                 <Button Grid.Column="6" MinWidth="88" Padding="12,2"
-                                        Click="DelRow_Click" Tag="{Binding}">
+                                        Click="DelRow_Click" Tag="{Binding}"
+                                        IsEnabled="{Binding CanEditRow}">
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                             <Setter Property="Content" Value="删除"/>
@@ -150,12 +154,16 @@
             </ScrollViewer>
         </Grid>
         <DockPanel Grid.Row="4" Margin="0,8,0,0">
-            <Button DockPanel.Dock="Right" Content="保存并关闭" Style="{StaticResource PrimaryButton}"
+            <Button x:Name="SaveCloseBtn" DockPanel.Dock="Right" Content="保存并关闭" Style="{StaticResource PrimaryButton}"
                     MinWidth="88" Click="SaveClose_Click" ToolTip="保存并关闭"/>
-            <Button DockPanel.Dock="Right" Content="保存" MinWidth="64" Margin="0,0,8,0"
+            <Button x:Name="SaveBtn" DockPanel.Dock="Right" Content="保存" MinWidth="64" Margin="0,0,8,0"
                     Click="Save_Click" ToolTip="保存 (Ctrl+S)"/>
             <CheckBox x:Name="AutoSaveCheck" DockPanel.Dock="Right" Content="自动保存" Margin="0,0,12,0"
-                      VerticalAlignment="Center" Checked="AutoSave_Changed" Unchecked="AutoSave_Changed"/>
+                      VerticalAlignment="Center" Checked="AutoSave_Changed" Unchecked="AutoSave_Changed"
+                      ToolTip="勾选后修改会自动写入。锁定时即使勾选也不会自动保存。"/>
+            <CheckBox x:Name="ReadOnlyCheck" DockPanel.Dock="Right" Content="锁定" Margin="0,0,12,0"
+                      VerticalAlignment="Center" Checked="ReadOnly_Changed" Unchecked="ReadOnly_Changed"
+                      ToolTip="勾选后只能查看，不能编辑或删除。锁定时即使勾选自动保存也不会写入。"/>
             <TextBlock x:Name="StatusText" DockPanel.Dock="Left"
                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                        VerticalAlignment="Center" TextWrapping="Wrap"

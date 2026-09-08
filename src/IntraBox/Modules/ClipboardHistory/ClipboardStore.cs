@@ -34,22 +34,30 @@ namespace IntraBox.Modules.ClipboardHistory
             }
         }
 
-        /// <summary>勾选记录图片且非写回抑制时才入库。</summary>
-        public static bool ShouldCaptureImage(bool recordImages, bool suppress)
+        /// <summary>勾选记录图片时才入库。写回抑制在监听路径内部判断。</summary>
+        public static bool ShouldCaptureImage(bool recordImages)
         {
-            return recordImages && !suppress;
+            return recordImages;
         }
 
-        /// <summary>指纹相同则视为写回回声，不入库。</summary>
+        /// <summary>空白或纯空白文本不入库。</summary>
+        public static bool IsBlankText(string text)
+        {
+            return string.IsNullOrWhiteSpace(text);
+        }
+
+        /// <summary>指纹相同则视为同一张图（写回回声或再次复制）。</summary>
         public static bool ShouldSkipDuplicateImage(string sig, string lastSig)
         {
             return sig != null && sig == lastSig;
         }
 
-        /// <summary>插入成功返回 true；全固定且已满时返回 false。</summary>
+        /// <summary>插入成功返回 true；空白文本、全固定且已满时返回 false。重复内容去掉旧条，以本次为准。</summary>
         public static bool Add(ClipItem item)
         {
             if (item == null) return false;
+            if (!item.IsImage && IsBlankText(item.Text)) return false;
+            RemoveDuplicates(item);
             while (Items.Count >= MaxItems)
             {
                 int removeIdx = -1;
@@ -62,6 +70,25 @@ namespace IntraBox.Modules.ClipboardHistory
             }
             Items.Insert(0, item);
             return true;
+        }
+
+        private static void RemoveDuplicates(ClipItem item)
+        {
+            for (int i = Items.Count - 1; i >= 0; i--)
+            {
+                if (!IsSameContent(Items[i], item)) continue;
+                if (Items[i].IsPinned) item.IsPinned = true;
+                Items.RemoveAt(i);
+            }
+        }
+
+        public static bool IsSameContent(ClipItem a, ClipItem b)
+        {
+            if (a == null || b == null) return false;
+            if (a.IsImage != b.IsImage) return false;
+            if (a.IsImage)
+                return !string.IsNullOrEmpty(a.ImageSig) && a.ImageSig == b.ImageSig;
+            return string.Equals(a.Text, b.Text, StringComparison.Ordinal);
         }
 
         /// <summary>设置下调上限后裁掉未固定的多余项。</summary>
@@ -87,6 +114,8 @@ namespace IntraBox.Modules.ClipboardHistory
 
         public bool IsImage { get; set; }
         public string Text { get; set; }
+        /// <summary>图片指纹，用于去重。</summary>
+        public string ImageSig { get; set; }
         /// <summary>图片历史列表用缩略图；写回/查看用原图像素的 PNG 压缩副本。</summary>
         public BitmapSource Thumb { get; set; }
         /// <summary>原图 PNG（压缩），避免只写回 128px 缩略图发糊。</summary>

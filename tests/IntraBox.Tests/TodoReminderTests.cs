@@ -191,12 +191,14 @@ namespace IntraBox.Tests
 
             var collected = SampleUid("edit-uid", oldAt);
             collected.LastRemindedAt = oldAt;
+            collected.MuteRemindOn = oldAt.Date;
             collected.RemindHour = 17;
             collected.RemindMinute = 5;
 
             TodoReminderService.SnoozeUntil(collected.Uid, oldAt.AddHours(3));
             TodoEditorPanel.ApplyTryCollectRemind(before, collected);
             Assert.IsNull(collected.LastRemindedAt);
+            Assert.IsNull(collected.MuteRemindOn);
             TodoEditorPanel.ApplyTrySaveRemind(before, collected);
 
             var neu = new DateTime(2026, 9, 6, 17, 5, 0);
@@ -224,6 +226,47 @@ namespace IntraBox.Tests
             Assert.AreEqual(TodoRemindRepeat.DefaultIntervalMin, items[0].RemindIntervalMin);
             Assert.AreEqual(3, items[0].RemindTimes);
             Assert.AreEqual(10, items[0].RemindIntervalMin);
+            Assert.IsNull(items[0].MuteRemindOn);
+        }
+
+        [TestMethod]
+        public void ShouldFire_今日不再提醒_当天不弹含稍后_次日仍弹()
+        {
+            var at = new DateTime(2026, 9, 6, 17, 35, 0);
+            var it = Sample(at);
+            it.LastRemindedAt = null;
+            it.MuteRemindOn = at.Date;
+            Assert.IsTrue(TodoReminderService.IsMutedToday(it, at));
+            Assert.IsFalse(TodoReminderService.ShouldFire(it, at));
+            TodoReminderService.SnoozeUntil(it.Uid, at.AddMinutes(10));
+            Assert.IsFalse(TodoReminderService.ShouldFire(it, at.AddMinutes(10)));
+            var nextDay = at.AddDays(1);
+            Assert.IsFalse(TodoReminderService.IsMutedToday(it, nextDay));
+            Assert.IsTrue(TodoReminderService.ShouldFire(it, nextDay));
+        }
+
+        [TestMethod]
+        public void ShouldFire_仅计划完成当天_无日期不弹_当天有日期才弹()
+        {
+            var at = new DateTime(2026, 9, 6, 17, 35, 0);
+            var it = Sample(at);
+            it.LastRemindedAt = null;
+            it.RemindKind = TodoRemindKind.DueDay;
+            it.DueAt = null;
+            Assert.IsFalse(TodoReminderService.ShouldFire(it, at));
+            it.DueAt = at.Date.AddHours(18);
+            Assert.IsTrue(TodoReminderService.ShouldFire(it, at));
+            it.DueAt = at.Date.AddDays(1);
+            Assert.IsFalse(TodoReminderService.ShouldFire(it, at));
+        }
+
+        [TestMethod]
+        public void DueDayNeedsDue_仅计划完成当天必须填日期()
+        {
+            Assert.IsTrue(TodoDue.DueDayNeedsDue(TodoRemindKind.DueDay, null));
+            Assert.IsFalse(TodoDue.DueDayNeedsDue(TodoRemindKind.DueDay, DateTime.Today));
+            Assert.IsFalse(TodoDue.DueDayNeedsDue(TodoRemindKind.Daily, null));
+            Assert.AreEqual("仅计划完成当天", TodoRemindKind.Label(TodoRemindKind.DueDay));
         }
     }
 }

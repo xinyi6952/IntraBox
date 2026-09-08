@@ -34,7 +34,7 @@ namespace IntraBox.Modules.Launcher
         {
             if (node == null || node.IsCategory)
             {
-                MessageBox.Show("无法打开分类。", "启动器", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("无法打开目录。", "启动器", MessageBoxButton.OK, MessageBoxImage.Information);
                 return false;
             }
             string err;
@@ -88,6 +88,7 @@ namespace IntraBox.Modules.Launcher
                     psi.Arguments = arguments;
                 psi.UseShellExecute = true;
                 Process.Start(psi);
+                LauncherProcess.InvalidateScanCache();
                 return true;
             }
             catch (Exception ex)

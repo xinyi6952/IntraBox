@@ -26,6 +26,7 @@ namespace IntraBox.Modules.Todo
         private bool _skipListClick;
         private string _sortKey = "created";
         private bool _sortAsc;
+        private bool _chromeLoading;
 
         public TodoView()
         {
@@ -35,6 +36,13 @@ namespace IntraBox.Modules.Todo
             _calMonth = now.Month;
             UpdateSortHeaders();
             SizeChanged += (s, e) => ApplyDrawerSize();
+            DrawerEditor.Saved += (s, e) =>
+            {
+                RefreshList();
+                SelectUid(DrawerEditor.CurrentUid);
+                if (ReadOnlyCheck != null && !DrawerEditor.IsCompletedLocked && !DrawerEditor.IsNewItem)
+                    ReadOnlyCheck.IsEnabled = true;
+            };
         }
 
         public void OnActivated()
@@ -453,14 +461,15 @@ namespace IntraBox.Modules.Todo
             var row = TaskList.SelectedItem as TodoRow;
             bool has = row != null;
             bool done = has && row.Completed;
+            bool locked = has && row.Locked;
             if (MenuEditItem != null)
             {
-                MenuEditItem.Header = done ? "查看" : "编辑";
+                MenuEditItem.Header = (done || locked) ? "查看" : "编辑";
                 MenuEditItem.IsEnabled = has;
             }
-            if (MenuDoneItem != null) MenuDoneItem.IsEnabled = has && !done;
-            if (MenuTodoItem != null) MenuTodoItem.IsEnabled = has && done;
-            if (MenuDeleteItem != null) MenuDeleteItem.IsEnabled = has;
+            if (MenuDoneItem != null) MenuDoneItem.IsEnabled = has && !done && !locked;
+            if (MenuTodoItem != null) MenuTodoItem.IsEnabled = has && done && !locked;
+            if (MenuDeleteItem != null) MenuDeleteItem.IsEnabled = has && !locked;
         }
 
         private void ListMenu_Closed(object sender, RoutedEventArgs e)
@@ -488,6 +497,7 @@ namespace IntraBox.Modules.Todo
         {
             var row = TaskList.SelectedItem as TodoRow;
             if (row == null) return;
+            if (row.Locked) return;
             SkipNextListClick();
             if (!CloseDrawer()) return;
             TodoStore.SetCompleted(row.Uid, true);
@@ -498,6 +508,7 @@ namespace IntraBox.Modules.Todo
         {
             var row = TaskList.SelectedItem as TodoRow;
             if (row == null) return;
+            if (row.Locked) return;
             SkipNextListClick();
             if (!CloseDrawer()) return;
             TodoStore.SetCompleted(row.Uid, false);
@@ -508,6 +519,11 @@ namespace IntraBox.Modules.Todo
         {
             var row = TaskList.SelectedItem as TodoRow;
             if (row == null) return;
+            if (row.Locked)
+            {
+                MsgText.Text = "已锁定，只能查看。取消勾选「锁定」后才能删除。";
+                return;
+            }
             if (!ConfirmHelper.Delete("任务 " + row.Id + (string.IsNullOrEmpty(row.Title) ? "" : " / " + row.Title)))
                 return;
             if (DrawerHost.Visibility == Visibility.Visible && DrawerEditor.CurrentUid == row.Uid)
@@ -533,11 +549,44 @@ namespace IntraBox.Modules.Todo
         private void OpenDrawerItem(TodoItem item, bool isNew)
         {
             if (item == null) return;
-            bool readOnly = item.Completed && !isNew;
-            DrawerTitle.Text = isNew ? "新建任务" : (readOnly ? "任务详情（只读）" : "任务详情");
             DrawerEditor.LoadItem(item, isNew);
-            ApplyDrawerButtons(readOnly);
-            DrawerMsg.Text = readOnly ? "已办任务只能查看，改回待办后才能编辑" : "";
+            bool completed = DrawerEditor.IsCompletedLocked;
+            if (isNew)
+                DrawerTitle.Text = "新建任务";
+            else if (completed)
+                DrawerTitle.Text = "任务详情（只读）";
+            else
+                DrawerTitle.Text = DrawerEditor.IsReadOnly ? "任务详情（锁定）" : "任务详情";
+            _chromeLoading = true;
+            try
+            {
+                if (ReadOnlyCheck != null)
+                {
+                    ReadOnlyCheck.IsChecked = DrawerEditor.IsReadOnly;
+                    ReadOnlyCheck.IsEnabled = !completed && !isNew;
+                    ReadOnlyCheck.Visibility = completed ? Visibility.Collapsed : Visibility.Visible;
+                }
+                if (AutoSaveCheck != null)
+                {
+                    bool auto = false;
+                    try { auto = ConfigManager.Instance.Settings.TodoAutoSave; }
+                    catch { }
+                    AutoSaveCheck.IsChecked = auto;
+                    AutoSaveCheck.Visibility = completed ? Visibility.Collapsed : Visibility.Visible;
+                    DrawerEditor.SetAutoSave(auto);
+                }
+            }
+            finally
+            {
+                _chromeLoading = false;
+            }
+            ApplyDrawerButtons(DrawerEditor.IsReadOnly);
+            if (completed)
+                DrawerMsg.Text = "已办任务只能查看，改回待办后才能编辑";
+            else if (DrawerEditor.IsReadOnly)
+                DrawerMsg.Text = "已锁定，取消勾选后可编辑";
+            else
+                DrawerMsg.Text = "";
             DrawerHost.Visibility = Visibility.Visible;
             SetDrawerMaximized(_drawerMax);
         }
@@ -555,7 +604,23 @@ namespace IntraBox.Modules.Todo
         private bool CloseDrawer()
         {
             if (DrawerHost.Visibility != Visibility.Visible) return true;
-            if (DrawerEditor.IsReadOnly || !DrawerEditor.IsDirty())
+            if (DrawerEditor.AutoSaveEnabled)
+            {
+                string err;
+                if (!DrawerEditor.TrySave(out err))
+                {
+                    if (!string.IsNullOrEmpty(err))
+                    {
+                        DrawerMsg.Text = err;
+                        MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    return false;
+                }
+                HideDrawer();
+                RefreshList();
+                return true;
+            }
+            if (!DrawerEditor.IsDirty())
             {
                 if (DrawerEditor.IsNewItem)
                     DrawerEditor.DiscardNewFiles();
@@ -569,8 +634,11 @@ namespace IntraBox.Modules.Todo
                 string err;
                 if (!DrawerEditor.TrySave(out err))
                 {
-                    DrawerMsg.Text = err;
-                    MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (!string.IsNullOrEmpty(err))
+                    {
+                        DrawerMsg.Text = err;
+                        MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
                     return false;
                 }
                 HideDrawer();
@@ -646,8 +714,11 @@ namespace IntraBox.Modules.Todo
             string err;
             if (!DrawerEditor.TrySave(out err))
             {
-                DrawerMsg.Text = err;
-                MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Information);
+                if (!string.IsNullOrEmpty(err))
+                {
+                    DrawerMsg.Text = err;
+                    MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
                 return;
             }
             DrawerTitle.Text = "任务详情";
@@ -660,9 +731,45 @@ namespace IntraBox.Modules.Todo
             {
                 var saved = TodoStore.GetByUid(DrawerEditor.CurrentUid);
                 MsgText.Text = "已新建 " + (saved != null ? saved.Id : "");
+                if (ReadOnlyCheck != null) ReadOnlyCheck.IsEnabled = true;
             }
             if (closeAfter)
                 CloseDrawer();
+        }
+
+        private void ReadOnlyCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_chromeLoading || DrawerHost.Visibility != Visibility.Visible) return;
+            DrawerEditor.SetUserLocked(ReadOnlyCheck != null && ReadOnlyCheck.IsChecked == true);
+            ApplyDrawerButtons(DrawerEditor.IsReadOnly);
+            if (!DrawerEditor.IsNewItem)
+            {
+                if (DrawerEditor.IsCompletedLocked)
+                    DrawerTitle.Text = "任务详情（只读）";
+                else
+                    DrawerTitle.Text = DrawerEditor.IsReadOnly ? "任务详情（锁定）" : "任务详情";
+            }
+            if (DrawerEditor.IsCompletedLocked)
+                DrawerMsg.Text = "已办任务只能查看，改回待办后才能编辑";
+            else if (DrawerEditor.IsReadOnly)
+                DrawerMsg.Text = "已锁定，取消勾选后可编辑";
+            else
+                DrawerMsg.Text = "";
+            RefreshList();
+            SelectUid(DrawerEditor.CurrentUid);
+        }
+
+        private void AutoSaveCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_chromeLoading) return;
+            bool on = AutoSaveCheck != null && AutoSaveCheck.IsChecked == true;
+            try
+            {
+                ConfigManager.Instance.Settings.TodoAutoSave = on;
+                ConfigManager.Instance.Save();
+            }
+            catch { }
+            DrawerEditor.SetAutoSave(on);
         }
 
         private void DrawerPreview_Click(object sender, RoutedEventArgs e)
@@ -674,11 +781,6 @@ namespace IntraBox.Modules.Todo
                 return;
             }
             var w = new TodoReminderWindow(item, 0, true, DrawerEditor.PeekTitle());
-            w.Closed += (s, ev) =>
-            {
-                if (w.StoppedRemind)
-                    DrawerEditor.ApplyRemindOff();
-            };
             w.Show();
         }
 
@@ -738,6 +840,7 @@ namespace IntraBox.Modules.Todo
             public string CompletedText { get; set; }
             public string RemindText { get; set; }
             public bool Completed { get; set; }
+            public bool Locked { get; set; }
 
             public static TodoRow From(TodoItem it)
             {
@@ -774,7 +877,8 @@ namespace IntraBox.Modules.Todo
                     DueBrush = BrushOfDue(it.DueAt),
                     CompletedText = it.CompletedAt.HasValue ? it.CompletedAt.Value.ToString("yyyy-MM-dd HH:mm") : "",
                     RemindText = it.Completed ? "" : TodoStore.RemindSummary(it),
-                    Completed = it.Completed
+                    Completed = it.Completed,
+                    Locked = it.ReadOnly
                 };
             }
 

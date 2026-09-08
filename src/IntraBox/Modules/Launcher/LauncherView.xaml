@@ -26,8 +26,22 @@
         </Grid.RowDefinitions>
 
         <WrapPanel Grid.Row="0" Margin="0,0,0,8">
-            <Button Content="新增收藏" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="NewFav_Click"/>
-            <Button Content="新增分类" Margin="0,4,8,4" Click="NewCat_Click"/>
+            <Button x:Name="NewBtn" Content="新增" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="NewBtn_Click">
+                <Button.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="新增收藏" Click="NewFav_Click" Style="{StaticResource ContextMenuItemStyle}">
+                            <MenuItem.Icon>
+                                <Path Style="{StaticResource MenuIconPath}" Data="M8,3 L8,13 M3,8 L13,8"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="新增目录" Click="NewCat_Click" Style="{StaticResource ContextMenuItemStyle}">
+                            <MenuItem.Icon>
+                                <Path Style="{StaticResource MenuIconPath}" Data="M3,4 L8,4 8,12 3,12 Z M8,6 L13,6 13,12 8,12"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
             <TextBox x:Name="SearchBox" Width="200" MinHeight="32" Margin="0,4,8,4"
                      ToolTip="搜索名称或目标"
                      TextChanged="Search_Changed"/>
@@ -59,7 +73,7 @@
                                 <Path Style="{StaticResource MenuIconPath}" Data="M8,3 L8,13 M3,8 L13,8"/>
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem x:Name="MenuAddCatItem" Header="新增分类" Click="MenuAddCat_Click" Style="{StaticResource ContextMenuItemStyle}">
+                        <MenuItem x:Name="MenuAddCatItem" Header="新增目录" Click="MenuAddCat_Click" Style="{StaticResource ContextMenuItemStyle}">
                             <MenuItem.Icon>
                                 <Path Style="{StaticResource MenuIconPath}" Data="M3,4 L8,4 8,12 3,12 Z M8,6 L13,6 13,12 8,12"/>
                             </MenuItem.Icon>

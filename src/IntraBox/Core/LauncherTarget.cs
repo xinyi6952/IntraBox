@@ -193,9 +193,9 @@ namespace IntraBox.Core
             return "\"" + path + "\"";
         }
 
-        public const string Uncategorized = "未分类";
+        public const string Uncategorized = "根目录";
 
-        /// <summary>空或空白视为未分类（存空串）。</summary>
+        /// <summary>空或空白视为根目录（存空串）。</summary>
         public static string NormalizeCategory(string category)
         {
             if (string.IsNullOrWhiteSpace(category)) return "";

@@ -238,7 +238,10 @@
             <RadioButton x:Name="ModeSplit" Content="分栏" GroupName="MdMode"
                          VerticalAlignment="Center" Click="MdMode_Click"/>
         </WrapPanel>
-        <Grid x:Name="RichHost" Grid.Row="2">
+            <TextBlock x:Name="FolderHint" Grid.Row="2" Visibility="Collapsed" TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="目录可嵌套。可在其下新增笔记或子目录；笔记可用右键「移动」换到其它目录或根目录。"/>
+            <Grid x:Name="RichHost" Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="40"/>
                 <ColumnDefinition Width="*"/>
@@ -275,10 +278,16 @@
             </Border>
         </Grid>
         <DockPanel Grid.Row="3" Margin="0,8,0,0">
-            <Button DockPanel.Dock="Right" Content="保存" Style="{StaticResource PrimaryButton}"
-                    MinWidth="64" Click="Save_Click" ToolTip="保存 (Ctrl+S)"/>
+            <Button x:Name="SaveCloseBtn" DockPanel.Dock="Right" Content="保存并关闭" Style="{StaticResource PrimaryButton}"
+                    MinWidth="88" Click="SaveClose_Click" ToolTip="保存并关闭"/>
+            <Button x:Name="SaveBtn" DockPanel.Dock="Right" Content="保存" MinWidth="64" Margin="0,0,8,0"
+                    Click="Save_Click" ToolTip="保存 (Ctrl+S)"/>
             <CheckBox x:Name="AutoSaveCheck" DockPanel.Dock="Right" Content="自动保存" Margin="0,0,12,0"
-                      VerticalAlignment="Center" Checked="AutoSave_Changed" Unchecked="AutoSave_Changed"/>
+                      VerticalAlignment="Center" Checked="AutoSave_Changed" Unchecked="AutoSave_Changed"
+                      ToolTip="勾选后修改会自动写入。锁定时即使勾选也不会自动保存。"/>
+            <CheckBox x:Name="ReadOnlyCheck" DockPanel.Dock="Right" Content="锁定" Margin="0,0,12,0"
+                      VerticalAlignment="Center" Checked="ReadOnly_Changed" Unchecked="ReadOnly_Changed"
+                      ToolTip="勾选后只能查看，不能编辑或删除。锁定时即使勾选自动保存也不会写入。"/>
             <TextBlock x:Name="StatusText" DockPanel.Dock="Left"
                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                        VerticalAlignment="Center"/>

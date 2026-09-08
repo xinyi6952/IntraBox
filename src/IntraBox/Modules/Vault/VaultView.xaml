@@ -34,7 +34,7 @@
                       MouseDoubleClick="VaultList_MouseDoubleClick">
                 <ListView.ContextMenu>
                     <ContextMenu Opened="ListMenu_Opened" Closed="ListMenu_Closed">
-                        <MenuItem Header="编辑" Click="MenuEdit_Click" Style="{StaticResource ContextMenuItemStyle}">
+                        <MenuItem x:Name="MenuEditItem" Header="编辑" Click="MenuEdit_Click" Style="{StaticResource ContextMenuItemStyle}">
                             <MenuItem.Icon>
                                 <Path Style="{StaticResource MenuIconPath}" Data="M3,13 L5,15 13,7 11,5 Z M12,4 L14,6"/>
                             </MenuItem.Icon>

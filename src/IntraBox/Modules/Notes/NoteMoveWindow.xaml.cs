@@ -2,45 +2,44 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using IntraBox.Core;
 
-namespace IntraBox.Modules.Launcher
+namespace IntraBox.Modules.Notes
 {
-    public partial class LauncherMoveWindow : Window
+    public partial class NoteMoveWindow : Window
     {
         public string SelectedParentUid { get; private set; }
 
-        public LauncherMoveWindow()
+        public NoteMoveWindow()
         {
             InitializeComponent();
         }
 
-        public static bool TryPick(Window owner, IList<LauncherNode> nodes, string currentParentUid, out string parentUid)
+        public static bool TryPick(Window owner, IList<NoteItem> items, string currentParentUid, out string parentUid)
         {
             parentUid = currentParentUid ?? "";
-            var w = new LauncherMoveWindow();
+            var w = new NoteMoveWindow();
             w.Owner = owner;
-            w.BuildTree(nodes, currentParentUid ?? "");
+            w.BuildTree(items, currentParentUid ?? "");
             if (w.ShowDialog() != true) return false;
             parentUid = w.SelectedParentUid ?? "";
             return true;
         }
 
-        private void BuildTree(IList<LauncherNode> nodes, string selectUid)
+        private void BuildTree(IList<NoteItem> items, string selectUid)
         {
             CatTree.Items.Clear();
             var root = MakeItem("根目录", "");
             root.IsExpanded = true;
-            var rows = LauncherTree.FlattenCategories(nodes);
+            var rows = NoteTree.FlattenFolders(items);
             var stack = new List<TreeViewItem>();
             stack.Add(root);
             for (int i = 0; i < rows.Count; i++)
             {
                 var row = rows[i];
-                if (row == null || row.Node == null) continue;
+                if (row == null || row.Item == null) continue;
                 while (stack.Count > row.Depth + 1)
                     stack.RemoveAt(stack.Count - 1);
-                var item = MakeItem(row.Node.Name, row.Node.Uid);
+                var item = MakeItem(row.Item.Title, row.Item.Uid);
                 item.IsExpanded = true;
                 stack[stack.Count - 1].Items.Add(item);
                 stack.Add(item);

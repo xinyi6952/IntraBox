@@ -51,16 +51,19 @@ echo Using MSBuild: %MSBUILD%>> "%LOG%"
 echo.
 
 REM IntraBox stays in the system tray: closing the window does NOT exit the process.
-tasklist /FI "IMAGENAME eq IntraBox.exe" | "%SystemRoot%\System32\find.exe" /I "IntraBox.exe" >nul
-set "RUNNING=%ERRORLEVEL%"
-if "%RUNNING%"=="0" (
-    echo ============================================================
-    echo [ERROR] IntraBox is STILL RUNNING - check the system tray.
-    echo         Right-click the tray icon and choose Exit first,
-    echo         then run this script again.
-    echo ============================================================
-    echo [ERROR] IntraBox still running, aborted.>> "%LOG%"
+REM If it is running it locks the exe; ask, then stop it after Yes (default is No).
+powershell -NoProfile -ExecutionPolicy Bypass -File "tools\stop-intrabox.ps1" -Purpose "rebuild"
+if errorlevel 2 (
+    echo [ERROR] Could not stop IntraBox.exe. Close it from the tray and retry.
+    echo [ERROR] Could not stop IntraBox.exe.>> "%LOG%"
     goto :fail
+)
+if errorlevel 1 (
+    echo Aborted. IntraBox is still running. Local data was not deleted.
+    echo [ABORTED] IntraBox still running, user cancelled.>> "%LOG%"
+    echo.
+    pause
+    exit /b 0
 )
 
 REM ---- 1. delete build caches (obj/bin) ----

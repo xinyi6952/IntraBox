@@ -148,6 +148,10 @@ namespace IntraBox.Core
         [DataMember]
         public bool NotesAutoSave { get; set; }
 
+        /// <summary>任务计划是否自动保存。默认关闭。</summary>
+        [DataMember]
+        public bool TodoAutoSave { get; set; }
+
         /// <summary>账号备忘是否自动保存。默认关闭。</summary>
         [DataMember]
         public bool VaultAutoSave { get; set; }

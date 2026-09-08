@@ -52,7 +52,8 @@
             </Grid>
 
             <TextBlock Text="优先级" FontWeight="SemiBold" Margin="0,0,0,6"/>
-            <ComboBox x:Name="PriorityCombo" Width="140" HorizontalAlignment="Left" Margin="0,0,0,12">
+            <ComboBox x:Name="PriorityCombo" Width="140" HorizontalAlignment="Left" Margin="0,0,0,12"
+                      SelectionChanged="Field_Changed">
                 <ComboBoxItem Content="低"/>
                 <ComboBoxItem Content="中" IsSelected="True"/>
                 <ComboBoxItem Content="高"/>
@@ -71,37 +72,40 @@
                        Foreground="{DynamicResource DangerBrush}" Visibility="Collapsed"/>
 
             <StackPanel x:Name="RemindPanel">
-                <TextBlock Text="提醒频次" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                <ComboBox x:Name="RemindKindCombo" Width="240" MinHeight="32"
-                          HorizontalAlignment="Left" Margin="0,0,0,8"
-                          SelectionChanged="RemindKind_Changed">
-                    <ComboBoxItem Content="每天"/>
-                    <ComboBoxItem Content="关闭"/>
-                    <ComboBoxItem Content="仅工作日"/>
-                    <ComboBoxItem Content="每周"/>
-                    <ComboBoxItem Content="每 N 天"/>
-                    <ComboBoxItem Content="仅到期当天"/>
-                </ComboBox>
-                <WrapPanel Margin="0,0,0,8">
-                    <TextBlock Text="时刻" VerticalAlignment="Center" Margin="0,0,8,6"/>
-                    <ComboBox x:Name="RemindHourCombo" Width="64" MinHeight="32" Margin="0,0,4,6"/>
-                    <TextBlock Text=":" VerticalAlignment="Center" Margin="0,0,4,6"/>
-                    <ComboBox x:Name="RemindMinuteCombo" Width="64" MinHeight="32" Margin="0,0,12,6"/>
-                    <TextBlock x:Name="RemindExtraLabel" VerticalAlignment="Center" Margin="0,0,8,6"/>
-                    <ComboBox x:Name="RemindWeekCombo" Width="80" MinHeight="32" Margin="0,0,8,6" Visibility="Collapsed">
-                        <ComboBoxItem Content="日"/><ComboBoxItem Content="一"/><ComboBoxItem Content="二"/>
-                        <ComboBoxItem Content="三"/><ComboBoxItem Content="四"/><ComboBoxItem Content="五"/>
-                        <ComboBoxItem Content="六"/>
-                    </ComboBox>
-                    <TextBox x:Name="RemindNBox" Width="50" MinHeight="32" Margin="0,0,0,6" Visibility="Collapsed" Text="2"/>
-                </WrapPanel>
-                <WrapPanel x:Name="RemindRepeatPanel" Margin="0,0,0,12">
-                    <TextBlock Text="到点后共" VerticalAlignment="Center" Margin="0,0,8,6"/>
-                    <ComboBox x:Name="RemindTimesCombo" Width="56" MinHeight="32" Margin="0,0,8,6"/>
-                    <TextBlock Text="次，每" VerticalAlignment="Center" Margin="0,0,8,6"/>
-                    <ComboBox x:Name="RemindIntervalCombo" Width="64" MinHeight="32" Margin="0,0,8,6"/>
-                    <TextBlock Text="分钟一次" VerticalAlignment="Center" Margin="0,0,0,6"/>
-                </WrapPanel>
+                <GroupBox Header="提醒频次" Margin="0,0,0,12">
+                    <StackPanel>
+                        <ComboBox x:Name="RemindKindCombo" Width="240" MinHeight="32"
+                                  HorizontalAlignment="Left" Margin="0,0,0,8"
+                                  SelectionChanged="RemindKind_Changed">
+                            <ComboBoxItem Content="每天"/>
+                            <ComboBoxItem Content="关闭"/>
+                            <ComboBoxItem Content="仅工作日"/>
+                            <ComboBoxItem Content="每周"/>
+                            <ComboBoxItem Content="每 N 天"/>
+                            <ComboBoxItem Content="仅计划完成当天"/>
+                        </ComboBox>
+                        <WrapPanel Margin="0,0,0,8">
+                            <TextBlock Text="时刻" VerticalAlignment="Center" Margin="0,0,8,6"/>
+                            <ComboBox x:Name="RemindHourCombo" Width="64" MinHeight="32" Margin="0,0,4,6" SelectionChanged="Field_Changed"/>
+                            <TextBlock Text=":" VerticalAlignment="Center" Margin="0,0,4,6"/>
+                            <ComboBox x:Name="RemindMinuteCombo" Width="64" MinHeight="32" Margin="0,0,12,6" SelectionChanged="Field_Changed"/>
+                            <TextBlock x:Name="RemindExtraLabel" VerticalAlignment="Center" Margin="0,0,8,6"/>
+                            <ComboBox x:Name="RemindWeekCombo" Width="80" MinHeight="32" Margin="0,0,8,6" Visibility="Collapsed" SelectionChanged="Field_Changed">
+                                <ComboBoxItem Content="日"/><ComboBoxItem Content="一"/><ComboBoxItem Content="二"/>
+                                <ComboBoxItem Content="三"/><ComboBoxItem Content="四"/><ComboBoxItem Content="五"/>
+                                <ComboBoxItem Content="六"/>
+                            </ComboBox>
+                            <TextBox x:Name="RemindNBox" Width="50" MinHeight="32" Margin="0,0,0,6" Visibility="Collapsed" Text="2" TextChanged="Field_Changed"/>
+                        </WrapPanel>
+                        <WrapPanel x:Name="RemindRepeatPanel">
+                            <TextBlock Text="到点后共" VerticalAlignment="Center" Margin="0,0,8,6"/>
+                            <ComboBox x:Name="RemindTimesCombo" Width="56" MinHeight="32" Margin="0,0,8,6" SelectionChanged="Field_Changed"/>
+                            <TextBlock Text="次，每" VerticalAlignment="Center" Margin="0,0,8,6"/>
+                            <ComboBox x:Name="RemindIntervalCombo" Width="64" MinHeight="32" Margin="0,0,8,6" SelectionChanged="Field_Changed"/>
+                            <TextBlock Text="分钟一次" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </GroupBox>
             </StackPanel>
 
         <Grid Margin="0,0,12,8" MinHeight="280" Height="320">
@@ -198,6 +202,7 @@
                                  Background="{DynamicResource EditorBackgroundBrush}"
                                  Foreground="{DynamicResource EditorForegroundBrush}"
                                  CaretBrush="{DynamicResource TextPrimaryBrush}"
+                                 TextChanged="DetailBox_TextChanged"
                                  SelectionChanged="DetailBox_SelectionChanged"
                                  PreviewDragOver="DetailBox_PreviewDragOver"
                                  Drop="DetailBox_Drop"

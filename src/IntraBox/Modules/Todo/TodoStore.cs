@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
+using System.Windows.Documents;
+using System.Windows.Markup;
 using ClosedXML.Excel;
 using IntraBox.Core;
 using Newtonsoft.Json;
@@ -21,7 +23,7 @@ namespace IntraBox.Modules.Todo
         private static bool _loaded;
         private static bool _sampleSeeded;
         private static int _sampleRev;
-        private const int CurrentSampleRev = 2;
+        private const int CurrentSampleRev = 3;
 
         public static void Reload()
         {
@@ -112,11 +114,13 @@ namespace IntraBox.Modules.Todo
         public static void Upsert(TodoItem item)
         {
             if (item == null || string.IsNullOrEmpty(item.Uid)) return;
-            item.UpdatedAt = DateTime.Now;
+            if (item.ReadOnly) return;
             lock (_sync)
             {
                 if (!_loaded) LoadLocked();
                 int idx = IndexOfLocked(item.Uid);
+                if (idx >= 0 && _items[idx].ReadOnly) return;
+                item.UpdatedAt = DateTime.Now;
                 if (idx >= 0) _items[idx] = Clone(item);
                 else _items.Insert(0, Clone(item));
                 SchedulePersistLocked();
@@ -130,7 +134,9 @@ namespace IntraBox.Modules.Todo
             {
                 if (!_loaded) LoadLocked();
                 int idx = IndexOfLocked(uid);
-                if (idx >= 0) _items.RemoveAt(idx);
+                if (idx < 0) return;
+                if (_items[idx].ReadOnly) return;
+                _items.RemoveAt(idx);
                 SchedulePersistLocked();
             }
             try
@@ -142,13 +148,25 @@ namespace IntraBox.Modules.Todo
             catch { }
         }
 
-        public static void SetCompleted(string uid, bool completed)
+        public static void SetReadOnly(string uid, bool readOnly)
         {
             lock (_sync)
             {
                 if (!_loaded) LoadLocked();
                 var it = FindLocked(uid);
                 if (it == null) return;
+                it.ReadOnly = readOnly;
+                SchedulePersistLocked();
+            }
+        }
+
+        public static void SetCompleted(string uid, bool completed)
+        {
+            lock (_sync)
+            {
+                if (!_loaded) LoadLocked();
+                var it = FindLocked(uid);
+                if (it == null || it.ReadOnly) return;
                 it.Completed = completed;
                 it.UpdatedAt = DateTime.Now;
                 if (completed)
@@ -176,7 +194,8 @@ namespace IntraBox.Modules.Todo
             }
         }
 
-        public static void SetRemindOff(string uid)
+        /// <summary>今日不再提醒：不改频次，次日仍按原规则弹。</summary>
+        public static void SetMuteRemindToday(string uid, DateTime now)
         {
             if (string.IsNullOrEmpty(uid)) return;
             lock (_sync)
@@ -184,7 +203,7 @@ namespace IntraBox.Modules.Todo
                 if (!_loaded) LoadLocked();
                 var it = FindLocked(uid);
                 if (it == null) return;
-                it.RemindKind = TodoRemindKind.Off;
+                it.MuteRemindOn = now.Date;
                 it.UpdatedAt = DateTime.Now;
                 SchedulePersistLocked();
             }
@@ -336,7 +355,7 @@ namespace IntraBox.Modules.Todo
                     return "每周" + WeekdayName(it.RemindWeekday) + " " + hm + extra;
                 case TodoRemindKind.EveryNDays:
                     return "每" + Math.Max(2, it.RemindNDays) + "天 " + hm + extra;
-                case TodoRemindKind.DueDay: return "到期当天 " + hm + extra;
+                case TodoRemindKind.DueDay: return "计划完成当天 " + hm + extra;
                 default: return "每天 " + hm + extra;
             }
         }
@@ -470,6 +489,17 @@ namespace IntraBox.Modules.Todo
             }
             if (item == null) return;
             if (item.Completed) return;
+            if (item.ReadOnly) return;
+            if (HasAttachedFiles(DataPaths.TodoFilesDir(item.Uid))) return;
+            string current;
+            string stamp;
+            if (!TryReadTodoXaml(item.Uid, out current, out stamp)) return;
+            var stockDoc = FlowDocStamp.Roundtrip(TodoRichText.CreateSampleDocument());
+            if (stockDoc == null) return;
+            string stockPlain = TodoRichText.ToPlain(stockDoc);
+            string stockStamp = FlowDocStamp.From(stockDoc);
+            string title = TodoRichText.ExtractTitle(current ?? "");
+            if (!SampleGuard.ShouldRefresh(title, current, stockPlain, stamp, stockStamp)) return;
             ApplySampleFields(item, DateTime.Now);
             try
             {
@@ -477,6 +507,41 @@ namespace IntraBox.Modules.Todo
                 TodoRichText.SaveDocument(TodoRichText.CreateSampleDocument(), item.Uid);
             }
             catch { }
+        }
+
+        private static bool TryReadTodoXaml(string uid, out string plain, out string stamp)
+        {
+            plain = null;
+            stamp = null;
+            string path = DataPaths.TodoDetailsPath(uid);
+            if (!File.Exists(path)) return true;
+            try
+            {
+                using (var fs = File.OpenRead(path))
+                {
+                    var doc = XamlReader.Load(fs) as FlowDocument;
+                    plain = TodoRichText.ToPlain(doc);
+                    stamp = FlowDocStamp.From(doc);
+                    return true;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool HasAttachedFiles(string dir)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return false;
+                return Directory.GetFiles(dir, "*", SearchOption.AllDirectories).Length > 0;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static void ApplySampleFields(TodoItem item, DateTime now)
@@ -613,7 +678,9 @@ namespace IntraBox.Modules.Todo
                 CreatedAt = s.CreatedAt,
                 UpdatedAt = s.UpdatedAt,
                 LastRemindedAt = s.LastRemindedAt,
-                CompletedAt = s.CompletedAt
+                MuteRemindOn = s.MuteRemindOn,
+                CompletedAt = s.CompletedAt,
+                ReadOnly = s.ReadOnly
             };
         }
     }

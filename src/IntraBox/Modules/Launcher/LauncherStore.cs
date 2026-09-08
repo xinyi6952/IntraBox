@@ -97,7 +97,7 @@ namespace IntraBox.Modules.Launcher
             error = "";
             if (string.IsNullOrWhiteSpace(name))
             {
-                error = "请填写分类名称。";
+                error = "请填写目录名称。";
                 return null;
             }
             EnsureLoaded();
@@ -157,12 +157,12 @@ namespace IntraBox.Modules.Launcher
             error = "";
             if (string.IsNullOrEmpty(uid))
             {
-                error = "分类不存在。";
+                error = "目录不存在。";
                 return false;
             }
             if (string.IsNullOrWhiteSpace(name))
             {
-                error = "请填写分类名称。";
+                error = "请填写目录名称。";
                 return false;
             }
             EnsureLoaded();
@@ -171,7 +171,7 @@ namespace IntraBox.Modules.Launcher
                 var cur = LauncherTree.Find(_nodes, uid);
                 if (cur == null || !cur.IsCategory)
                 {
-                    error = "分类不存在。";
+                    error = "目录不存在。";
                     return false;
                 }
                 cur.Name = name.Trim();
@@ -320,7 +320,7 @@ namespace IntraBox.Modules.Launcher
                 }
                 if (LauncherTree.ChildDepth(_nodes, src.ParentUid) >= LauncherTree.MaxDepth)
                 {
-                    error = "分类层级已达上限。";
+                    error = "目录层级已达上限。";
                     return null;
                 }
                 for (int i = 0; i < copies.Count; i++)
@@ -362,7 +362,7 @@ namespace IntraBox.Modules.Launcher
                 var parent = LauncherTree.Find(_nodes, parentUid);
                 if (parent == null || !parent.IsCategory)
                 {
-                    error = "父分类不存在。";
+                    error = "父目录不存在。";
                     return false;
                 }
             }
@@ -373,7 +373,7 @@ namespace IntraBox.Modules.Launcher
             }
             if (!LauncherTree.CanAddChild(_nodes, parentUid))
             {
-                error = forCategory ? "分类层级已达上限。" : "无法在此层级添加收藏。";
+                error = forCategory ? "目录层级已达上限。" : "无法在此层级添加收藏。";
                 return false;
             }
             return true;

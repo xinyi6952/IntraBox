@@ -31,7 +31,7 @@
                     <TextBlock x:Name="MoreText" Margin="0,8,0,0" Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
                 <WrapPanel Grid.Row="2" HorizontalAlignment="Right">
-                    <Button x:Name="StopBtn" Content="不再提醒" MinWidth="88" Margin="0,0,8,0"
+                    <Button x:Name="StopBtn" Content="今日不再提醒" MinWidth="120" Margin="0,0,8,0"
                             Style="{StaticResource WarningButton}" Click="Stop_Click"/>
                     <Button x:Name="SnoozeBtn" Content="稍后 10 分钟" MinWidth="100" Margin="0,0,8,0" Click="Snooze_Click"/>
                     <Button Content="关闭" MinWidth="72" Style="{StaticResource PrimaryButton}" Click="Close_Click"/>

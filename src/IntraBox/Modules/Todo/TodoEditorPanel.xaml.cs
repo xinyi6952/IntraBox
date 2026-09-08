@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Threading;
 using IntraBox.Core;
 using Microsoft.Win32;
 
@@ -21,7 +22,13 @@ namespace IntraBox.Modules.Todo
         private string _originalId = "";
         private DateTime? _loadedDue;
         private string _fingerprint = "";
-        private bool _readOnly;
+        private bool _completedLocked;
+        private bool _userLocked;
+        private bool _autoSaveChecked;
+        private bool _allowBrokenFormat;
+        private DispatcherTimer _saveTimer;
+
+        public event EventHandler Saved;
 
         public TodoEditorPanel()
         {
@@ -41,6 +48,17 @@ namespace IntraBox.Modules.Todo
                 SizeCombo.Items.Add(FontSizes[i].ToString("0"));
             SizeCombo.SelectedIndex = 2;
             TodoRichText.HookEditorClicks(DetailBox);
+            _saveTimer = new DispatcherTimer();
+            _saveTimer.Tick += (s, e) =>
+            {
+                _saveTimer.Stop();
+                string err;
+                TrySave(out err, false);
+            };
+            Unloaded += (s, e) =>
+            {
+                if (_saveTimer != null) _saveTimer.Stop();
+            };
             _loading = false;
         }
 
@@ -56,7 +74,56 @@ namespace IntraBox.Modules.Todo
 
         public bool IsReadOnly
         {
-            get { return _readOnly; }
+            get { return _completedLocked || _userLocked; }
+        }
+
+        public bool IsCompletedLocked
+        {
+            get { return _completedLocked; }
+        }
+
+        public bool AutoSaveEnabled
+        {
+            get { return _autoSaveChecked && !IsReadOnly; }
+        }
+
+        public void SetAutoSave(bool on)
+        {
+            _autoSaveChecked = on;
+            if (on && !IsReadOnly && IsDirty())
+                KickSave();
+            else if (_saveTimer != null && !on)
+                _saveTimer.Stop();
+        }
+
+        public void SetUserLocked(bool on)
+        {
+            if (_completedLocked || _item == null) return;
+            if (_isNew && on) return;
+            if (on && !_userLocked)
+            {
+                string err;
+                TrySave(out err);
+            }
+            _userLocked = on;
+            _item.ReadOnly = on;
+            if (!_isNew)
+                TodoStore.SetReadOnly(_item.Uid, on);
+            ApplyReadOnly();
+            if (IsReadOnly)
+            {
+                if (_saveTimer != null) _saveTimer.Stop();
+            }
+            else if (_autoSaveChecked && IsDirty())
+                KickSave();
+        }
+
+        public void FlushNow()
+        {
+            if (_saveTimer != null) _saveTimer.Stop();
+            if (_completedLocked) return;
+            string err;
+            TrySave(out err, true);
         }
 
         public void LoadItem(TodoItem item, bool isNew)
@@ -65,9 +132,11 @@ namespace IntraBox.Modules.Todo
             _loading = true;
             _isNew = isNew;
             _item = item;
+            _allowBrokenFormat = false;
             _originalId = item.Id ?? "";
             _loadedDue = item.DueAt;
-            _readOnly = item.Completed && !isNew;
+            _completedLocked = item.Completed && !isNew;
+            _userLocked = !isNew && !item.Completed && item.ReadOnly;
             DetailBox.Tag = item.Uid;
             bool auto = isNew || AutoIdPattern.IsMatch(item.Id ?? "");
             AutoIdCheck.IsChecked = auto;
@@ -118,23 +187,28 @@ namespace IntraBox.Modules.Todo
             RefreshDueBlackout();
             UpdateDueHint();
             ApplyReadOnly();
+            if (_saveTimer != null) _saveTimer.Stop();
             _loading = false;
             _fingerprint = CurrentFingerprint();
-        }
-
-        public void ApplyRemindOff()
-        {
-            if (_item == null || _readOnly) return;
-            _item.RemindKind = TodoRemindKind.Off;
-            if (RemindKindCombo != null)
-                RemindKindCombo.SelectedIndex = TodoRemindKind.Off;
-            UpdateRemindExtra();
+            Dispatcher.BeginInvoke(new Action(delegate
+            {
+                _fingerprint = CurrentFingerprint();
+            }), DispatcherPriority.Loaded);
         }
 
         public bool IsDirty()
         {
-            if (_readOnly || _item == null || _loading) return false;
+            if (_item == null || _loading || _completedLocked) return false;
             return CurrentFingerprint() != _fingerprint;
+        }
+
+        private void KickSave()
+        {
+            if (_loading || _item == null || IsReadOnly || !_autoSaveChecked) return;
+            int ms = AppSettings.CurrentHistoryPersistDelayMs();
+            _saveTimer.Interval = TimeSpan.FromMilliseconds(ms);
+            _saveTimer.Stop();
+            _saveTimer.Start();
         }
 
         private string CurrentFingerprint()
@@ -169,9 +243,22 @@ namespace IntraBox.Modules.Todo
 
         public bool TrySave(out string error)
         {
+            return TrySave(out error, true);
+        }
+
+        public bool TrySave(out string error, bool interactive)
+        {
             error = null;
+            if (_completedLocked) return true;
             TodoItem collected;
             if (!TryCollect(out collected, out error)) return false;
+            int format;
+            if (!ConfirmDetailFormat(interactive, out format))
+            {
+                if (!interactive && format == 0)
+                    return true;
+                return false;
+            }
             ApplyTrySaveRemind(_item, collected);
             DirectoryEnsure();
             TodoRichText.SaveFrom(DetailBox, collected.Uid);
@@ -194,19 +281,42 @@ namespace IntraBox.Modules.Todo
                     : "修改时间  " + collected.UpdatedAt.ToString("yyyy-MM-dd HH:mm");
             }
             _fingerprint = CurrentFingerprint();
+            if (Saved != null) Saved(this, EventArgs.Empty);
+            return true;
+        }
+
+        /// <returns>false 表示不要写入。format=0 表示模板损坏。</returns>
+        private bool ConfirmDetailFormat(bool interactive, out int format)
+        {
+            format = 1;
+            string plain = TodoRichText.ToPlain(DetailBox != null ? DetailBox.Document : null);
+            if (TodoRichText.HasFieldTemplate(plain))
+            {
+                _allowBrokenFormat = false;
+                return true;
+            }
+            format = 0;
+            if (!interactive)
+                return _allowBrokenFormat;
+            if (_allowBrokenFormat) return true;
+            if (!ConfirmHelper.Warn(TodoRichText.FormatBrokenMessage, "格式错误"))
+                return false;
+            _allowBrokenFormat = true;
             return true;
         }
 
         private void ApplyReadOnly()
         {
-            bool edit = !_readOnly;
+            bool edit = !IsReadOnly;
             if (AutoIdCheck != null) AutoIdCheck.IsEnabled = edit;
-            if (IdBox != null && !edit) IdBox.IsReadOnly = true;
+            if (IdBox != null)
+                IdBox.IsReadOnly = !edit || (AutoIdCheck != null && AutoIdCheck.IsChecked == true);
             if (PriorityCombo != null) PriorityCombo.IsEnabled = edit;
             if (DueDate != null) DueDate.IsEnabled = edit;
             if (DueHourCombo != null) DueHourCombo.IsEnabled = edit;
             if (DueMinuteCombo != null) DueMinuteCombo.IsEnabled = edit;
-            if (ClearDueBtn != null) ClearDueBtn.IsEnabled = edit;
+            if (RemindPanel != null) RemindPanel.IsEnabled = edit;
+            RefreshClearDueEnabled();
             if (RteToolbar != null) RteToolbar.IsEnabled = edit;
             if (DetailBox != null)
             {
@@ -220,7 +330,7 @@ namespace IntraBox.Modules.Todo
         {
             TodoItem collected;
             string err;
-            if (!TryCollect(out collected, out err)) return null;
+            if (!TryCollect(out collected, out err, true)) return null;
             return collected;
         }
 
@@ -241,7 +351,7 @@ namespace IntraBox.Modules.Todo
             catch { }
         }
 
-        private bool TryCollect(out TodoItem collected, out string error)
+        private bool TryCollect(out TodoItem collected, out string error, bool skipDueDayRequired = false)
         {
             collected = null;
             error = null;
@@ -277,6 +387,13 @@ namespace IntraBox.Modules.Todo
                 return false;
             }
             DateTime? due = ParseDue();
+            int remindKind = RemindKindCombo != null && RemindKindCombo.SelectedIndex >= 0
+                ? RemindKindCombo.SelectedIndex : 0;
+            if (!skipDueDayRequired && TodoDue.DueDayNeedsDue(remindKind, due))
+            {
+                error = TodoDue.DueDayMissingMessage;
+                return false;
+            }
             if (!IsDueAllowed(due))
             {
                 error = "计划完成时间不能早于当前时间";
@@ -289,6 +406,7 @@ namespace IntraBox.Modules.Todo
             collected.DueAt = due;
             collected.Completed = _item.Completed;
             collected.CompletedAt = _item.CompletedAt;
+            collected.ReadOnly = _item.ReadOnly;
             collected.CreatedAt = _item.CreatedAt;
             if (!collected.Completed)
             {
@@ -312,6 +430,7 @@ namespace IntraBox.Modules.Todo
             if (collected == null || collected.Completed) return;
             if (!RemindScheduleChanged(before, collected)) return;
             collected.LastRemindedAt = null;
+            collected.MuteRemindOn = null;
         }
 
         /// <summary>TrySave：提醒规则变了则清稍后与排队。</summary>
@@ -354,7 +473,9 @@ namespace IntraBox.Modules.Todo
                 CreatedAt = s.CreatedAt,
                 UpdatedAt = s.UpdatedAt,
                 LastRemindedAt = s.LastRemindedAt,
-                CompletedAt = s.CompletedAt
+                MuteRemindOn = s.MuteRemindOn,
+                CompletedAt = s.CompletedAt,
+                ReadOnly = s.ReadOnly
             };
         }
 
@@ -423,6 +544,7 @@ namespace IntraBox.Modules.Todo
         private void IdBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             UpdateIdHint();
+            if (!_loading) KickSave();
         }
 
         private void UpdateIdHint()
@@ -437,6 +559,7 @@ namespace IntraBox.Modules.Todo
             SetDueDate(null);
             SelectTime(DueHourCombo, DueMinuteCombo, 15, 0);
             UpdateDueHint();
+            KickSave();
         }
 
         private void DueDate_Changed(object sender, SelectionChangedEventArgs e)
@@ -451,6 +574,7 @@ namespace IntraBox.Modules.Todo
             ClampDueTime();
             RefreshDueBlackout();
             UpdateDueHint();
+            KickSave();
         }
 
         private void DueTime_Changed(object sender, SelectionChangedEventArgs e)
@@ -458,6 +582,7 @@ namespace IntraBox.Modules.Todo
             if (_loading) return;
             ClampDueTime();
             UpdateDueHint();
+            KickSave();
         }
 
         private void ClampDueTime()
@@ -513,9 +638,15 @@ namespace IntraBox.Modules.Todo
         {
             DateTime? due = ParseDue();
             bool past = TodoDue.IsDatePast(due);
+            int kind = RemindKindCombo != null ? RemindKindCombo.SelectedIndex : 0;
             if (DueHint != null)
             {
-                if (!IsDueAllowed(due))
+                if (TodoDue.DueDayNeedsDue(kind, due))
+                {
+                    DueHint.Text = TodoDue.DueDayMissingMessage;
+                    DueHint.Visibility = Visibility.Visible;
+                }
+                else if (!IsDueAllowed(due))
                 {
                     DueHint.Text = "计划完成时间不能早于当前时间";
                     DueHint.Visibility = Visibility.Visible;
@@ -547,6 +678,25 @@ namespace IntraBox.Modules.Todo
         {
             if (_loading) return;
             UpdateRemindExtra();
+            UpdateDueHint();
+            KickSave();
+        }
+
+        private void Field_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            KickSave();
+        }
+
+        private void Field_Changed(object sender, TextChangedEventArgs e)
+        {
+            Field_Changed(sender, (RoutedEventArgs)e);
+        }
+
+        private void DetailBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_loading) return;
+            KickSave();
         }
 
         private void UpdateRemindExtra()
@@ -558,6 +708,14 @@ namespace IntraBox.Modules.Todo
             RemindExtraLabel.Text = k == TodoRemindKind.Weekly ? "星期" : (k == TodoRemindKind.EveryNDays ? "间隔天数" : "");
             if (RemindRepeatPanel != null)
                 RemindRepeatPanel.Visibility = k == TodoRemindKind.Off ? Visibility.Collapsed : Visibility.Visible;
+            RefreshClearDueEnabled();
+        }
+
+        private void RefreshClearDueEnabled()
+        {
+            if (ClearDueBtn == null) return;
+            bool dueDay = RemindKindCombo != null && RemindKindCombo.SelectedIndex == TodoRemindKind.DueDay;
+            ClearDueBtn.IsEnabled = !IsReadOnly && !dueDay;
         }
 
         private static bool RemindScheduleChanged(TodoItem a, TodoItem b)
@@ -694,7 +852,7 @@ namespace IntraBox.Modules.Todo
 
         private void InsertImage_Click(object sender, RoutedEventArgs e)
         {
-            if (_item == null || _readOnly) return;
+            if (_item == null || IsReadOnly) return;
             var dlg = new OpenFileDialog { Filter = "图片|*.png;*.jpg;*.jpeg;*.gif;*.bmp|所有文件|*.*" };
             if (dlg.ShowDialog() != true) return;
             InsertImageFile(dlg.FileName);
@@ -702,7 +860,7 @@ namespace IntraBox.Modules.Todo
 
         private void DetailBox_PreviewDragOver(object sender, DragEventArgs e)
         {
-            if (_readOnly) return;
+            if (IsReadOnly) return;
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 e.Effects = DragDropEffects.Copy;
@@ -712,7 +870,7 @@ namespace IntraBox.Modules.Todo
 
         private void DetailBox_Drop(object sender, DragEventArgs e)
         {
-            if (_readOnly) return;
+            if (IsReadOnly) return;
             var files = e.Data.GetData(DataFormats.FileDrop) as string[];
             if (files == null) return;
             for (int i = 0; i < files.Length; i++)
@@ -722,7 +880,7 @@ namespace IntraBox.Modules.Todo
 
         private void InsertImageFile(string path)
         {
-            if (_item == null || _readOnly) return;
+            if (_item == null || IsReadOnly) return;
             DirectoryEnsure();
             string err;
             if (!TodoRichText.TryInsertImage(DetailBox, _item.Uid, path, out err))

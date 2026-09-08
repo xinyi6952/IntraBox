@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using IntraBox.Core;
 
@@ -91,7 +92,7 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
-        public void Rank_可按收藏分类匹配()
+        public void Rank_可按收藏目录匹配()
         {
             var hits = new List<LauncherHit>
             {
@@ -104,10 +105,10 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
-        public void CategoryLabel_空为未分类()
+        public void CategoryLabel_空为根目录()
         {
-            Assert.AreEqual("未分类", LauncherTarget.CategoryLabel(null));
-            Assert.AreEqual("未分类", LauncherTarget.CategoryLabel("  "));
+            Assert.AreEqual("根目录", LauncherTarget.CategoryLabel(null));
+            Assert.AreEqual("根目录", LauncherTarget.CategoryLabel("  "));
             Assert.AreEqual("内网", LauncherTarget.CategoryLabel(" 内网 "));
             Assert.AreEqual("", LauncherTarget.NormalizeCategory("  "));
         }
@@ -153,6 +154,11 @@ namespace IntraBox.Tests
             Assert.IsFalse(LauncherProcess.MatchBatWindow(@"C:\work\other.bat", titles));
             Assert.AreEqual(@"C:\edit.exe", LauncherProcess.ResolveLaunchImage(LauncherTarget.KindFile, @"C:\a.txt", @"C:\edit.exe"));
             Assert.AreEqual(@"C:\app.exe", LauncherProcess.ResolveLaunchImage(LauncherTarget.KindApp, @"C:\app.exe", ""));
+            var now = new DateTime(2026, 9, 8, 12, 0, 0, DateTimeKind.Utc);
+            Assert.IsTrue(LauncherProcess.IsScanCacheFresh(now, 3, now.AddMilliseconds(2499), 2500));
+            Assert.IsFalse(LauncherProcess.IsScanCacheFresh(now, 3, now.AddMilliseconds(2500), 2500));
+            Assert.IsFalse(LauncherProcess.IsScanCacheFresh(now, 0, now.AddMilliseconds(100), 2500));
+            Assert.IsFalse(LauncherProcess.IsScanCacheFresh(now.AddMilliseconds(10), 3, now, 2500));
         }
 
         private static LauncherHit Hit(string id, string title, bool pinned)

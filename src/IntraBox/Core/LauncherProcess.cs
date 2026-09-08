@@ -3,12 +3,20 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace IntraBox.Core
 {
     /// <summary>判断启动器目标是否已有进程在跑。不杀进程、不发起网络请求。</summary>
     public static class LauncherProcess
     {
+        private static readonly object _scanSync = new object();
+        private const int ScanCacheTtlMs = 2500;
+        private static List<string> _processImageCache;
+        private static DateTime _processImageCacheUtc;
+        private static List<string> _windowTitleCache;
+        private static DateTime _windowTitleCacheUtc;
+
         public static bool ShouldCheckAlreadyRunning(string kind, string target, string openWith)
         {
             if (kind == LauncherTarget.KindApp) return true;
@@ -104,12 +112,14 @@ namespace IntraBox.Core
             try { ext = Path.GetExtension(p); }
             catch { return p; }
             if (!string.Equals(ext, ".lnk", StringComparison.OrdinalIgnoreCase)) return p;
+            object shell = null;
+            object sc = null;
             try
             {
                 Type t = Type.GetTypeFromProgID("WScript.Shell");
                 if (t == null) return p;
-                object shell = Activator.CreateInstance(t);
-                object sc = t.InvokeMember("CreateShortcut", BindingFlags.InvokeMethod, null, shell, new object[] { p });
+                shell = Activator.CreateInstance(t);
+                sc = t.InvokeMember("CreateShortcut", BindingFlags.InvokeMethod, null, shell, new object[] { p });
                 if (sc == null) return p;
                 object dest = sc.GetType().InvokeMember("TargetPath", BindingFlags.GetProperty, null, sc, null);
                 string s = dest as string;
@@ -118,10 +128,56 @@ namespace IntraBox.Core
             catch
             {
             }
+            finally
+            {
+                ReleaseCom(sc);
+                ReleaseCom(shell);
+            }
             return p;
         }
 
+        /// <summary>打开成功后丢掉扫描缓存，避免连开同一程序时仍用旧进程列表。</summary>
+        public static void InvalidateScanCache()
+        {
+            lock (_scanSync)
+            {
+                _processImageCache = null;
+                _processImageCacheUtc = default(DateTime);
+                _windowTitleCache = null;
+                _windowTitleCacheUtc = default(DateTime);
+            }
+        }
+
+        /// <summary>进程/窗口扫描缓存是否仍有效：空列表或超过 TTL 都视为失效。</summary>
+        public static bool IsScanCacheFresh(DateTime cachedUtc, int count, DateTime nowUtc, int ttlMs)
+        {
+            if (count <= 0 || ttlMs <= 0) return false;
+            double ms = (nowUtc - cachedUtc).TotalMilliseconds;
+            return ms >= 0 && ms < ttlMs;
+        }
+
+        private static void ReleaseCom(object com)
+        {
+            if (com == null) return;
+            try { Marshal.FinalReleaseComObject(com); }
+            catch { }
+        }
+
         private static List<string> CollectProcessImages()
+        {
+            lock (_scanSync)
+            {
+                DateTime now = DateTime.UtcNow;
+                if (IsScanCacheFresh(_processImageCacheUtc, _processImageCache != null ? _processImageCache.Count : 0, now, ScanCacheTtlMs))
+                    return _processImageCache;
+                var list = ScanProcessImages();
+                _processImageCache = list;
+                _processImageCacheUtc = DateTime.UtcNow;
+                return list;
+            }
+        }
+
+        private static List<string> ScanProcessImages()
         {
             var list = new List<string>();
             Process[] ps = null;
@@ -149,6 +205,20 @@ namespace IntraBox.Core
         }
 
         private static List<string> CollectWindowTitles()
+        {
+            lock (_scanSync)
+            {
+                DateTime now = DateTime.UtcNow;
+                if (IsScanCacheFresh(_windowTitleCacheUtc, _windowTitleCache != null ? _windowTitleCache.Count : 0, now, ScanCacheTtlMs))
+                    return _windowTitleCache;
+                var list = ScanWindowTitles();
+                _windowTitleCache = list;
+                _windowTitleCacheUtc = DateTime.UtcNow;
+                return list;
+            }
+        }
+
+        private static List<string> ScanWindowTitles()
         {
             var list = new List<string>();
             try

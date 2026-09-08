@@ -264,10 +264,20 @@ namespace IntraBox.Modules.Vault
             bool on = row != null;
             var menu = sender as ContextMenu;
             if (menu == null) return;
+            if (MenuEditItem != null)
+            {
+                MenuEditItem.Header = (row != null && row.Locked) ? "查看" : "编辑";
+                MenuEditItem.IsEnabled = on;
+            }
             for (int i = 0; i < menu.Items.Count; i++)
             {
                 var mi = menu.Items[i] as MenuItem;
-                if (mi != null) mi.IsEnabled = on;
+                if (mi == null || mi == MenuEditItem) continue;
+                string h = mi.Header as string;
+                if (h == "删除" || h == "置顶" || h == "取消置顶" || h == "导入")
+                    mi.IsEnabled = on && row != null && !row.Locked;
+                else
+                    mi.IsEnabled = on;
             }
             if (MenuPinItem != null)
                 MenuPinItem.Visibility = (row != null && !row.Pinned) ? Visibility.Visible : Visibility.Collapsed;
@@ -388,6 +398,12 @@ namespace IntraBox.Modules.Vault
                 MsgText.Text = "请先选择或打开一个分类";
                 return;
             }
+            var meta = VaultStore.GetByUid(uid);
+            if (meta != null && meta.ReadOnly)
+            {
+                MsgText.Text = "已锁定，只能查看。取消勾选「锁定」后才能导入。";
+                return;
+            }
             var dlg = new OpenFileDialog { Filter = "文本|*.txt|所有文件|*.*" };
             if (dlg.ShowDialog(Window.GetWindow(this)) != true) return;
             string check;
@@ -418,7 +434,6 @@ namespace IntraBox.Modules.Vault
                 MsgText.Text = n == 0 ? "没有可导入的账号密码" : "已导入 " + n + " 条";
                 return;
             }
-            var meta = VaultStore.GetByUid(uid);
             if (meta == null) return;
             var body = VaultStore.LoadBody(uid);
             if (body.Entries == null) body.Entries = new List<VaultEntry>();
@@ -490,6 +505,11 @@ namespace IntraBox.Modules.Vault
         {
             var row = VaultList.SelectedItem as VaultRow;
             if (row == null) return;
+            if (row.Locked)
+            {
+                MsgText.Text = "已锁定，只能查看。取消勾选「锁定」后才能编辑或删除。";
+                return;
+            }
             VaultStore.SetPinned(row.Uid, true);
             RefreshListKeep();
         }
@@ -498,6 +518,11 @@ namespace IntraBox.Modules.Vault
         {
             var row = VaultList.SelectedItem as VaultRow;
             if (row == null) return;
+            if (row.Locked)
+            {
+                MsgText.Text = "已锁定，只能查看。取消勾选「锁定」后才能编辑或删除。";
+                return;
+            }
             VaultStore.SetPinned(row.Uid, false);
             RefreshListKeep();
         }
@@ -506,6 +531,11 @@ namespace IntraBox.Modules.Vault
         {
             var row = VaultList.SelectedItem as VaultRow;
             if (row == null) return;
+            if (row.Locked)
+            {
+                MsgText.Text = "已锁定，只能查看。取消勾选「锁定」后才能删除。";
+                return;
+            }
             if (!ConfirmHelper.Delete(row.Title)) return;
             if (DrawerHost.Visibility == Visibility.Visible && DrawerEditor.CurrentUid == row.Uid)
                 HideDrawer();
@@ -612,6 +642,7 @@ namespace IntraBox.Modules.Vault
             public string CreatedText { get; set; }
             public DateTime UpdatedAt { get; set; }
             public string UpdatedText { get; set; }
+            public bool Locked { get; set; }
 
             public static VaultRow From(VaultItem it)
             {
@@ -626,7 +657,8 @@ namespace IntraBox.Modules.Vault
                     CreatedAt = it.CreatedAt,
                     CreatedText = it.CreatedAt == default(DateTime) ? "" : it.CreatedAt.ToString("yyyy-MM-dd HH:mm"),
                     UpdatedAt = it.UpdatedAt,
-                    UpdatedText = it.UpdatedAt == default(DateTime) ? "" : it.UpdatedAt.ToString("yyyy-MM-dd HH:mm")
+                    UpdatedText = it.UpdatedAt == default(DateTime) ? "" : it.UpdatedAt.ToString("yyyy-MM-dd HH:mm"),
+                    Locked = it.ReadOnly
                 };
             }
         }

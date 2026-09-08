@@ -19,7 +19,7 @@ namespace IntraBox.Modules.Todo
                 case Weekdays: return "仅工作日";
                 case Weekly: return "每周";
                 case EveryNDays: return "每 N 天";
-                case DueDay: return "仅到期当天";
+                case DueDay: return "仅计划完成当天";
                 default: return "每天";
             }
         }
@@ -76,6 +76,14 @@ namespace IntraBox.Modules.Todo
         {
             return due.HasValue && due.Value.Date < today.Date;
         }
+
+        /// <summary>选「仅计划完成当天」时必须填写计划完成时间。</summary>
+        public static bool DueDayNeedsDue(int remindKind, DateTime? due)
+        {
+            return remindKind == TodoRemindKind.DueDay && !due.HasValue;
+        }
+
+        public const string DueDayMissingMessage = "选择「仅计划完成当天」时请填写计划完成时间";
     }
 
     public sealed class TodoIndexFile
@@ -106,7 +114,11 @@ namespace IntraBox.Modules.Todo
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public DateTime? LastRemindedAt { get; set; }
+        /// <summary>该日不再弹出提醒；次日仍按原频次。只比日期。</summary>
+        public DateTime? MuteRemindOn { get; set; }
         public DateTime? CompletedAt { get; set; }
+        /// <summary>锁定后只能查看，不能编辑或删除；即使勾选自动保存也不写入。已办本身只读。</summary>
+        public bool ReadOnly { get; set; }
 
         public static TodoItem CreateNew(string id)
         {

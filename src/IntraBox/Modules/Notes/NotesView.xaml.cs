@@ -19,6 +19,7 @@ namespace IntraBox.Modules.Notes
         public static string PendingOpenUid;
 
         private readonly List<NoteRow> _rows = new List<NoteRow>();
+        private readonly HashSet<string> _collapsed = new HashSet<string>(StringComparer.Ordinal);
         private bool _loading;
         private bool _drawerMax = true;
         private bool _skipListClick;
@@ -26,12 +27,19 @@ namespace IntraBox.Modules.Notes
         private bool _sortAsc;
         private const double DrawerRatio = 0.90;
 
+        private const string LockedMsg = "已锁定，只能查看。取消勾选「锁定」后才能编辑或删除。";
+
         public NotesView()
         {
             InitializeComponent();
             UpdateSortHeaders();
             SizeChanged += (s, e) => ApplyDrawerSize();
             DrawerEditor.Saved += (s, e) => RefreshListKeep();
+            DrawerEditor.CloseRequested += (s, e) =>
+            {
+                HideDrawer();
+                RefreshList();
+            };
         }
 
         public void OnActivated()
@@ -69,18 +77,43 @@ namespace IntraBox.Modules.Notes
 
         private void NewRich_Click(object sender, RoutedEventArgs e)
         {
-            NewNote(NoteKind.Rich);
+            NewNote(NoteKind.Rich, SelectedParentUid());
         }
 
         private void NewMd_Click(object sender, RoutedEventArgs e)
         {
-            NewNote(NoteKind.Markdown);
+            NewNote(NoteKind.Markdown, SelectedParentUid());
         }
 
-        private void NewNote(int kind)
+        private void NewFolder_Click(object sender, RoutedEventArgs e)
+        {
+            NewFolder(SelectedParentUid());
+        }
+
+        private string SelectedParentUid()
+        {
+            var row = NoteList.SelectedItem as NoteRow;
+            if (row == null) return "";
+            return row.IsFolder ? row.Uid : (row.ParentUid ?? "");
+        }
+
+        private void NewNote(int kind, string parentUid)
         {
             if (!CloseDrawer()) return;
-            var item = NoteItem.CreateNew(kind, NoteStore.UniqueTitle(kind, null));
+            parentUid = parentUid ?? "";
+            if (NoteStore.IsLocked(parentUid))
+            {
+                MsgText.Text = LockedMsg;
+                return;
+            }
+            if (!NoteStore.CanAddUnder(parentUid))
+            {
+                MsgText.Text = "无法再新增：数量或层级已达上限。";
+                return;
+            }
+            string title = NoteStore.UniqueTitle(parentUid, NoteKind.DefaultTitle(kind), null);
+            var item = NoteItem.CreateNew(kind, title);
+            item.ParentUid = parentUid;
             NoteStore.Add(item);
             if (kind == NoteKind.Markdown)
             {
@@ -92,8 +125,37 @@ namespace IntraBox.Modules.Notes
                 Directory.CreateDirectory(DataPaths.NoteItemDir(item.Uid));
                 NoteRichText.SaveDocument(NoteRichText.CreateEmptyDocument(), item.Uid);
             }
+            ExpandParent(parentUid);
             RefreshList();
             OpenDrawer(item.Uid);
+        }
+
+        private void NewFolder(string parentUid)
+        {
+            if (!CloseDrawer()) return;
+            parentUid = parentUid ?? "";
+            if (NoteStore.IsLocked(parentUid))
+            {
+                MsgText.Text = LockedMsg;
+                return;
+            }
+            if (!NoteStore.CanAddUnder(parentUid))
+            {
+                MsgText.Text = "无法再新增：数量或层级已达上限。";
+                return;
+            }
+            string title = NoteStore.UniqueTitle(parentUid, NoteKind.DefaultFolderTitle, null);
+            var item = NoteItem.CreateFolder(title, parentUid);
+            NoteStore.Add(item);
+            ExpandParent(parentUid);
+            RefreshList();
+            OpenDrawer(item.Uid);
+        }
+
+        private void ExpandParent(string parentUid)
+        {
+            if (string.IsNullOrEmpty(parentUid)) return;
+            _collapsed.Remove(parentUid);
         }
 
         private int _kindFilter;
@@ -144,16 +206,9 @@ namespace IntraBox.Modules.Notes
             var items = NoteStore.Snapshot();
             int filter = CurrentFilter();
             string q = SearchBox != null ? (SearchBox.Text ?? "").Trim() : "";
-            for (int i = 0; i < items.Count; i++)
-            {
-                var it = items[i];
-                if (filter == 1 && it.Kind != NoteKind.Rich) continue;
-                if (filter == 2 && it.Kind != NoteKind.Markdown) continue;
-                if (q.Length > 0 && (it.Title == null || it.Title.IndexOf(q, StringComparison.OrdinalIgnoreCase) < 0))
-                    continue;
-                _rows.Add(NoteRow.From(it));
-            }
-            SortRows();
+            var flat = NoteTree.Flatten(items, _collapsed, q, filter, _sortKey, _sortAsc);
+            for (int i = 0; i < flat.Count; i++)
+                _rows.Add(NoteRow.From(flat[i]));
             _loading = true;
             NoteList.ItemsSource = null;
             NoteList.ItemsSource = _rows;
@@ -192,41 +247,7 @@ namespace IntraBox.Modules.Notes
             if (string.IsNullOrEmpty(key)) return;
             if (_sortKey == key) _sortAsc = !_sortAsc;
             else { _sortKey = key; _sortAsc = false; }
-            SortRows();
-            _loading = true;
-            NoteList.ItemsSource = null;
-            NoteList.ItemsSource = _rows;
-            _loading = false;
-            UpdateSortHeaders();
-            FitListColumns();
-        }
-
-        private void SortRows()
-        {
-            _rows.Sort(CompareRows);
-        }
-
-        private int CompareRows(NoteRow a, NoteRow b)
-        {
-            if (a == null && b == null) return 0;
-            if (a == null) return 1;
-            if (b == null) return -1;
-            int pin = b.Pinned.CompareTo(a.Pinned);
-            if (pin != 0) return pin;
-            int c;
-            if (_sortKey == "kind")
-                c = a.Kind.CompareTo(b.Kind);
-            else if (_sortKey == "title")
-                c = string.Compare(a.Title, b.Title, StringComparison.CurrentCultureIgnoreCase);
-            else if (_sortKey == "created")
-                c = a.CreatedAt.CompareTo(b.CreatedAt);
-            else if (_sortKey == "pin")
-                c = a.Pinned.CompareTo(b.Pinned);
-            else
-                c = a.UpdatedAt.CompareTo(b.UpdatedAt);
-            if (!_sortAsc) c = -c;
-            if (c == 0) c = b.UpdatedAt.CompareTo(a.UpdatedAt);
-            return c;
+            RefreshList();
         }
 
         private void UpdateSortHeaders()
@@ -269,8 +290,8 @@ namespace IntraBox.Modules.Notes
             if (gv == null || gv.Columns.Count < 5) return;
             double w = NoteList.ActualWidth - SystemParameters.VerticalScrollBarWidth - 8;
             if (w < 200) return;
-            double[] min = { 52, 80, 140, 128, 128 };
-            double need = 52 + 80 + 140 + 128 + 128;
+            double[] min = { 52, 80, 180, 128, 128 };
+            double need = 52 + 80 + 180 + 128 + 128;
             if (w <= need)
             {
                 for (int i = 0; i < 5; i++)
@@ -305,21 +326,46 @@ namespace IntraBox.Modules.Notes
             MenuEdit_Click(sender, e);
         }
 
+        private void Expand_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            SkipClick();
+            var fe = sender as FrameworkElement;
+            var row = fe == null ? null : fe.DataContext as NoteRow;
+            if (row == null || !row.IsFolder) return;
+            if (_collapsed.Contains(row.Uid))
+                _collapsed.Remove(row.Uid);
+            else
+                _collapsed.Add(row.Uid);
+            RefreshList();
+        }
+
         private void ListMenu_Opened(object sender, RoutedEventArgs e)
         {
             var row = NoteList.SelectedItem as NoteRow;
             var menu = sender as ContextMenu;
             if (menu == null) return;
             bool has = row != null;
+            bool folder = has && row.IsFolder;
             bool pin = has && row.Pinned;
+            bool locked = has && row.Locked;
             for (int i = 0; i < menu.Items.Count; i++)
             {
                 var mi = menu.Items[i] as MenuItem;
                 if (mi == null) continue;
                 string h = mi.Header as string;
                 mi.IsEnabled = has;
-                if (h == "置顶") mi.Visibility = pin ? Visibility.Collapsed : Visibility.Visible;
+                if (h == "移动" || h == "导出")
+                    mi.Visibility = has && !folder ? Visibility.Visible : Visibility.Collapsed;
+                if (h == "新增普通笔记" || h == "新增 Markdown" || h == "新增目录")
+                {
+                    mi.Visibility = folder ? Visibility.Visible : Visibility.Collapsed;
+                    mi.IsEnabled = folder && !locked;
+                }
+                if (h == "置顶") mi.Visibility = has && !pin ? Visibility.Visible : Visibility.Collapsed;
                 if (h == "取消置顶") mi.Visibility = pin ? Visibility.Visible : Visibility.Collapsed;
+                if (h == "删除" || h == "移动" || h == "置顶" || h == "取消置顶")
+                    mi.IsEnabled = has && !locked;
             }
         }
 
@@ -327,6 +373,65 @@ namespace IntraBox.Modules.Notes
         {
             _skipListClick = true;
             Dispatcher.BeginInvoke(new Action(delegate { _skipListClick = false; }), DispatcherPriority.Input);
+        }
+
+        private void MenuMove_Click(object sender, RoutedEventArgs e)
+        {
+            var row = NoteList.SelectedItem as NoteRow;
+            if (row == null || row.IsFolder) return;
+            if (row.Locked)
+            {
+                MsgText.Text = LockedMsg;
+                return;
+            }
+            SkipClick();
+            if (!CloseDrawer()) return;
+            string parent;
+            if (!NoteMoveWindow.TryPick(Window.GetWindow(this), NoteStore.Snapshot(), row.ParentUid, out parent))
+                return;
+            if (parent == (row.ParentUid ?? ""))
+            {
+                MsgText.Text = "未移动";
+                return;
+            }
+            string err;
+            if (!NoteStore.TryMove(row.Uid, parent, out err))
+            {
+                MsgText.Text = err;
+                return;
+            }
+            ExpandParent(parent);
+            RefreshList();
+            SelectUid(row.Uid);
+            MsgText.Text = "已移动";
+        }
+
+        private void MenuAddRich_Click(object sender, RoutedEventArgs e)
+        {
+            AddChildNote(NoteKind.Rich);
+        }
+
+        private void MenuAddMd_Click(object sender, RoutedEventArgs e)
+        {
+            AddChildNote(NoteKind.Markdown);
+        }
+
+        private void MenuAddFolder_Click(object sender, RoutedEventArgs e)
+        {
+            var row = NoteList.SelectedItem as NoteRow;
+            if (row == null || !row.IsFolder) return;
+            SkipClick();
+            ExpandParent(row.Uid);
+            NewFolder(row.Uid);
+        }
+
+        private void AddChildNote(int kind)
+        {
+            var row = NoteList.SelectedItem as NoteRow;
+            if (row == null || !row.IsFolder) return;
+            SkipClick();
+            ExpandParent(row.Uid);
+            NewNote(kind, row.Uid);
         }
 
         private void MenuEdit_Click(object sender, RoutedEventArgs e)
@@ -340,6 +445,11 @@ namespace IntraBox.Modules.Notes
         {
             var row = NoteList.SelectedItem as NoteRow;
             if (row == null) return;
+            if (row.Locked)
+            {
+                MsgText.Text = LockedMsg;
+                return;
+            }
             SkipClick();
             NoteStore.SetPinned(row.Uid, true);
             RefreshList();
@@ -349,6 +459,11 @@ namespace IntraBox.Modules.Notes
         {
             var row = NoteList.SelectedItem as NoteRow;
             if (row == null) return;
+            if (row.Locked)
+            {
+                MsgText.Text = LockedMsg;
+                return;
+            }
             SkipClick();
             NoteStore.SetPinned(row.Uid, false);
             RefreshList();
@@ -362,27 +477,17 @@ namespace IntraBox.Modules.Notes
             if (!CloseDrawer()) return;
             var src = NoteStore.GetByUid(row.Uid);
             if (src == null) return;
-            var copy = NoteItem.CreateNew(src.Kind, src.Title + " 副本");
-            NoteStore.Add(copy);
-            try
+            string err;
+            string uid = NoteStore.TryDuplicate(row.Uid, out err);
+            if (uid == null)
             {
-                CopyDir(DataPaths.NoteItemDir(src.Uid), DataPaths.NoteItemDir(copy.Uid));
+                MsgText.Text = err;
+                return;
             }
-            catch { }
+            ExpandParent(src.ParentUid);
             RefreshList();
+            SelectUid(uid);
             MsgText.Text = "已复制";
-        }
-
-        private static void CopyDir(string src, string dest)
-        {
-            if (!Directory.Exists(src)) return;
-            Directory.CreateDirectory(dest);
-            string[] files = Directory.GetFiles(src);
-            for (int i = 0; i < files.Length; i++)
-                File.Copy(files[i], Path.Combine(dest, Path.GetFileName(files[i])), true);
-            string[] dirs = Directory.GetDirectories(src);
-            for (int i = 0; i < dirs.Length; i++)
-                CopyDir(dirs[i], Path.Combine(dest, Path.GetFileName(dirs[i])));
         }
 
         private void MenuExport_Click(object sender, RoutedEventArgs e)
@@ -391,7 +496,7 @@ namespace IntraBox.Modules.Notes
             if (row == null) return;
             SkipClick();
             var it = NoteStore.GetByUid(row.Uid);
-            if (it == null) return;
+            if (it == null || it.IsFolder) return;
             var dlg = new SaveFileDialog();
             if (it.Kind == NoteKind.Markdown)
             {
@@ -438,8 +543,25 @@ namespace IntraBox.Modules.Notes
         {
             var row = NoteList.SelectedItem as NoteRow;
             if (row == null) return;
-            if (!ConfirmHelper.Delete(row.Title)) return;
-            if (DrawerHost.Visibility == Visibility.Visible && DrawerEditor.CurrentUid == row.Uid)
+            if (NoteStore.SubtreeHasLock(row.Uid))
+            {
+                MsgText.Text = row.IsFolder
+                    ? "目录或其下有锁定项，不能删除。取消锁定后再删。"
+                    : LockedMsg;
+                return;
+            }
+            string detail = row.Title;
+            if (row.IsFolder)
+            {
+                int n = NoteStore.CountDescendants(row.Uid);
+                if (n > 0)
+                    detail = row.Title + "\n\n将同时删除其下 " + n + " 项。";
+            }
+            if (!ConfirmHelper.Delete(detail)) return;
+            string current = DrawerEditor.CurrentUid;
+            bool inDrawer = DrawerHost.Visibility == Visibility.Visible && !string.IsNullOrEmpty(current)
+                && (current == row.Uid || NoteTree.SubtreeUids(NoteStore.Snapshot(), row.Uid).Contains(current));
+            if (inDrawer)
                 HideDrawer();
             else if (!CloseDrawer())
                 return;
@@ -462,7 +584,7 @@ namespace IntraBox.Modules.Notes
             if (!CloseDrawer()) return;
             var item = NoteStore.GetByUid(uid);
             if (item == null) return;
-            DrawerTitle.Text = NoteKind.Label(item.Kind) + "笔记";
+            DrawerTitle.Text = item.IsFolder ? "目录" : (NoteKind.Label(item.Kind) + "笔记");
             DrawerEditor.LoadItem(item);
             DrawerHost.Visibility = Visibility.Visible;
             _drawerMax = true;
@@ -534,26 +656,40 @@ namespace IntraBox.Modules.Notes
         private sealed class NoteRow
         {
             public string Uid { get; set; }
+            public string ParentUid { get; set; }
             public string Title { get; set; }
             public int Kind { get; set; }
             public string KindText { get; set; }
             public bool Pinned { get; set; }
             public string PinText { get; set; }
+            public bool IsFolder { get; set; }
+            public bool Locked { get; set; }
+            public Thickness Indent { get; set; }
+            public Visibility ExpanderVisibility { get; set; }
+            public string ExpanderGlyph { get; set; }
             public DateTime CreatedAt { get; set; }
             public string CreatedText { get; set; }
             public DateTime UpdatedAt { get; set; }
             public string UpdatedText { get; set; }
 
-            public static NoteRow From(NoteItem it)
+            public static NoteRow From(NoteFlatRow flat)
             {
+                var it = flat.Item;
+                bool folder = it.IsFolder;
                 return new NoteRow
                 {
                     Uid = it.Uid,
+                    ParentUid = it.ParentUid ?? "",
                     Title = it.Title ?? "",
                     Kind = it.Kind,
-                    KindText = NoteKind.Label(it.Kind),
+                    KindText = folder ? "目录" : NoteKind.Label(it.Kind),
                     Pinned = it.Pinned,
                     PinText = it.Pinned ? "置顶" : "",
+                    IsFolder = folder,
+                    Locked = it.ReadOnly,
+                    Indent = new Thickness(flat.Depth * 16, 0, 0, 0),
+                    ExpanderVisibility = folder && flat.HasChildren ? Visibility.Visible : Visibility.Collapsed,
+                    ExpanderGlyph = flat.Expanded ? "−" : "+",
                     CreatedAt = it.CreatedAt,
                     CreatedText = it.CreatedAt == default(DateTime) ? "" : it.CreatedAt.ToString("yyyy-MM-dd HH:mm"),
                     UpdatedAt = it.UpdatedAt,

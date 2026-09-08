@@ -4,5 +4,6 @@
 
 - 代码评审：[docs/代码评审清单.md](docs/代码评审清单.md)
 - 代码提交：[docs/代码提交规范.md](docs/代码提交规范.md)
+- 仓库托管：[docs/开源仓库.md](docs/开源仓库.md)（Gitee 主仓，GitHub 镜像）
 
 不要再向用户索要评审或提交标准。未要求拆分时只做一条提交；提交说明禁止 Agent 身份与 `Co-authored-by`。

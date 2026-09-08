@@ -97,7 +97,7 @@ namespace IntraBox.Modules.Launcher
             for (int i = 0; i < items.Count; i++)
             {
                 var it = items[i];
-                if (it == null) continue;
+                if (it == null || it.IsFolder) continue;
                 string title = string.IsNullOrWhiteSpace(it.Title) ? "无标题笔记" : it.Title;
                 list.Add(new LauncherHit
                 {

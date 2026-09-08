@@ -16,12 +16,14 @@ namespace IntraBox.Modules.Notes
         private static readonly double[] FontSizes = { 10, 12, 14, 16, 18, 20, 24, 28, 32 };
         private bool _loading;
         private bool _dirty;
+        private bool _readOnly;
         private NoteItem _item;
         private DispatcherTimer _saveTimer;
         private DispatcherTimer _previewTimer;
         private int _mdMode;
 
         public event EventHandler Saved;
+        public event EventHandler CloseRequested;
 
         public NoteEditorPanel()
         {
@@ -87,9 +89,19 @@ namespace IntraBox.Modules.Notes
             return _dirty;
         }
 
-        public bool AutoSaveEnabled
+        public bool AutoSaveChecked
         {
             get { return AutoSaveCheck != null && AutoSaveCheck.IsChecked == true; }
+        }
+
+        public bool AutoSaveEnabled
+        {
+            get { return AutoSaveChecked && !IsReadOnly; }
+        }
+
+        public bool IsReadOnly
+        {
+            get { return _readOnly; }
         }
 
         public string CurrentUid
@@ -103,13 +115,19 @@ namespace IntraBox.Modules.Notes
             _loading = true;
             _item = item;
             TitleBox.Text = item.Title ?? "";
-            bool md = item.Kind == NoteKind.Markdown;
-            RichToolbar.Visibility = md ? Visibility.Collapsed : Visibility.Visible;
-            RichHost.Visibility = md ? Visibility.Collapsed : Visibility.Visible;
+            bool folder = item.IsFolder;
+            bool md = !folder && item.Kind == NoteKind.Markdown;
+            if (FolderHint != null)
+                FolderHint.Visibility = folder ? Visibility.Visible : Visibility.Collapsed;
+            RichToolbar.Visibility = (!folder && !md) ? Visibility.Visible : Visibility.Collapsed;
+            RichHost.Visibility = (!folder && !md) ? Visibility.Visible : Visibility.Collapsed;
             MdToolbar.Visibility = md ? Visibility.Visible : Visibility.Collapsed;
             MdHost.Visibility = md ? Visibility.Visible : Visibility.Collapsed;
             DetailBox.Tag = item.Uid;
-            if (md)
+            if (folder)
+            {
+            }
+            else if (md)
             {
                 string path = DataPaths.NoteBodyMdPath(item.Uid);
                 string text = "";
@@ -129,6 +147,9 @@ namespace IntraBox.Modules.Notes
                 KickParaNumbers();
             }
             _dirty = false;
+            _readOnly = item.ReadOnly;
+            if (ReadOnlyCheck != null) ReadOnlyCheck.IsChecked = _readOnly;
+            ApplyEditorLock();
             _loading = false;
             UpdateStatus();
             UpdateSaveHint();
@@ -142,19 +163,22 @@ namespace IntraBox.Modules.Notes
 
         public void Persist(bool flushStore)
         {
-            if (_item == null || _loading) return;
+            if (_item == null || _loading || _readOnly) return;
             string title = TitleBox.Text;
             if (string.IsNullOrWhiteSpace(title))
-                title = NoteKind.DefaultTitle(_item.Kind);
+                title = _item.IsFolder ? NoteKind.DefaultFolderTitle : NoteKind.DefaultTitle(_item.Kind);
             _item.Title = title.Trim();
             _item.UpdatedAt = DateTime.Now;
             try
             {
-                System.IO.Directory.CreateDirectory(DataPaths.NoteItemDir(_item.Uid));
-                if (_item.Kind == NoteKind.Markdown)
-                    System.IO.File.WriteAllText(DataPaths.NoteBodyMdPath(_item.Uid), MdBox.Text ?? "", System.Text.Encoding.UTF8);
-                else
-                    NoteRichText.SaveFrom(DetailBox, _item.Uid);
+                if (!_item.IsFolder)
+                {
+                    System.IO.Directory.CreateDirectory(DataPaths.NoteItemDir(_item.Uid));
+                    if (_item.Kind == NoteKind.Markdown)
+                        System.IO.File.WriteAllText(DataPaths.NoteBodyMdPath(_item.Uid), MdBox.Text ?? "", System.Text.Encoding.UTF8);
+                    else
+                        NoteRichText.SaveFrom(DetailBox, _item.Uid);
+                }
             }
             catch { }
             NoteStore.UpsertMeta(_item);
@@ -172,7 +196,7 @@ namespace IntraBox.Modules.Notes
 
         private void KickSave()
         {
-            if (_loading || _item == null) return;
+            if (_loading || _item == null || _readOnly) return;
             _dirty = true;
             if (!AutoSaveEnabled)
             {
@@ -189,19 +213,34 @@ namespace IntraBox.Modules.Notes
         private void UpdateSaveHint()
         {
             if (SaveHint == null) return;
-            if (_dirty)
-                SaveHint.Text = AutoSaveEnabled ? "保存中…" : "未保存";
+            if (_readOnly)
+                SaveHint.Text = "锁定";
+            else if (_dirty)
+                SaveHint.Text = AutoSaveChecked ? "保存中…" : "未保存";
             else
-                SaveHint.Text = AutoSaveEnabled ? "自动保存" : "已保存";
+                SaveHint.Text = AutoSaveChecked ? "自动保存" : "已保存";
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {
+            if (_readOnly) return;
             Persist(true);
+        }
+
+        private void SaveClose_Click(object sender, RoutedEventArgs e)
+        {
+            if (_readOnly)
+            {
+                if (CloseRequested != null) CloseRequested(this, EventArgs.Empty);
+                return;
+            }
+            Persist(true);
+            if (CloseRequested != null) CloseRequested(this, EventArgs.Empty);
         }
 
         private void SaveCommand_Executed(object sender, ExecutedRoutedEventArgs e)
         {
+            if (_readOnly) return;
             Persist(true);
         }
 
@@ -209,7 +248,7 @@ namespace IntraBox.Modules.Notes
         {
             if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control)
             {
-                Persist(true);
+                if (!_readOnly) Persist(true);
                 e.Handled = true;
             }
         }
@@ -217,18 +256,54 @@ namespace IntraBox.Modules.Notes
         private void AutoSave_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
-            bool on = AutoSaveEnabled;
+            bool on = AutoSaveChecked;
             try
             {
                 ConfigManager.Instance.Settings.NotesAutoSave = on;
                 ConfigManager.Instance.Save();
             }
             catch { }
-            if (on)
+            if (on && !_readOnly)
                 Persist(true);
             else if (_saveTimer != null)
                 _saveTimer.Stop();
             UpdateSaveHint();
+        }
+
+        private void ReadOnly_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || _item == null) return;
+            bool next = ReadOnlyCheck != null && ReadOnlyCheck.IsChecked == true;
+            if (next && !_readOnly)
+                Persist(true);
+            _readOnly = next;
+            _item.ReadOnly = _readOnly;
+            NoteStore.SetReadOnly(_item.Uid, _readOnly);
+            ApplyEditorLock();
+            if (_readOnly)
+            {
+                if (_saveTimer != null) _saveTimer.Stop();
+            }
+            else if (AutoSaveChecked)
+                Persist(true);
+            UpdateSaveHint();
+            if (Saved != null) Saved(this, EventArgs.Empty);
+        }
+
+        private void ApplyEditorLock()
+        {
+            bool edit = !_readOnly;
+            if (TitleBox != null) TitleBox.IsReadOnly = _readOnly;
+            if (RichToolbar != null) RichToolbar.IsEnabled = edit;
+            if (DetailBox != null)
+            {
+                DetailBox.IsReadOnly = _readOnly;
+                DetailBox.AllowDrop = edit;
+            }
+            if (MdBox != null) MdBox.IsReadOnly = _readOnly;
+            if (MdToolbar != null) MdToolbar.IsEnabled = edit;
+            if (SaveBtn != null) SaveBtn.IsEnabled = edit;
+            if (SaveCloseBtn != null) SaveCloseBtn.IsEnabled = edit;
         }
 
         private void ApplyNoteLineNumbers()
@@ -323,6 +398,11 @@ namespace IntraBox.Modules.Notes
             if (_item == null)
             {
                 StatusText.Text = "";
+                return;
+            }
+            if (_item.IsFolder)
+            {
+                StatusText.Text = "目录";
                 return;
             }
             if (_item.Kind == NoteKind.Markdown)
@@ -431,7 +511,7 @@ namespace IntraBox.Modules.Notes
 
         private void PickImage(bool markdown)
         {
-            if (_item == null) return;
+            if (_item == null || _readOnly) return;
             var dlg = new OpenFileDialog { Filter = "图片|*.png;*.jpg;*.jpeg;*.gif;*.bmp" };
             if (dlg.ShowDialog() != true) return;
             if (markdown)
@@ -494,6 +574,7 @@ namespace IntraBox.Modules.Notes
 
         private void DetailBox_Drop(object sender, DragEventArgs e)
         {
+            if (_readOnly) return;
             var files = e.Data.GetData(DataFormats.FileDrop) as string[];
             if (files == null || files.Length == 0 || _item == null) return;
             string err;
@@ -594,6 +675,7 @@ namespace IntraBox.Modules.Notes
 
         private void WrapMd(string left, string right)
         {
+            if (_readOnly) return;
             var ed = MdBox.EditorControl;
             int start = ed.SelectionStart;
             int len = ed.SelectionLength;
@@ -605,6 +687,7 @@ namespace IntraBox.Modules.Notes
 
         private void InsertMd(string text)
         {
+            if (_readOnly) return;
             var ed = MdBox.EditorControl;
             ed.Document.Insert(ed.CaretOffset, text);
             KickSave();
@@ -612,6 +695,7 @@ namespace IntraBox.Modules.Notes
 
         private void PrefixMd(string prefix)
         {
+            if (_readOnly) return;
             var ed = MdBox.EditorControl;
             var line = ed.Document.GetLineByOffset(ed.CaretOffset);
             ed.Document.Insert(line.Offset, prefix);

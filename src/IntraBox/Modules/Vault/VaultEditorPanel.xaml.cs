@@ -18,6 +18,7 @@ namespace IntraBox.Modules.Vault
     {
         private bool _loading;
         private bool _dirty;
+        private bool _readOnly;
         private VaultItem _item;
         private VaultBody _body;
         private bool _revealed;
@@ -55,9 +56,19 @@ namespace IntraBox.Modules.Vault
             get { return _item != null ? _item.Uid : null; }
         }
 
-        public bool AutoSaveEnabled
+        public bool AutoSaveChecked
         {
             get { return AutoSaveCheck != null && AutoSaveCheck.IsChecked == true; }
+        }
+
+        public bool AutoSaveEnabled
+        {
+            get { return AutoSaveChecked && !IsReadOnly; }
+        }
+
+        public bool IsReadOnly
+        {
+            get { return _readOnly; }
         }
 
         public bool IsDirty()
@@ -82,7 +93,10 @@ namespace IntraBox.Modules.Vault
             _key = null;
             RebuildRows();
             _dirty = false;
+            _readOnly = item != null && item.ReadOnly;
+            if (ReadOnlyCheck != null) ReadOnlyCheck.IsChecked = _readOnly;
             _loading = false;
+            ApplyEditorLock();
             UpdatePwdUi();
             UpdateSaveHint();
         }
@@ -107,16 +121,23 @@ namespace IntraBox.Modules.Vault
 
         private void SaveCommand_Executed(object sender, ExecutedRoutedEventArgs e)
         {
+            if (_readOnly) return;
             Persist(true);
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {
+            if (_readOnly) return;
             Persist(true);
         }
 
         private void SaveClose_Click(object sender, RoutedEventArgs e)
         {
+            if (_readOnly)
+            {
+                if (CloseRequested != null) CloseRequested(this, EventArgs.Empty);
+                return;
+            }
             if (!Persist(true)) return;
             if (CloseRequested != null) CloseRequested(this, EventArgs.Empty);
         }
@@ -125,7 +146,7 @@ namespace IntraBox.Modules.Vault
         {
             if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control)
             {
-                Persist(true);
+                if (!_readOnly) Persist(true);
                 e.Handled = true;
             }
         }
@@ -145,22 +166,60 @@ namespace IntraBox.Modules.Vault
         private void AutoSave_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
-            bool on = AutoSaveEnabled;
+            bool on = AutoSaveChecked;
             try
             {
                 ConfigManager.Instance.Settings.VaultAutoSave = on;
                 ConfigManager.Instance.Save();
             }
             catch { }
-            if (on)
+            if (on && !_readOnly)
                 Persist(true);
             else if (_saveTimer != null)
                 _saveTimer.Stop();
             UpdateSaveHint();
         }
 
+        private void ReadOnly_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || _item == null) return;
+            bool next = ReadOnlyCheck != null && ReadOnlyCheck.IsChecked == true;
+            if (next && !_readOnly)
+                Persist(true);
+            _readOnly = next;
+            _item.ReadOnly = _readOnly;
+            VaultStore.SetReadOnly(_item.Uid, _readOnly);
+            ApplyEditorLock();
+            if (_readOnly)
+            {
+                if (_saveTimer != null) _saveTimer.Stop();
+            }
+            else if (AutoSaveChecked)
+                Persist(true);
+            UpdateSaveHint();
+            if (Saved != null) Saved(this, EventArgs.Empty);
+        }
+
+        private void ApplyEditorLock()
+        {
+            bool edit = !_readOnly;
+            if (TitleBox != null) TitleBox.IsReadOnly = _readOnly;
+            if (RemarkBox != null) RemarkBox.IsReadOnly = _readOnly;
+            if (AddRowBtn != null) AddRowBtn.IsEnabled = edit;
+            if (ImportBtn != null) ImportBtn.IsEnabled = edit;
+            if (PwdBtn != null) PwdBtn.IsEnabled = edit;
+            if (SaveBtn != null) SaveBtn.IsEnabled = edit;
+            if (SaveCloseBtn != null) SaveCloseBtn.IsEnabled = edit;
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                _rows[i].EditorLocked = _readOnly;
+                _rows[i].RaiseLock();
+            }
+        }
+
         private void MarkDirty()
         {
+            if (_readOnly) return;
             _dirty = true;
             UpdateSaveHint();
             KickSave();
@@ -177,6 +236,7 @@ namespace IntraBox.Modules.Vault
         private bool Persist(bool showOk)
         {
             if (_item == null) return false;
+            if (_readOnly) return true;
             CollectToBody();
             byte[] key = _key;
             _item.Title = (TitleBox.Text ?? "").Trim();
@@ -209,6 +269,7 @@ namespace IntraBox.Modules.Vault
 
         private void AddRow_Click(object sender, RoutedEventArgs e)
         {
+            if (_readOnly) return;
             ClearDeleteConfirm(null);
             _rows.Add(VaultRowVm.Blank(_revealed));
             MarkDirty();
@@ -257,6 +318,7 @@ namespace IntraBox.Modules.Vault
 
         private void Import_Click(object sender, RoutedEventArgs e)
         {
+            if (_readOnly) return;
             var dlg = new OpenFileDialog { Filter = "文本|*.txt|所有文件|*.*" };
             if (dlg.ShowDialog(OwnerWin()) != true) return;
             string check;
@@ -303,6 +365,7 @@ namespace IntraBox.Modules.Vault
 
         public int ImportEntries(IList<VaultEntry> entries)
         {
+            if (_readOnly) return 0;
             if (entries == null || entries.Count == 0) return 0;
             if (_rows.Count == 1 && !VaultText.IsKept(_rows[0].ToEntry()))
                 _rows.Clear();
@@ -340,6 +403,7 @@ namespace IntraBox.Modules.Vault
 
         private void DelRow_Click(object sender, RoutedEventArgs e)
         {
+            if (_readOnly) return;
             var row = RowFromSender(sender);
             if (row == null) return;
             if (!row.ConfirmingDelete)
@@ -370,7 +434,7 @@ namespace IntraBox.Modules.Vault
 
         private void Mask_Click(object sender, RoutedEventArgs e)
         {
-            if (_loading) return;
+            if (_loading || _readOnly) return;
             var box = sender as CheckBox;
             var row = box != null ? box.DataContext as VaultRowVm : null;
             if (row == null) return;
@@ -424,6 +488,7 @@ namespace IntraBox.Modules.Vault
 
         private void Password_Click(object sender, RoutedEventArgs e)
         {
+            if (_readOnly) return;
             if (_body != null && _body.HasPassword)
                 TryChangePassword();
             else
@@ -587,6 +652,7 @@ namespace IntraBox.Modules.Vault
 
         private void CopyNewRow_Click(object sender, RoutedEventArgs e)
         {
+            if (_readOnly) return;
             var src = RowFromSender(sender);
             if (src == null) return;
             ClearDeleteConfirm(null);
@@ -669,7 +735,8 @@ namespace IntraBox.Modules.Vault
         private void UpdateSaveHint()
         {
             if (SaveHint == null) return;
-            SaveHint.Text = _dirty ? "未保存" : "已保存";
+            if (_readOnly) SaveHint.Text = "锁定";
+            else SaveHint.Text = _dirty ? "未保存" : "已保存";
         }
 
         private void SetStatus(string text)
@@ -698,10 +765,16 @@ namespace IntraBox.Modules.Vault
         public bool Masked { get; set; }
         public bool Reveal { get; set; }
         public bool ConfirmingDelete { get; set; }
+        public bool EditorLocked { get; set; }
+
+        public bool CanEditRow
+        {
+            get { return !EditorLocked; }
+        }
 
         public bool SecretsEditable
         {
-            get { return !Masked; }
+            get { return !Masked && !EditorLocked; }
         }
 
         public string AccountText
@@ -737,6 +810,8 @@ namespace IntraBox.Modules.Vault
             Raise("AccountText");
             Raise("PasswordText");
             Raise("Masked");
+            Raise("EditorLocked");
+            Raise("CanEditRow");
         }
 
         public VaultEntry ToEntry()

@@ -82,14 +82,13 @@ namespace IntraBox.Modules.ClipboardHistory
             bool recordImages = ClipboardStore.RecordImagesEnabled;
             if (!ClipboardHelper.TryReadClipboard(SizeLimits.MaxFileBytes, recordImages, out text, out w, out h, out bgra)) return;
             CheckClipboardText(text);
-            if (ClipboardStore.ShouldCaptureImage(recordImages, false))
+            if (ClipboardStore.ShouldCaptureImage(recordImages))
                 CheckClipboardImage(w, h, bgra);
         }
 
         private static void CheckClipboardText(string text)
         {
-            if (string.IsNullOrEmpty(text)) return;
-            if (text == ClipboardStore.LastText) return;
+            if (ClipboardStore.IsBlankText(text)) return;
             string err;
             if (!SizeLimits.TryCheckText(text, out err))
             {
@@ -114,10 +113,8 @@ namespace IntraBox.Modules.ClipboardHistory
                 ClipboardStore.LastImageSig = sig;
                 return;
             }
-            if (ClipboardStore.ShouldSkipDuplicateImage(sig, ClipboardStore.LastImageSig))
-                return;
             ClipboardStore.LastImageSig = sig;
-            AddImage(origW, origH, bgra);
+            AddImage(origW, origH, bgra, sig);
         }
 
         private static void AddTextItem(string text)
@@ -132,7 +129,7 @@ namespace IntraBox.Modules.ClipboardHistory
             });
         }
 
-        private static void AddImage(int origW, int origH, byte[] bgra)
+        private static void AddImage(int origW, int origH, byte[] bgra, string sig)
         {
             var thumb = ClipboardImage.CreateThumb(bgra, origW, origH, ThumbMaxEdge, 96, 96);
             byte[] png = ClipboardImage.EncodePngBytes(bgra, origW, origH);
@@ -140,6 +137,7 @@ namespace IntraBox.Modules.ClipboardHistory
             {
                 IsImage = true,
                 Text = null,
+                ImageSig = sig,
                 Preview = "[图片] " + origW + "×" + origH,
                 Thumb = thumb,
                 ImagePng = png,

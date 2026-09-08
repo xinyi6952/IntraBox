@@ -42,7 +42,7 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
-        public void Flatten_折叠分类不展示子项()
+        public void Flatten_折叠目录不展示子项()
         {
             var cat = Cat("p", "", "工具");
             var fav = Item("f", "p", "计算器", LauncherTarget.KindApp, @"C:\calc.exe");
@@ -83,7 +83,7 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
-        public void Duplicate_分类连子树换新Uid()
+        public void Duplicate_目录连子树换新Uid()
         {
             var cat = Cat("p", "", "开发");
             var fav = Item("f", "p", "Git", LauncherTarget.KindApp, @"C:\g.exe");
@@ -128,7 +128,7 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
-        public void CountDescendants_含子分类()
+        public void CountDescendants_含子目录()
         {
             var a = Cat("a", "", "A");
             var b = Cat("b", "a", "B");
@@ -161,7 +161,7 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
-        public void FlattenCategories_只含分类()
+        public void FlattenCategories_只含目录()
         {
             var cat = Cat("p", "", "工具");
             var sub = Cat("s", "p", "子类");
@@ -174,7 +174,7 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
-        public void CanMoveFavorite_只能移收藏到分类()
+        public void CanMoveFavorite_只能移收藏到目录()
         {
             var cat = Cat("p", "", "工具");
             var fav = Item("f", "", "计算器", LauncherTarget.KindApp, @"C:\calc.exe");

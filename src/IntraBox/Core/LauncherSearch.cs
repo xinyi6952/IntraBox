@@ -75,7 +75,7 @@ namespace IntraBox.Core
             return a >= b ? a : b;
         }
 
-        /// <summary>有关键字：过滤标题或收藏分类后按 置顶 &gt; 最近 &gt; 名称开头 &gt; 包含 排序，最多 MaxResults。</summary>
+        /// <summary>有关键字：过滤标题或收藏所在目录后按 置顶 &gt; 最近 &gt; 名称开头 &gt; 包含 排序，最多 MaxResults。</summary>
         public static List<LauncherHit> Rank(IList<LauncherHit> candidates, string query, IList<string> recentIds)
         {
             var matched = new List<LauncherHit>();

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -23,7 +24,7 @@ namespace IntraBox.Modules.Launcher
         {
             if (_open != null)
             {
-                _open.Close();
+                _open.RequestClose();
                 return;
             }
             var w = new LauncherOverlayWindow();
@@ -33,6 +34,23 @@ namespace IntraBox.Modules.Launcher
             w.Left = wa.Left + (wa.Width - w.Width) / 2;
             w.Top = wa.Top + (wa.Height - w.Height) / 3;
             w.Show();
+        }
+
+        /// <summary>
+        /// 关闭须先置位。热键 Close 会使浮层失焦，Deactivated 若再 Close
+        /// 会触发「窗口关闭时不能 Show/Close」。
+        /// </summary>
+        private void RequestClose()
+        {
+            if (_closing) return;
+            _closing = true;
+            try
+            {
+                Close();
+            }
+            catch (InvalidOperationException)
+            {
+            }
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -45,8 +63,7 @@ namespace IntraBox.Modules.Launcher
 
         private void Window_Deactivated(object sender, EventArgs e)
         {
-            if (_closing) return;
-            Close();
+            RequestClose();
         }
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -54,18 +71,25 @@ namespace IntraBox.Modules.Launcher
             if (e.Key == Key.Escape)
             {
                 e.Handled = true;
-                Close();
+                RequestClose();
             }
         }
 
         private void Close_Click(object sender, RoutedEventArgs e)
         {
-            Close();
+            RequestClose();
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            _closing = true;
+            base.OnClosing(e);
         }
 
         protected override void OnClosed(EventArgs e)
         {
             _closing = true;
+            if (_open == this) _open = null;
             _catalog = null;
             HitsList.ItemsSource = null;
             base.OnClosed(e);
@@ -137,8 +161,7 @@ namespace IntraBox.Modules.Launcher
             if (hit.Kind == LauncherHit.KindFavorite)
             {
                 var fav = LauncherStore.GetFavorite(hit.Payload);
-                _closing = true;
-                Close();
+                RequestClose();
                 if (fav == null)
                 {
                     MessageBox.Show("收藏已不存在。", "启动器", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -150,8 +173,7 @@ namespace IntraBox.Modules.Launcher
                     LauncherStore.TouchRecent(hit.Id);
                 return;
             }
-            _closing = true;
-            Close();
+            RequestClose();
             LauncherStore.TouchRecent(hit.Id);
             if (hit.Kind == LauncherHit.KindTool)
             {

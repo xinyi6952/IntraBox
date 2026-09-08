@@ -54,6 +54,13 @@ namespace IntraBox.Core
                 == MessageBoxResult.Yes;
         }
 
+        /// <summary>格式错误等警告确认，默认选「否」。</summary>
+        public static bool Warn(string message, string title)
+        {
+            return MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+                == MessageBoxResult.Yes;
+        }
+
         public static bool ExitApp()
         {
             return MessageBox.Show(

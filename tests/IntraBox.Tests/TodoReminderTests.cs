@@ -199,6 +199,8 @@ namespace IntraBox.Tests
             TodoEditorPanel.ApplyTryCollectRemind(before, collected);
             Assert.IsNull(collected.LastRemindedAt);
             Assert.IsNull(collected.MuteRemindOn);
+            Assert.AreEqual(0, collected.RemindFiredCount);
+            Assert.IsNull(collected.RemindFiredOn);
             TodoEditorPanel.ApplyTrySaveRemind(before, collected);
 
             var neu = new DateTime(2026, 9, 6, 17, 5, 0);
@@ -267,6 +269,53 @@ namespace IntraBox.Tests
             Assert.IsFalse(TodoDue.DueDayNeedsDue(TodoRemindKind.DueDay, DateTime.Today));
             Assert.IsFalse(TodoDue.DueDayNeedsDue(TodoRemindKind.Daily, null));
             Assert.AreEqual("仅计划完成当天", TodoRemindKind.Label(TodoRemindKind.DueDay));
+        }
+
+        [TestMethod]
+        public void RegisterFire_三次后用尽_稍后也不弹_次日再弹()
+        {
+            var at = new DateTime(2026, 9, 6, 17, 35, 0);
+            var it = Sample(at);
+            it.LastRemindedAt = null;
+            TodoRemindRepeat.RegisterFire(it, at);
+            TodoRemindRepeat.RegisterFire(it, at.AddMinutes(10));
+            Assert.IsFalse(TodoRemindRepeat.ExhaustedToday(it, at));
+            TodoRemindRepeat.RegisterFire(it, at.AddMinutes(20));
+            Assert.AreEqual(3, TodoRemindRepeat.FiredToday(it, at));
+            Assert.IsTrue(TodoRemindRepeat.ExhaustedToday(it, at));
+            TodoReminderService.SnoozeUntil(it.Uid, at.AddMinutes(30));
+            Assert.IsFalse(TodoReminderService.ShouldFire(it, at.AddMinutes(30)));
+            var nextDay = at.AddDays(1);
+            Assert.IsFalse(TodoRemindRepeat.ExhaustedToday(it, nextDay));
+            Assert.IsTrue(TodoReminderService.ShouldFire(it, nextDay));
+        }
+
+        [TestMethod]
+        public void FiredToday_无计数时按已覆盖档位推断()
+        {
+            var at = new DateTime(2026, 9, 6, 17, 35, 0);
+            var it = Sample(at);
+            it.RemindFiredOn = null;
+            it.RemindFiredCount = 0;
+            it.LastRemindedAt = at.AddMinutes(20);
+            Assert.AreEqual(3, TodoRemindRepeat.FiredToday(it, at));
+            Assert.IsTrue(TodoRemindRepeat.ExhaustedToday(it, at));
+        }
+
+        [TestMethod]
+        public void RegisterFire_无计数但当天已盖两档_接上为第三次()
+        {
+            var at = new DateTime(2026, 9, 6, 17, 35, 0);
+            var it = Sample(at);
+            it.RemindFiredOn = null;
+            it.RemindFiredCount = 0;
+            it.LastRemindedAt = at.AddMinutes(10);
+            Assert.AreEqual(2, TodoRemindRepeat.FiredToday(it, at));
+            TodoRemindRepeat.RegisterFire(it, at.AddMinutes(20));
+            Assert.AreEqual(3, TodoRemindRepeat.FiredToday(it, at));
+            Assert.IsTrue(TodoRemindRepeat.ExhaustedToday(it, at));
+            TodoReminderService.SnoozeUntil(it.Uid, at.AddMinutes(30));
+            Assert.IsFalse(TodoReminderService.ShouldFire(it, at.AddMinutes(30)));
         }
     }
 }

@@ -103,6 +103,8 @@
                             <TextBlock Text="次，每" VerticalAlignment="Center" Margin="0,0,8,6"/>
                             <ComboBox x:Name="RemindIntervalCombo" Width="64" MinHeight="32" Margin="0,0,8,6" SelectionChanged="Field_Changed"/>
                             <TextBlock Text="分钟一次" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                            <TextBlock Text="（稍后也算次数，最后一次只显示关闭）" VerticalAlignment="Center"
+                                       Margin="12,0,0,6" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </WrapPanel>
                     </StackPanel>
                 </GroupBox>

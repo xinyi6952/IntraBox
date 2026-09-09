@@ -62,6 +62,59 @@ namespace IntraBox.Modules.Todo
             if (n > MaxIntervalMin) return MaxIntervalMin;
             return n;
         }
+
+        /// <summary>当天已弹出次数（含稍后）。无计数时按已覆盖的到点档位推断。</summary>
+        public static int FiredToday(TodoItem it, DateTime now)
+        {
+            if (it == null) return 0;
+            if (it.RemindFiredOn.HasValue && it.RemindFiredOn.Value.Date == now.Date)
+                return it.RemindFiredCount < 0 ? 0 : it.RemindFiredCount;
+            int n = InferCoveredSlots(it, now);
+            if (n > 0) return n;
+            if (it.LastRemindedAt.HasValue && it.LastRemindedAt.Value.Date == now.Date) return 1;
+            return 0;
+        }
+
+        public static bool ExhaustedToday(TodoItem it, DateTime now)
+        {
+            if (it == null) return true;
+            return FiredToday(it, now) >= ClampTimes(it.RemindTimes);
+        }
+
+        public static void RegisterFire(TodoItem it, DateTime when)
+        {
+            if (it == null) return;
+            if (!it.RemindFiredOn.HasValue || it.RemindFiredOn.Value.Date != when.Date)
+            {
+                it.RemindFiredCount = InferCoveredSlots(it, when);
+                it.RemindFiredOn = when.Date;
+            }
+            if (it.RemindFiredCount < 0) it.RemindFiredCount = 0;
+            it.RemindFiredCount++;
+            it.LastRemindedAt = when;
+        }
+
+        public static void ClearFired(TodoItem it)
+        {
+            if (it == null) return;
+            it.LastRemindedAt = null;
+            it.RemindFiredOn = null;
+            it.RemindFiredCount = 0;
+        }
+
+        private static int InferCoveredSlots(TodoItem it, DateTime now)
+        {
+            if (!it.LastRemindedAt.HasValue || it.LastRemindedAt.Value.Date != now.Date) return 0;
+            var first = new DateTime(now.Year, now.Month, now.Day, it.RemindHour, it.RemindMinute, 0);
+            int times = ClampTimes(it.RemindTimes);
+            int every = ClampIntervalMin(it.RemindIntervalMin);
+            int n = 0;
+            for (int i = 0; i < times; i++)
+            {
+                if (it.LastRemindedAt.Value >= first.AddMinutes(i * every)) n++;
+            }
+            return n;
+        }
     }
 
     /// <summary>计划完成日期早于当天则为过期（只比日期、不比时刻）。</summary>
@@ -114,6 +167,10 @@ namespace IntraBox.Modules.Todo
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public DateTime? LastRemindedAt { get; set; }
+        /// <summary>当天已弹次数所在日期；与 RemindFiredCount 一起用。</summary>
+        public DateTime? RemindFiredOn { get; set; }
+        /// <summary>RemindFiredOn 当天已弹出次数（含稍后）。</summary>
+        public int RemindFiredCount { get; set; }
         /// <summary>该日不再弹出提醒；次日仍按原频次。只比日期。</summary>
         public DateTime? MuteRemindOn { get; set; }
         public DateTime? CompletedAt { get; set; }

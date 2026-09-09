@@ -182,15 +182,17 @@ namespace IntraBox.Modules.Todo
             }
         }
 
-        public static void MarkReminded(string uid, DateTime when)
+        /// <summary>记下本次弹出，返回当天已弹次数（含本次）。</summary>
+        public static int MarkReminded(string uid, DateTime when)
         {
             lock (_sync)
             {
                 if (!_loaded) LoadLocked();
                 var it = FindLocked(uid);
-                if (it == null) return;
-                it.LastRemindedAt = when;
+                if (it == null) return 0;
+                TodoRemindRepeat.RegisterFire(it, when);
                 SchedulePersistLocked();
+                return TodoRemindRepeat.FiredToday(it, when);
             }
         }
 
@@ -678,6 +680,8 @@ namespace IntraBox.Modules.Todo
                 CreatedAt = s.CreatedAt,
                 UpdatedAt = s.UpdatedAt,
                 LastRemindedAt = s.LastRemindedAt,
+                RemindFiredOn = s.RemindFiredOn,
+                RemindFiredCount = s.RemindFiredCount,
                 MuteRemindOn = s.MuteRemindOn,
                 CompletedAt = s.CompletedAt,
                 ReadOnly = s.ReadOnly

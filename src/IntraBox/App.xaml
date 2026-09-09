@@ -123,6 +123,75 @@
                 </Setter>
             </Style>
 
+            <Style x:Key="ExpanderHeaderToggle" TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Focusable" Value="False"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border Background="Transparent" Padding="{TemplateBinding Padding}"
+                                    SnapsToDevicePixels="True">
+                                <DockPanel>
+                                    <Grid DockPanel.Dock="Left" Width="12" Height="12" Margin="0,0,8,0"
+                                          VerticalAlignment="Center">
+                                        <Path x:Name="ArrowCollapsed"
+                                              Data="M 1,1 L 1,11 L 9,6 Z"
+                                              Fill="{DynamicResource TextPrimaryBrush}"
+                                              Stretch="Uniform"/>
+                                        <Path x:Name="ArrowExpanded"
+                                              Data="M 1,1 L 11,1 L 6,9 Z"
+                                              Fill="{DynamicResource TextPrimaryBrush}"
+                                              Stretch="Uniform" Visibility="Collapsed"/>
+                                    </Grid>
+                                    <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                                </DockPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="ArrowCollapsed" Property="Visibility" Value="Collapsed"/>
+                                    <Setter TargetName="ArrowExpanded" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="ArrowCollapsed" Property="Fill" Value="{DynamicResource AccentBrush}"/>
+                                    <Setter TargetName="ArrowExpanded" Property="Fill" Value="{DynamicResource AccentBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="Expander">
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Expander">
+                            <DockPanel LastChildFill="True">
+                                <ToggleButton x:Name="HeaderSite" DockPanel.Dock="Top"
+                                              Style="{StaticResource ExpanderHeaderToggle}"
+                                              IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              Content="{TemplateBinding Header}"
+                                              Foreground="{TemplateBinding Foreground}"
+                                              Padding="0,2"/>
+                                <ContentPresenter x:Name="ExpandSite" Visibility="Collapsed"
+                                                  Focusable="False" Margin="{TemplateBinding Padding}"/>
+                            </DockPanel>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsExpanded" Value="True">
+                                    <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style TargetType="TextBox">
                 <Setter Property="Background" Value="{DynamicResource PanelBgBrush}"/>
                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>

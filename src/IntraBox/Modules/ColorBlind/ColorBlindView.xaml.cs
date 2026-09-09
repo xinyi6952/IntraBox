@@ -4,6 +4,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using IntraBox.Core;
@@ -16,14 +17,100 @@ namespace IntraBox.Modules.ColorBlind
     {
         private Bitmap _src;
         private Bitmap _out;
+        private bool _ready;
+        private bool _isDemo = true;
+        private Border[] _pairOrig;
+        private Border[] _pairSim;
 
-        public ColorBlindView() { InitializeComponent(); }
-        public void OnActivated() { }
+        public ColorBlindView()
+        {
+            InitializeComponent();
+            BuildPairs();
+            Loaded += ColorBlindView_Loaded;
+        }
+
+        public void OnActivated()
+        {
+            if (_src != null) return;
+            LoadDemo();
+            if (_ready) ApplyAll();
+        }
+
         public void OnDeactivated()
         {
             DisposeBmp(ref _src);
             DisposeBmp(ref _out);
-            Preview.Source = null;
+            OrigImage.Source = null;
+            SimImage.Source = null;
+        }
+
+        private void ColorBlindView_Loaded(object sender, RoutedEventArgs e)
+        {
+            _ready = true;
+            if (_src == null) LoadDemo();
+            ApplyAll();
+        }
+
+        private void BuildPairs()
+        {
+            _pairOrig = new Border[ColorBlindHelper.SampleHex.Length];
+            _pairSim = new Border[ColorBlindHelper.SampleHex.Length];
+            for (int i = 0; i < ColorBlindHelper.SampleHex.Length; i++)
+            {
+                var block = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 18, 8) };
+                var name = new TextBlock
+                {
+                    Text = ColorBlindHelper.SampleNames[i],
+                    Width = 22,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                name.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+                block.Children.Add(name);
+                var orig = new Border
+                {
+                    Width = 40,
+                    Height = 24,
+                    Margin = new Thickness(0, 0, 6, 0),
+                    CornerRadius = new CornerRadius(3),
+                    BorderThickness = new Thickness(1),
+                    ToolTip = "正常人看到的"
+                };
+                orig.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
+                var arrow = new TextBlock
+                {
+                    Text = "→",
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 6, 0)
+                };
+                arrow.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+                var sim = new Border
+                {
+                    Width = 40,
+                    Height = 24,
+                    CornerRadius = new CornerRadius(3),
+                    BorderThickness = new Thickness(1),
+                    ToolTip = "这种色盲大约看成的"
+                };
+                sim.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
+                int index = i;
+                orig.MouseLeftButtonDown += (s, ev) =>
+                {
+                    ColorBox.Text = ColorBlindHelper.SampleHex[index];
+                };
+                block.Children.Add(orig);
+                block.Children.Add(arrow);
+                block.Children.Add(sim);
+                PairPanel.Children.Add(block);
+                _pairOrig[i] = orig;
+                _pairSim[i] = sim;
+            }
+        }
+
+        private void LoadDemo()
+        {
+            DisposeBmp(ref _src);
+            _src = ColorBlindHelper.CreateDemoBitmap();
+            _isDemo = true;
         }
 
         private void Open_Click(object sender, RoutedEventArgs e)
@@ -34,91 +121,89 @@ namespace IntraBox.Modules.ColorBlind
             {
                 DisposeBmp(ref _src);
                 _src = new Bitmap(dlg.FileName);
-                Apply_Click(null, null);
+                _isDemo = false;
+                ApplyAll();
             }
             catch (Exception ex) { MsgText.Text = ex.RootMessage(); }
         }
 
-        private void Apply_Click(object sender, RoutedEventArgs e)
+        private void Clear_Click(object sender, RoutedEventArgs e)
+        {
+            LoadDemo();
+            ApplyAll();
+            MsgText.Text = "已回到示例图";
+        }
+
+        private void ModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_ready) return;
+            ApplyAll();
+        }
+
+        private void ColorBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (!_ready) return;
+            ApplySwatches();
+        }
+
+        private void ColorBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter) return;
+            ApplyAll();
+            e.Handled = true;
+        }
+
+        private void ApplyAll()
+        {
+            bool hexOk = ApplySwatches();
+            if (_src == null) LoadDemo();
+            int mode = ModeCombo.SelectedIndex;
+            DisposeBmp(ref _out);
+            _out = ColorBlindHelper.Transform(_src, mode);
+            OrigImage.Source = ToSource(_src);
+            SimImage.Source = ToSource(_out);
+            OrigImageCaption.Text = "左边：视力正常的人看到的";
+            SimImageCaption.Text = "右边：" + ColorBlindHelper.SimulatedCaption(mode);
+            ImageKindText.Text = _isDemo ? "当前是内置示例图" : "当前是你打开的图";
+            if (hexOk) MsgText.Text = "";
+        }
+
+        private bool ApplySwatches()
         {
             int mode = ModeCombo.SelectedIndex;
-            if (_src != null)
+            RelationText.Text = ColorBlindHelper.RelationHint(mode);
+            SimCaptionShort.Text = "色盲大约看成";
+            for (int i = 0; i < ColorBlindHelper.SampleHex.Length; i++)
             {
-                DisposeBmp(ref _out);
-                _out = Transform(_src, mode);
-                Preview.Source = ToSource(_out);
-                MsgText.Text = "已模拟";
-                return;
+                byte sr, sg, sb;
+                ColorBlindHelper.TryParseHex(ColorBlindHelper.SampleHex[i], out sr, out sg, out sb);
+                var t = ColorBlindHelper.Map(sr, sg, sb, mode);
+                _pairOrig[i].Background = new SolidColorBrush(MediaColor.FromRgb(sr, sg, sb));
+                _pairSim[i].Background = new SolidColorBrush(MediaColor.FromRgb(t[0], t[1], t[2]));
             }
-            MediaColor c;
-            if (!TryParseColor(ColorBox.Text, out c))
+
+            byte r, g, b;
+            if (!ColorBlindHelper.TryParseHex(ColorBox.Text, out r, out g, out b))
             {
                 MsgText.Text = "颜色格式应为 #RRGGBB";
-                return;
+                return false;
             }
-            var t = Map(c.R, c.G, c.B, mode);
-            ColorPreview.Fill = new SolidColorBrush(MediaColor.FromRgb(t[0], t[1], t[2]));
-            MsgText.Text = string.Format("#{0:X2}{1:X2}{2:X2}", t[0], t[1], t[2]);
+            var mapped = ColorBlindHelper.Map(r, g, b, mode);
+            OrigPreview.Background = new SolidColorBrush(MediaColor.FromRgb(r, g, b));
+            SimPreview.Background = new SolidColorBrush(MediaColor.FromRgb(mapped[0], mapped[1], mapped[2]));
+            OrigHex.Text = ColorBlindHelper.ToHex(r, g, b);
+            SimHex.Text = ColorBlindHelper.ToHex(mapped[0], mapped[1], mapped[2]);
+            if (MsgText.Text == "颜色格式应为 #RRGGBB") MsgText.Text = "";
+            return true;
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {
-            if (_out == null) { MsgText.Text = "没有可导出的图片"; return; }
+            if (_out == null) { MsgText.Text = "没有可导出的图"; return; }
             var dlg = new SaveFileDialog { Filter = "PNG|*.png", FileName = "colorblind.png" };
             if (dlg.ShowDialog() != true) return;
-            try { _out.Save(dlg.FileName, ImageFormat.Png); MsgText.Text = "已保存"; }
+            try { _out.Save(dlg.FileName, ImageFormat.Png); MsgText.Text = "已保存右边这张模拟图"; }
             catch (Exception ex) { MsgText.Text = ex.RootMessage(); }
-        }
-
-        private static Bitmap Transform(Bitmap src, int mode)
-        {
-            var dst = new Bitmap(src.Width, src.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            for (int y = 0; y < src.Height; y++)
-            {
-                for (int x = 0; x < src.Width; x++)
-                {
-                    var p = src.GetPixel(x, y);
-                    var t = Map(p.R, p.G, p.B, mode);
-                    dst.SetPixel(x, y, System.Drawing.Color.FromArgb(p.A, t[0], t[1], t[2]));
-                }
-            }
-            return dst;
-        }
-
-        private static byte[] Map(byte r, byte g, byte b, int mode)
-        {
-            double R = r / 255.0, G = g / 255.0, B = b / 255.0;
-            double nR, nG, nB;
-            if (mode == 0) { nR = 0.567 * R + 0.433 * G; nG = 0.558 * R + 0.442 * G; nB = 0.242 * G + 0.758 * B; }
-            else if (mode == 1) { nR = 0.625 * R + 0.375 * G; nG = 0.700 * R + 0.300 * G; nB = 0.300 * G + 0.700 * B; }
-            else if (mode == 2) { nR = 0.950 * R + 0.050 * G; nG = 0.433 * G + 0.567 * B; nB = 0.475 * G + 0.525 * B; }
-            else { double y = 0.299 * R + 0.587 * G + 0.114 * B; nR = nG = nB = y; }
-            return new byte[] { Clamp(nR), Clamp(nG), Clamp(nB) };
-        }
-
-        private static byte Clamp(double v)
-        {
-            if (v < 0) return 0;
-            if (v > 1) return 255;
-            return (byte)Math.Round(v * 255);
-        }
-
-        private static bool TryParseColor(string s, out MediaColor c)
-        {
-            c = default(MediaColor);
-            if (string.IsNullOrWhiteSpace(s)) return false;
-            s = s.Trim();
-            if (s[0] == '#') s = s.Substring(1);
-            if (s.Length != 6) return false;
-            try
-            {
-                byte r = Convert.ToByte(s.Substring(0, 2), 16);
-                byte g = Convert.ToByte(s.Substring(2, 2), 16);
-                byte b = Convert.ToByte(s.Substring(4, 2), 16);
-                c = MediaColor.FromRgb(r, g, b);
-                return true;
-            }
-            catch { return false; }
         }
 
         private static BitmapSource ToSource(Bitmap bmp)

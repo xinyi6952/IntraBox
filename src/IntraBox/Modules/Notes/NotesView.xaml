@@ -110,7 +110,7 @@
                 </ListView.ContextMenu>
                 <ListView.View>
                     <GridView AllowsColumnReorder="False">
-                        <GridViewColumn Header="置顶" Width="56">
+                        <GridViewColumn Header="置顶" Width="52">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding PinText}" Style="{StaticResource NoteCellText}"
@@ -118,15 +118,7 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="类型" Width="88">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding KindText}" Style="{StaticResource NoteCellText}"
-                                               ToolTip="{Binding KindText}"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn Header="标题" Width="220">
+                        <GridViewColumn Header="标题" Width="200">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <Grid Margin="{Binding Indent}">
@@ -144,7 +136,7 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="创建时间" Width="140">
+                        <GridViewColumn Header="创建时间" Width="136">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding CreatedText}" Style="{StaticResource NoteCellText}"
@@ -152,11 +144,19 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="修改时间" Width="140">
+                        <GridViewColumn Header="修改时间" Width="136">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding UpdatedText}" Style="{StaticResource NoteCellText}"
                                                ToolTip="{Binding UpdatedText}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="类型" Width="88">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding KindText}" Style="{StaticResource NoteCellText}"
+                                               ToolTip="{Binding KindText}"/>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>

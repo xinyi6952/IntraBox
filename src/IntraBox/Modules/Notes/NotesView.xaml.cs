@@ -255,10 +255,10 @@ namespace IntraBox.Modules.Notes
             var view = NoteList != null ? NoteList.View as GridView : null;
             if (view == null || view.Columns.Count < 5) return;
             view.Columns[0].Header = SortTitle("置顶", "pin");
-            view.Columns[1].Header = SortTitle("类型", "kind");
-            view.Columns[2].Header = SortTitle("标题", "title");
-            view.Columns[3].Header = SortTitle("创建时间", "created");
-            view.Columns[4].Header = SortTitle("修改时间", "updated");
+            view.Columns[1].Header = SortTitle("标题", "title");
+            view.Columns[2].Header = SortTitle("创建时间", "created");
+            view.Columns[3].Header = SortTitle("修改时间", "updated");
+            view.Columns[4].Header = SortTitle("类型", "kind");
         }
 
         private static string SortKeyFromHeader(string content)
@@ -290,20 +290,31 @@ namespace IntraBox.Modules.Notes
             if (gv == null || gv.Columns.Count < 5) return;
             double w = NoteList.ActualWidth - SystemParameters.VerticalScrollBarWidth - 8;
             if (w < 200) return;
-            double[] min = { 52, 80, 180, 128, 128 };
-            double need = 52 + 80 + 180 + 128 + 128;
-            if (w <= need)
+            double[] min = { 52, 200, 136, 136, 88 };
+            double need = 0;
+            for (int i = 0; i < 5; i++)
+                need += min[i];
+            if (w < need)
             {
-                for (int i = 0; i < 5; i++)
-                    gv.Columns[i].Width = min[i];
+                double scale = w / need;
+                double used = 0;
+                for (int i = 0; i < 4; i++)
+                {
+                    double wi = Math.Floor(min[i] * scale);
+                    if (wi < 1) wi = 1;
+                    gv.Columns[i].Width = wi;
+                    used += wi;
+                }
+                double last = w - used;
+                gv.Columns[4].Width = last < 1 ? 1 : last;
                 return;
             }
             double extra = w - need;
             gv.Columns[0].Width = min[0];
-            gv.Columns[1].Width = min[1];
-            gv.Columns[2].Width = min[2] + extra * 0.55;
-            gv.Columns[3].Width = min[3] + extra * 0.22;
-            gv.Columns[4].Width = min[4] + extra * 0.23;
+            gv.Columns[1].Width = min[1] + extra;
+            gv.Columns[2].Width = min[2];
+            gv.Columns[3].Width = min[3];
+            gv.Columns[4].Width = min[4];
         }
 
         private void NoteList_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)

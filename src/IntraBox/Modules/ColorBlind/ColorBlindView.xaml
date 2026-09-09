@@ -4,23 +4,103 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <WrapPanel Margin="0,0,0,8">
-            <Button Content="打开图片" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Open_Click"/>
-            <ComboBox x:Name="ModeCombo" Width="140" SelectedIndex="0" Margin="0,4,12,4">
-                <ComboBoxItem Content="红绿色盲(红)"/>
-                <ComboBoxItem Content="红绿色盲(绿)"/>
-                <ComboBoxItem Content="蓝黄色盲"/>
-                <ComboBoxItem Content="全色盲"/>
+
+        <Expander Grid.Row="0" IsExpanded="False" Margin="0,0,0,10"
+                  Foreground="{DynamicResource TextPrimaryBrush}">
+            <Expander.Header>
+                <TextBlock Text="说明" FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+            </Expander.Header>
+            <StackPanel Margin="20,8,0,4">
+                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="按选定的色觉类型，估算该类型观察者看到的颜色。左栏为正常三色视觉，右栏为模拟结果。用于检查界面、图表是否把关键信息只压在易混的颜色上。模拟改变的是色相关系，不会把整张图染成一种颜色。"/>
+                <TextBlock Text="类型" FontWeight="SemiBold" Margin="0,10,0,4"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="红色盲：对长波（红）不敏感，红与绿、深红与黑更易混。&#x0a;绿色盲：对中波（绿）不敏感，红与绿更易混（人群中最常见）。&#x0a;蓝色盲：蓝与黄更易混。&#x0a;全色盲：只保留明暗，没有色相。"/>
+                <TextBlock Text="判读" FontWeight="SemiBold" Margin="0,10,0,4"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="对照左右。若左栏能分开的颜色，在右栏几乎分不清——例如红块与绿块、绿色「通过」与红色「删除」——说明这套配色对该类型不友好。黄与蓝在红色盲、绿色盲下通常仍可分；全色盲下只看深浅。进入即有示例图，可直接换类型对照。也可打开自己的图：适合按钮、图例、状态灯、对错色标等离开颜色就读不懂的画面。风景、头像、黑白稿几乎看不出差别。右栏可导出。"/>
+            </StackPanel>
+        </Expander>
+
+        <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+            <Button Content="打开自己的图" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Open_Click"/>
+            <Button Content="回到示例图" Margin="0,4,8,4" Click="Clear_Click"/>
+            <ComboBox x:Name="ModeCombo" MinWidth="260" SelectedIndex="0" Margin="0,4,12,4"
+                      SelectionChanged="ModeCombo_SelectionChanged">
+                <ComboBoxItem Content="红色盲 — 红和绿容易混"/>
+                <ComboBoxItem Content="绿色盲 — 红和绿容易混"/>
+                <ComboBoxItem Content="蓝色盲 — 蓝和黄容易混"/>
+                <ComboBoxItem Content="全色盲 — 只剩明暗"/>
             </ComboBox>
-            <Button Content="模拟" Margin="0,4,8,4" Click="Apply_Click"/>
-            <Button Content="导出" Margin="0,4,8,4" Click="Save_Click"/>
-            <TextBlock Text="或输入颜色" VerticalAlignment="Center" Margin="8,4,4,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
-            <TextBox x:Name="ColorBox" Width="90" Text="#E74C3C" Margin="0,4,8,4"/>
-            <Rectangle x:Name="ColorPreview" Width="36" Height="22" Margin="0,4,8,4" Stroke="{DynamicResource BorderBrush}"/>
-            <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <Button Content="导出右边图" Margin="0,4,8,4" Click="Save_Click"/>
+            <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
         </WrapPanel>
-        <Image x:Name="Preview" Grid.Row="1" Stretch="Uniform"/>
+
+        <Border Grid.Row="2" Margin="0,0,0,10" Padding="10,8"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                Background="{DynamicResource PanelBgBrush}">
+            <StackPanel>
+                <TextBlock Text="这些颜色在色盲眼里会变成什么样" FontWeight="SemiBold" Margin="0,0,0,4"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock x:Name="RelationText" TextWrapping="Wrap" Margin="0,0,0,8"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <WrapPanel x:Name="PairPanel" Margin="0,0,0,4"/>
+                <WrapPanel Margin="0,8,0,0">
+                    <TextBlock Text="再查一个颜色" VerticalAlignment="Center" Margin="0,4,8,4"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBox x:Name="ColorBox" Width="100" Text="#E74C3C" Margin="0,4,12,4"
+                             FontFamily="Consolas" VerticalAlignment="Center"
+                             TextChanged="ColorBox_TextChanged" KeyDown="ColorBox_KeyDown"/>
+                    <TextBlock Text="正常人看到的" VerticalAlignment="Center" Margin="0,4,8,4"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Border x:Name="OrigPreview" Width="48" Height="26" Margin="0,4,8,4" CornerRadius="3"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                    <TextBlock x:Name="OrigHex" VerticalAlignment="Center" Margin="0,4,16,4" FontFamily="Consolas"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock x:Name="SimCaptionShort" Text="色盲大约看成" VerticalAlignment="Center" Margin="0,4,8,4"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Border x:Name="SimPreview" Width="48" Height="26" Margin="0,4,8,4" CornerRadius="3"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                    <TextBlock x:Name="SimHex" VerticalAlignment="Center" Margin="0,4,0,4" FontFamily="Consolas"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Margin="0,0,6,0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                    Background="{DynamicResource PanelBgBrush}">
+                <DockPanel>
+                    <TextBlock x:Name="OrigImageCaption" DockPanel.Dock="Top" Margin="8,6,8,4" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Text="左边：视力正常的人看到的"/>
+                    <TextBlock x:Name="ImageKindText" DockPanel.Dock="Top" Margin="8,0,8,4"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Text="当前是内置示例图"/>
+                    <Image x:Name="OrigImage" Stretch="Uniform" Margin="8"/>
+                </DockPanel>
+            </Border>
+            <Border Grid.Column="1" Margin="6,0,0,0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                    Background="{DynamicResource PanelBgBrush}">
+                <DockPanel>
+                    <TextBlock x:Name="SimImageCaption" DockPanel.Dock="Top" Margin="8,6,8,4" FontWeight="SemiBold"
+                               TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"
+                               Text="右边：这种色盲大约看成的"/>
+                    <Image x:Name="SimImage" Stretch="Uniform" Margin="8"/>
+                </DockPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

@@ -429,7 +429,7 @@ namespace IntraBox.Modules.Todo
         {
             if (collected == null || collected.Completed) return;
             if (!RemindScheduleChanged(before, collected)) return;
-            collected.LastRemindedAt = null;
+            TodoRemindRepeat.ClearFired(collected);
             collected.MuteRemindOn = null;
         }
 
@@ -473,6 +473,8 @@ namespace IntraBox.Modules.Todo
                 CreatedAt = s.CreatedAt,
                 UpdatedAt = s.UpdatedAt,
                 LastRemindedAt = s.LastRemindedAt,
+                RemindFiredOn = s.RemindFiredOn,
+                RemindFiredCount = s.RemindFiredCount,
                 MuteRemindOn = s.MuteRemindOn,
                 CompletedAt = s.CompletedAt,
                 ReadOnly = s.ReadOnly

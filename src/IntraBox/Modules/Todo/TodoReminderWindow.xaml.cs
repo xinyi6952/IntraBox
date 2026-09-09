@@ -12,6 +12,7 @@ namespace IntraBox.Modules.Todo
     {
         private readonly TodoItem _item;
         private readonly bool _preview;
+        private readonly bool _lastFire;
         private readonly int _snoozeMin;
 
         public TodoReminderWindow(TodoItem item, int remain)
@@ -42,13 +43,22 @@ namespace IntraBox.Modules.Todo
             }
             else
                 DueText.Text = "未设置计划完成时间";
+
+            int times = item != null ? TodoRemindRepeat.ClampTimes(item.RemindTimes) : 0;
+            int fired = 0;
+            if (item != null && !preview && !string.IsNullOrEmpty(item.Uid))
+                fired = TodoStore.MarkReminded(item.Uid, DateTime.Now);
+            _lastFire = !preview && times > 0 && fired >= times;
+
             if (RemindText != null)
             {
                 if (item != null && item.RemindKind != TodoRemindKind.Off)
                 {
-                    int times = TodoRemindRepeat.ClampTimes(item.RemindTimes);
+                    string nth = preview
+                        ? ("共" + times + "次")
+                        : ("第" + fired + "/" + times + "次");
                     RemindText.Text = "提醒  " + item.RemindHour.ToString("D2") + ":" + item.RemindMinute.ToString("D2")
-                        + " · 共" + times + "次 / " + _snoozeMin + "分钟";
+                        + " · " + nth + " / " + _snoozeMin + "分钟";
                     RemindText.Visibility = Visibility.Visible;
                 }
                 else
@@ -59,10 +69,15 @@ namespace IntraBox.Modules.Todo
             }
             if (preview)
                 MoreText.Text = "这是提醒预览，不会记入已提醒记录。";
+            else if (_lastFire)
+                MoreText.Text = "这是今天最后一次提醒，关闭后今天不再弹出。";
             else
                 MoreText.Text = remain > 0 ? "还有 " + remain + " 条待提醒" : "";
-            if (item != null && !preview && !string.IsNullOrEmpty(item.Uid))
-                TodoStore.MarkReminded(item.Uid, DateTime.Now);
+            if (_lastFire)
+            {
+                if (StopBtn != null) StopBtn.Visibility = Visibility.Collapsed;
+                if (SnoozeBtn != null) SnoozeBtn.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -133,7 +148,7 @@ namespace IntraBox.Modules.Todo
 
         private void Snooze_Click(object sender, RoutedEventArgs e)
         {
-            if (!_preview && _item != null)
+            if (!_preview && !_lastFire && _item != null)
                 TodoReminderService.Snooze(_item.Uid, TimeSpan.FromMinutes(_snoozeMin));
             Close();
         }

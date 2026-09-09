@@ -105,6 +105,14 @@ namespace IntraBox.Modules.Todo
             if (it == null || it.Completed) return false;
             if (it.RemindKind == TodoRemindKind.Off) return false;
             if (IsMutedToday(it, now)) return false;
+            if (TodoRemindRepeat.ExhaustedToday(it, now))
+            {
+                lock (_sync)
+                {
+                    if (!string.IsNullOrEmpty(it.Uid)) _snooze.Remove(it.Uid);
+                }
+                return false;
+            }
             bool snoozeDue = false;
             lock (_sync)
             {

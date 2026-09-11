@@ -40,6 +40,9 @@
                         <DataTrigger Binding="{Binding UnsavedEnabled}" Value="True">
                             <Setter Property="Background" Value="{DynamicResource HostsUnsavedRowBrush}"/>
                         </DataTrigger>
+                        <DataTrigger Binding="{Binding IsUnsavedNew}" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource HostsNewRowBrush}"/>
+                        </DataTrigger>
                     </Style.Triggers>
                 </Style>
             </DataGrid.RowStyle>
@@ -56,6 +59,17 @@
                                 <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True"/>
                             </MultiDataTrigger.Conditions>
                             <Setter Property="Background" Value="{DynamicResource HostsUnsavedRowSelectedBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                        </MultiDataTrigger>
+                        <DataTrigger Binding="{Binding IsUnsavedNew}" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource HostsNewRowBrush}"/>
+                        </DataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsUnsavedNew}" Value="True"/>
+                                <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Background" Value="{DynamicResource HostsNewRowSelectedBrush}"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                         </MultiDataTrigger>
                     </Style.Triggers>

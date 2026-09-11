@@ -14,7 +14,7 @@
             <Button Content="清空搜索" Margin="0,4,8,4" Click="ClearSearch_Click"/>
             <CheckBox x:Name="RecordImageCheck" Content="记录剪切图片" Margin="8,4,8,4"
                       VerticalAlignment="Center"
-                      ToolTip="勾选后才把复制的图片记入历史，默认不记录。取消勾选不影响已有条目。"
+                      ToolTip="勾选后才把复制的图片记入历史，默认不记录。取消勾选不影响已有条目。图片张数上限在设置里（默认 20）。"
                       Checked="RecordImageCheck_Changed" Unchecked="RecordImageCheck_Changed"/>
             <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
                        Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
@@ -104,8 +104,8 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <DockPanel Margin="0,0,0,8">
-                    <Button DockPanel.Dock="Right" Content="缩小" MinWidth="72" Click="ViewerClose_Click"
-                            ToolTip="恢复列表"/>
+                    <Button DockPanel.Dock="Right" Content="关闭" MinWidth="72" Click="ViewerClose_Click"
+                            ToolTip="关闭查看，回到列表"/>
                     <TextBlock x:Name="ViewerTitle" VerticalAlignment="Center" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                 </DockPanel>

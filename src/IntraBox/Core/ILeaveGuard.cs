@@ -6,5 +6,8 @@
     public interface ILeaveGuard
     {
         bool CanLeave();
+
+        /// <summary>不弹窗。有未保存内容时托盘超时不得销毁本模块。</summary>
+        bool HasUnsavedChanges();
     }
 }

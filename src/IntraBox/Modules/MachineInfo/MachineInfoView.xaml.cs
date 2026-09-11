@@ -2,8 +2,12 @@
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
+using IntraBox.Controls;
 using IntraBox.Core;
 using Microsoft.Win32;
 
@@ -14,6 +18,8 @@ namespace IntraBox.Modules.MachineInfo
     /// </summary>
     public partial class MachineInfoView : UserControl, IModuleView
     {
+        private readonly AsyncTaskGate _gate = new AsyncTaskGate();
+
         public MachineInfoView()
         {
             InitializeComponent();
@@ -21,23 +27,58 @@ namespace IntraBox.Modules.MachineInfo
 
         public void OnActivated()
         {
-            Refresh_Click(null, null);
+            StartRefresh();
         }
 
         public void OnDeactivated()
         {
+            CancelPending();
+        }
+
+        private void CancelPending()
+        {
+            _gate.Cancel();
+            LoadingOverlay.Hide(this);
         }
 
         private void Refresh_Click(object sender, RoutedEventArgs e)
         {
+            StartRefresh();
+        }
+
+        /// <summary>先进入页面并显示遮罩，再后台采集，避免点导航时卡住。</summary>
+        private async void StartRefresh()
+        {
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            MsgText.Text = "正在读取本机信息…";
             try
             {
-                OutputBox.Text = BuildReport();
+                await Dispatcher.InvokeAsync(new Action(() => { }), DispatcherPriority.Loaded);
+                if (version != _gate.Version) return;
+                LoadingOverlay.Show(this, "正在读取本机信息…");
+                string report = await Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    return BuildReport();
+                }, token);
+                if (version != _gate.Version) return;
+                OutputBox.Text = report;
                 MsgText.Text = "已刷新";
             }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                MsgText.Text = "读取失败：" + ex.RootMessage();
+                if (version == _gate.Version)
+                    MsgText.Text = "读取失败：" + ex.RootMessage();
+            }
+            finally
+            {
+                if (version == _gate.Version)
+                    LoadingOverlay.Hide(this);
             }
         }
 

@@ -215,6 +215,7 @@ namespace IntraBox.Modules.Todo
         {
             lock (_sync)
             {
+                if (!_loaded) return;
                 _flushing = true;
                 if (_diskTimer != null)
                 {

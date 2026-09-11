@@ -148,7 +148,7 @@ namespace IntraBox.Modules.Formatter
             {
                 ShowError("内存不足：文本过大，格式化失败。建议缩小输入或改用 64 位版本。");
                 OutputBox.Text = "";
-                GcHelper.CollectSafely();
+                GcHelper.CollectSafely("formatter-oom-sync");
                 return;
             }
             catch (Exception ex)
@@ -172,7 +172,7 @@ namespace IntraBox.Modules.Formatter
             {
                 ShowError("内存不足：结果过大无法载入编辑器。建议缩小输入或改用 64 位版本。");
                 OutputBox.Text = "";
-                GcHelper.CollectSafely();
+                GcHelper.CollectSafely("formatter-oom-output-sync");
             }
         }
 
@@ -204,7 +204,7 @@ namespace IntraBox.Modules.Formatter
                     ShowError("内存不足：文本过大，格式化失败。建议缩小输入或改用 64 位版本。");
                     OutputBox.Text = "";
                     LoadingOverlay.Hide(this);
-                    GcHelper.CollectSafely();
+                    GcHelper.CollectSafely("formatter-oom-async");
                 }
                 return;
             }
@@ -236,7 +236,7 @@ namespace IntraBox.Modules.Formatter
             {
                 ShowError("内存不足：结果过大无法载入编辑器。建议缩小输入或改用 64 位版本。");
                 OutputBox.Text = "";
-                GcHelper.CollectSafely();
+                GcHelper.CollectSafely("formatter-oom-output-async");
             }
             LoadingOverlay.Hide(this);
         }

@@ -31,16 +31,20 @@ namespace IntraBox.Core
                 DataPaths.Initialize();
                 if (!File.Exists(ConfigPath)) return;
 
+                bool memChanged;
                 using (var fs = File.OpenRead(ConfigPath))
                 {
                     var ser = new DataContractJsonSerializer(typeof(AppSettings));
                     Settings = (AppSettings)ser.ReadObject(fs) ?? new AppSettings();
                     if (string.IsNullOrEmpty(Settings.Theme)) Settings.Theme = "Dark";
-                    if (Settings.ConfigVersion <= 0) Settings.ConfigVersion = DataPaths.CurrentConfigVersion;
+                    if (Settings.ConfigVersion <= 0) Settings.ConfigVersion = 1;
                     Settings.MaxFileSizeMb = SizeLimits.ClampMb(Settings.MaxFileSizeMb);
                     Settings.ClipboardMaxItems = AppSettings.ClampClipboardMax(Settings.ClipboardMaxItems);
+                    Settings.ClipboardMaxImageItems = AppSettings.ClampClipboardMaxImages(Settings.ClipboardMaxImageItems);
                     Settings.HistoryPersistDelayMs = AppSettings.ClampHistoryPersistDelayMs(Settings.HistoryPersistDelayMs);
+                    memChanged = EnsureMemorySettingsLocked();
                 }
+                if (memChanged) Save();
             }
             catch (Exception)
             {
@@ -65,6 +69,46 @@ namespace IntraBox.Core
             {
                 // 保存失败（如目录无写权限）时静默，不阻断运行
             }
+        }
+
+        /// <summary>
+        /// 配置版本 2：补齐内存压缩开关的缺省（DataContract 缺 bool 为 false）。
+        /// 水位/空闲秒数字段 0 按默认夹取。
+        /// </summary>
+        public void EnsureMemorySettings()
+        {
+            if (ApplyMemorySettings(Settings)) Save();
+        }
+
+        /// <summary>
+        /// 配置版本 2：DataContract 缺 bool 为 false，不是字段初始值 true。
+        /// 版本&lt;2 时补开三项默认；已是 2 则尊重用户关闭。水位/空闲秒 0 或越界按策略夹取。
+        /// 不写盘，便于单测。
+        /// </summary>
+        public static bool ApplyMemorySettings(AppSettings s)
+        {
+            if (s == null) return false;
+            bool changed = false;
+            if (s.ConfigVersion < 2)
+            {
+                s.TrayIdleUnloadModule = true;
+                s.ClipboardSkipImagesWhenHidden = true;
+                s.RestoreLastModuleOnStartup = true;
+                s.ConfigVersion = 2;
+                changed = true;
+            }
+            int idle = MemoryTrimPolicy.ClampIdleSec(s.TrayIdleReleaseSec);
+            int high = MemoryTrimPolicy.ClampHighMb(s.MemoryTrimHighMb);
+            int low = MemoryTrimPolicy.ClampLowMb(s.MemoryTrimLowMb, high);
+            if (s.TrayIdleReleaseSec != idle) { s.TrayIdleReleaseSec = idle; changed = true; }
+            if (s.MemoryTrimHighMb != high) { s.MemoryTrimHighMb = high; changed = true; }
+            if (s.MemoryTrimLowMb != low) { s.MemoryTrimLowMb = low; changed = true; }
+            return changed;
+        }
+
+        private bool EnsureMemorySettingsLocked()
+        {
+            return ApplyMemorySettings(Settings);
         }
 
         /// <summary>

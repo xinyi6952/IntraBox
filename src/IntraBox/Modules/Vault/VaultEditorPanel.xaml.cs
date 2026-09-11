@@ -35,7 +35,7 @@ namespace IntraBox.Modules.Vault
             InitializeComponent();
             RowList.ItemsSource = _rows;
             _saveTimer = new DispatcherTimer();
-            _saveTimer.Tick += (s, e) => { _saveTimer.Stop(); Persist(false); };
+            _saveTimer.Tick += (s, e) => { _saveTimer.Stop(); Persist(false, false); };
             Unloaded += (s, e) =>
             {
                 if (_saveTimer != null) _saveTimer.Stop();
@@ -79,6 +79,13 @@ namespace IntraBox.Modules.Vault
         public void FlushNow()
         {
             Persist(true);
+        }
+
+        /// <summary>托盘静默卸载：落盘失败只写状态、不弹框。</summary>
+        public void FlushSilent()
+        {
+            if (_saveTimer != null) _saveTimer.Stop();
+            Persist(false, false);
         }
 
         public void LoadItem(VaultItem item)
@@ -235,6 +242,11 @@ namespace IntraBox.Modules.Vault
 
         private bool Persist(bool showOk)
         {
+            return Persist(showOk, true);
+        }
+
+        private bool Persist(bool showOk, bool alertOnError)
+        {
             if (_item == null) return false;
             if (_readOnly) return true;
             CollectToBody();
@@ -247,7 +259,8 @@ namespace IntraBox.Modules.Vault
             if (err != null)
             {
                 SetStatus(err);
-                MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (alertOnError)
+                    MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
             _dirty = false;

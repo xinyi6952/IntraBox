@@ -72,6 +72,7 @@ namespace IntraBox.Modules.Notes
                 ThemeManager.Changed -= onTheme;
                 if (_saveTimer != null) _saveTimer.Stop();
                 if (_previewTimer != null) _previewTimer.Stop();
+                ReleaseMdPreview();
             };
             try
             {
@@ -601,6 +602,7 @@ namespace IntraBox.Modules.Notes
                 MdBox.Visibility = Visibility.Visible;
                 MdSplitter.Visibility = Visibility.Collapsed;
                 MdPreviewWrap.Visibility = Visibility.Collapsed;
+                ReleaseMdPreview();
             }
             else if (mode == 1)
             {
@@ -632,6 +634,21 @@ namespace IntraBox.Modules.Notes
                 MdPreview.NavigateToString(NoteMarkdown.ToPreviewHtml(MdBox.Text, _item.Uid));
             }
             catch { }
+        }
+
+        /// <summary>关掉预览或抽屉、切走模块时转到 about:blank，让 IE 释放文档。</summary>
+        public void ReleaseMdPreview()
+        {
+            if (_previewTimer != null) _previewTimer.Stop();
+            if (MdPreview == null) return;
+            try { MdPreview.Navigate(new Uri("about:blank")); }
+            catch { }
+        }
+
+        /// <summary>托盘回来后重新渲染 Markdown 预览。</summary>
+        public void RestoreMdPreview()
+        {
+            RefreshMdPreview();
         }
 
         private void MdBold_Click(object sender, RoutedEventArgs e) { WrapMd("**", "**"); }

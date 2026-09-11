@@ -114,6 +114,31 @@ namespace IntraBox.Core
             return TrySetText(text, out error);
         }
 
+        /// <summary>写入自定义 DataObject（如表格同时带 HTML + 文本）。占用时重试。</summary>
+        public static bool TrySetDataObject(DataObject data, out string error)
+        {
+            error = null;
+            if (data == null)
+            {
+                error = "没有可复制的内容";
+                return false;
+            }
+            try
+            {
+                if (!TryWithRetry(() => Clipboard.SetDataObject(data, true)))
+                {
+                    error = "复制失败：剪贴板被占用，请稍后重试";
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = "复制失败：" + ex.Message;
+                return false;
+            }
+        }
+
         public static bool TrySetImage(BitmapSource image, out string error)
         {
             error = null;

@@ -1,12 +1,41 @@
 ﻿<Window x:Class="IntraBox.MemoryInspectWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="内存占用" Width="440" SizeToContent="Height"
+        Title="内存占用" Width="460" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         ShowInTaskbar="False"
         Background="{DynamicResource WindowBgBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}"
         FontSize="14">
+    <Window.Resources>
+        <Style x:Key="MetricHelpHit" TargetType="Border">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Help"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="200"/>
+            <Setter Property="ToolTipService.ShowDuration" Value="60000"/>
+        </Style>
+        <Style x:Key="MetricHelpMark" TargetType="TextBlock">
+            <Setter Property="Text" Value="?"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,-1,0,0"/>
+        </Style>
+        <Style x:Key="MetricHelpTip" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxWidth" Value="340"/>
+            <Setter Property="Margin" Value="2"/>
+        </Style>
+    </Window.Resources>
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -29,13 +58,46 @@
             </Grid.RowDefinitions>
             <TextBlock Grid.Row="0" Grid.Column="0" Text="工作集" Margin="0,0,0,6"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
-            <TextBlock x:Name="WorkingText" Grid.Row="0" Grid.Column="1" Margin="0,0,0,6"/>
+            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                <TextBlock x:Name="WorkingText" VerticalAlignment="Center"/>
+                <Border Style="{StaticResource MetricHelpHit}">
+                    <Border.ToolTip>
+                        <ToolTip>
+                            <TextBlock Style="{StaticResource MetricHelpTip}"
+                                       Text="此刻还在物理内存里的页，和任务管理器「内存」、状态栏「内存 n MB」同一口径。点「回收内存」或把窗口藏到托盘，主要压的就是它：把空闲页交还系统，数字会下降；随后再用到还会涨回来。"/>
+                        </ToolTip>
+                    </Border.ToolTip>
+                    <TextBlock Style="{StaticResource MetricHelpMark}"/>
+                </Border>
+            </StackPanel>
             <TextBlock Grid.Row="1" Grid.Column="0" Text="专用内存" Margin="0,0,0,6"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
-            <TextBlock x:Name="PrivateText" Grid.Row="1" Grid.Column="1" Margin="0,0,0,6"/>
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                <TextBlock x:Name="PrivateText" VerticalAlignment="Center"/>
+                <Border Style="{StaticResource MetricHelpHit}">
+                    <Border.ToolTip>
+                        <ToolTip>
+                            <TextBlock Style="{StaticResource MetricHelpTip}"
+                                       Text="进程向系统提交、尚未释放的私有虚拟内存，不是任务管理器那一列「内存」。可以大部分被换出：挂到托盘并回收后，占不算物理 RAM 的是工作集；专用数字高只说明曾经用过网页控件或图片缓冲，不等于一直占着那么多物理内存。Markdown 预览等用到的网页控件（IE）会占一大块，不进下面的托管堆；首次打开 Markdown 预览后，IE 引擎会常驻两三百 MB 提交，直到退出程序。点「回收内存」或藏到托盘一般降不下这个数字。"/>
+                        </ToolTip>
+                    </Border.ToolTip>
+                    <TextBlock Style="{StaticResource MetricHelpMark}"/>
+                </Border>
+            </StackPanel>
             <TextBlock Grid.Row="2" Grid.Column="0" Text="托管堆" Margin="0,0,0,6"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
-            <TextBlock x:Name="ManagedText" Grid.Row="2" Grid.Column="1" Margin="0,0,0,6"/>
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                <TextBlock x:Name="ManagedText" VerticalAlignment="Center"/>
+                <Border Style="{StaticResource MetricHelpHit}">
+                    <Border.ToolTip>
+                        <ToolTip>
+                            <TextBlock Style="{StaticResource MetricHelpTip}"
+                                       Text="当前 .NET 对象占用。明显小于专用内存时，说明大部分在网页控件、图片缓冲等非托管里。「回收内存」会强制 GC，通常只能动这一项和工作集。"/>
+                        </ToolTip>
+                    </Border.ToolTip>
+                    <TextBlock Style="{StaticResource MetricHelpMark}"/>
+                </Border>
+            </StackPanel>
             <TextBlock Grid.Row="3" Grid.Column="0" Text="当前工具" Margin="0,0,0,6"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
             <TextBlock x:Name="ToolText" Grid.Row="3" Grid.Column="1" Margin="0,0,0,6" TextWrapping="Wrap"/>
@@ -45,14 +107,23 @@
         </Grid>
         <TextBlock Grid.Row="2" TextWrapping="Wrap" Margin="0,0,0,16" FontSize="12"
                    Foreground="{DynamicResource TextSecondaryBrush}"
-                   Text="状态栏数字是工作集（任务管理器「内存」同一口径）。偏高常见于剪贴板里的原图、刚用过大文本工具。.NET 不会立刻把空闲页还给系统；点「回收内存」会强制 GC 并交还空闲页，随后用到时还会涨回来。"/>
+                   Text="三项数字口径不同。把鼠标放到数字旁的「?」上看说明。"/>
         <DockPanel Grid.Row="3" LastChildFill="False">
             <TextBlock x:Name="MsgText" DockPanel.Dock="Left" VerticalAlignment="Center"
                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                        TextWrapping="Wrap" MaxWidth="220"/>
             <Button DockPanel.Dock="Right" Content="关闭" MinWidth="72" IsCancel="True" Click="Close_Click"/>
             <Button DockPanel.Dock="Right" Content="回收内存" MinWidth="88" Margin="0,0,10,0"
-                    Style="{StaticResource PrimaryButton}" Click="Trim_Click"/>
+                    Style="{StaticResource PrimaryButton}" Click="Trim_Click"
+                    ToolTipService.InitialShowDelay="200"
+                    ToolTipService.ShowDuration="60000">
+                <Button.ToolTip>
+                    <ToolTip>
+                        <TextBlock Style="{StaticResource MetricHelpTip}"
+                                   Text="强制回收 .NET 对象，并把空闲页从工作集交还系统（任务管理器「内存」会下降）。不会拆掉网页控件、剪贴板原图等已经提交的专用内存，所以专用内存往往几乎不变。藏到托盘时也会做同样的回收。"/>
+                    </ToolTip>
+                </Button.ToolTip>
+            </Button>
         </DockPanel>
     </Grid>
 </Window>

@@ -180,6 +180,11 @@ namespace IntraBox.Modules.Todo
             get { lock (_sync) { return _queue.Count; } }
         }
 
+        public static bool IsPromptOpen
+        {
+            get { lock (_sync) { return _promptOpen; } }
+        }
+
         /// <summary>取出下一条并占住当前窗位；已有窗打开时不取。</summary>
         public static bool TryBeginPrompt(out TodoItem next, out int remain)
         {

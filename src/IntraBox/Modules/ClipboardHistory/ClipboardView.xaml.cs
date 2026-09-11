@@ -111,7 +111,7 @@ namespace IntraBox.Modules.ClipboardHistory
             {
                 if (!ClipboardStore.Items[i].IsPinned) ClipboardStore.Items.RemoveAt(i);
             }
-            GcHelper.CollectSafely();
+            GcHelper.CollectSafely("clipboard-clear");
         }
 
         private void ShowViewer(ClipItem item)
@@ -119,7 +119,13 @@ namespace IntraBox.Modules.ClipboardHistory
             if (item == null) return;
             if (item.IsImage)
             {
-                BitmapSource src = DecodeOriginal(item) ?? item.Thumb;
+                BitmapSource src;
+                string err;
+                if (!ClipboardStore.TryDecodeOriginal(item, out src, out err))
+                {
+                    MsgText.Text = err;
+                    return;
+                }
                 ViewerTitle.Text = (item.Preview ?? "[图片]")
                     + "  " + item.Time.ToString("yyyy-MM-dd HH:mm:ss");
                 ViewerImage.Source = src;
@@ -138,16 +144,6 @@ namespace IntraBox.Modules.ClipboardHistory
             ViewerOverlay.Visibility = Visibility.Visible;
         }
 
-        private static BitmapSource DecodeOriginal(ClipItem item)
-        {
-            if (item == null || item.ImagePng == null) return null;
-            int w, h;
-            byte[] bgra;
-            if (!ClipboardImage.TryDecodePngBytes(item.ImagePng, out w, out h, out bgra))
-                return null;
-            return ClipboardImage.ToFrozenBgra32(bgra, w, h, 96, 96);
-        }
-
         private void ViewerClose_Click(object sender, RoutedEventArgs e)
         {
             ViewerOverlay.Visibility = Visibility.Collapsed;
@@ -164,7 +160,7 @@ namespace IntraBox.Modules.ClipboardHistory
             ClipboardStore.Items.Remove(item);
             if (ViewerOverlay.Visibility == Visibility.Visible)
                 ViewerClose_Click(null, null);
-            GcHelper.CollectSafely();
+            GcHelper.CollectSafely("clipboard-delete");
         }
 
         private void PasteItem(ClipItem item)
@@ -173,8 +169,13 @@ namespace IntraBox.Modules.ClipboardHistory
             {
                 if (item.IsImage)
                 {
-                    BitmapSource toWrite = DecodeOriginal(item) ?? item.Thumb;
-                    if (toWrite == null) return;
+                    BitmapSource toWrite;
+                    string decodeErr;
+                    if (!ClipboardStore.TryDecodeOriginal(item, out toWrite, out decodeErr))
+                    {
+                        MsgText.Text = decodeErr;
+                        return;
+                    }
                     ClipboardStore.SuppressImageCapture = true;
                     try
                     {

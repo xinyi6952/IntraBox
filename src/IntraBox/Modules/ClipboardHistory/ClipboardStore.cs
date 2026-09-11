@@ -8,13 +8,30 @@ namespace IntraBox.Modules.ClipboardHistory
 {
     /// <summary>
     /// 剪贴板历史数据存储（静态单例）：独立于视图生命周期。
-    /// 条数上限 200；全固定时拒绝再插入。单条文本/图片受设置中的文件大小上限约束。
+    /// 总条数上限 200；图片另有条数上限（默认 20，最多 50，且不超过总上限）。全固定时拒绝再插入。
+    /// 单条文本/图片受设置中的文件大小上限约束。图片写回始终用原图 PNG，不用缩略图冒充。
     /// </summary>
     public static class ClipboardStore
     {
         public static int MaxItems
         {
             get { return AppSettings.ClampClipboardMax(ConfigManager.Instance.Settings.ClipboardMaxItems); }
+        }
+
+        /// <summary>生效的图片条数上限：min(设置值, 总条数)。</summary>
+        public static int MaxImageItems
+        {
+            get
+            {
+                return EffectiveMaxImageItems(MaxItems, ConfigManager.Instance.Settings.ClipboardMaxImageItems);
+            }
+        }
+
+        public static int EffectiveMaxImageItems(int maxItems, int maxImages)
+        {
+            int total = AppSettings.ClampClipboardMax(maxItems);
+            int images = AppSettings.ClampClipboardMaxImages(maxImages);
+            return images < total ? images : total;
         }
 
         public static readonly ObservableCollection<ClipItem> Items = new ObservableCollection<ClipItem>();
@@ -40,6 +57,23 @@ namespace IntraBox.Modules.ClipboardHistory
             return recordImages;
         }
 
+        /// <summary>托盘停泊且设置为跳过图片时不解码入库。</summary>
+        public static bool ShouldCaptureImage(bool recordImages, bool parked, bool skipWhenParked)
+        {
+            if (!recordImages) return false;
+            if (parked && skipWhenParked) return false;
+            return true;
+        }
+
+        public static bool SkipImagesWhenParked
+        {
+            get
+            {
+                try { return ConfigManager.Instance.Settings.ClipboardSkipImagesWhenHidden; }
+                catch { return true; }
+            }
+        }
+
         /// <summary>空白或纯空白文本不入库。</summary>
         public static bool IsBlankText(string text)
         {
@@ -58,13 +92,18 @@ namespace IntraBox.Modules.ClipboardHistory
             if (item == null) return false;
             if (!item.IsImage && IsBlankText(item.Text)) return false;
             RemoveDuplicates(item);
+            if (item.IsImage)
+            {
+                while (CountImages() >= MaxImageItems)
+                {
+                    int imgIdx = FindOldestUnpinned(true);
+                    if (imgIdx < 0) return false;
+                    Items.RemoveAt(imgIdx);
+                }
+            }
             while (Items.Count >= MaxItems)
             {
-                int removeIdx = -1;
-                for (int i = Items.Count - 1; i >= 0; i--)
-                {
-                    if (!Items[i].IsPinned) { removeIdx = i; break; }
-                }
+                int removeIdx = FindOldestUnpinned(false);
                 if (removeIdx < 0) return false;
                 Items.RemoveAt(removeIdx);
             }
@@ -91,20 +130,78 @@ namespace IntraBox.Modules.ClipboardHistory
             return string.Equals(a.Text, b.Text, StringComparison.Ordinal);
         }
 
-        /// <summary>设置下调上限后裁掉未固定的多余项。</summary>
+        /// <summary>设置下调上限后裁掉未固定的多余项（先按图片上限，再按总条数）。</summary>
         public static void TrimToLimit()
         {
+            int imgMax = MaxImageItems;
+            while (CountImages() > imgMax)
+            {
+                int imgIdx = FindOldestUnpinned(true);
+                if (imgIdx < 0) break;
+                Items.RemoveAt(imgIdx);
+            }
             int max = MaxItems;
             while (Items.Count > max)
             {
-                int removeIdx = -1;
-                for (int i = Items.Count - 1; i >= 0; i--)
-                {
-                    if (!Items[i].IsPinned) { removeIdx = i; break; }
-                }
+                int removeIdx = FindOldestUnpinned(false);
                 if (removeIdx < 0) break;
                 Items.RemoveAt(removeIdx);
             }
+        }
+
+        public static int CountImages()
+        {
+            int n = 0;
+            for (int i = 0; i < Items.Count; i++)
+            {
+                if (Items[i].IsImage) n++;
+            }
+            return n;
+        }
+
+        /// <summary>查看/写回只用原图 PNG；解码失败不返回缩略图。</summary>
+        public const string OriginalImageMissing = "原图数据缺失或已损坏，无法用缩略图代替。";
+
+        public static bool TryDecodeOriginal(ClipItem item, out BitmapSource src, out string error)
+        {
+            src = null;
+            error = null;
+            if (item == null || !item.IsImage)
+            {
+                error = OriginalImageMissing;
+                return false;
+            }
+            if (item.ImagePng == null || item.ImagePng.Length == 0)
+            {
+                error = OriginalImageMissing;
+                return false;
+            }
+            int w, h;
+            byte[] bgra;
+            if (!ClipboardImage.TryDecodePngBytes(item.ImagePng, out w, out h, out bgra))
+            {
+                error = OriginalImageMissing;
+                return false;
+            }
+            src = ClipboardImage.ToFrozenBgra32(bgra, w, h, 96, 96);
+            if (src == null)
+            {
+                error = OriginalImageMissing;
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>从列表尾部（较旧）找第一条未固定项；imagesOnly 时只找图片。</summary>
+        private static int FindOldestUnpinned(bool imagesOnly)
+        {
+            for (int i = Items.Count - 1; i >= 0; i--)
+            {
+                if (Items[i].IsPinned) continue;
+                if (imagesOnly && !Items[i].IsImage) continue;
+                return i;
+            }
+            return -1;
         }
     }
 

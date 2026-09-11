@@ -14,7 +14,7 @@ namespace IntraBox
     /// 主窗口：左侧导航 + 右侧工作区。模块切换交由 ModuleLoader（按需加载、用完销毁）。
     /// 设置固定在导航底部，不随工具列表滚动。
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, IMemoryHost
     {
         private readonly ModuleLoader _loader = new ModuleLoader();
         private readonly DispatcherTimer _memoryTimer = new DispatcherTimer();
@@ -30,6 +30,7 @@ namespace IntraBox
             _memoryTimer.Tick += (s, e) => UpdateMemoryText();
             _memoryTimer.Start();
             UpdateMemoryText();
+            MemoryIdleGuard.Attach(this);
         }
 
         private void LoadNav()
@@ -193,10 +194,32 @@ namespace IntraBox
             }
         }
 
-        /// <summary>启动时恢复上次打开的工具；无记录则保持欢迎语。</summary>
+        /// <summary>启动时恢复上次打开的工具；设置关闭或无记录则保持欢迎语。重工具推迟到 UI 空闲，先画出空壳。</summary>
         public void RestoreLastModule()
         {
+            if (!ConfigManager.Instance.Settings.RestoreLastModuleOnStartup) return;
             string key = ConfigManager.Instance.Settings.LastModuleKey;
+            if (string.IsNullOrEmpty(key)) return;
+            if (MemoryTrimPolicy.IsHeavyModule(key))
+            {
+                Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+                {
+                    if (_loader.CurrentView != null) return;
+                    RestoreLastModuleCore(key);
+                }));
+                return;
+            }
+            RestoreLastModuleCore(key);
+        }
+
+        /// <summary>托盘回来后工作区已空时立即恢复上次工具（不受启动开关影响）。</summary>
+        public void RestoreLastModuleNow()
+        {
+            RestoreLastModuleCore(ConfigManager.Instance.Settings.LastModuleKey);
+        }
+
+        private void RestoreLastModuleCore(string key)
+        {
             if (string.IsNullOrEmpty(key)) return;
             if (key == ToolVisibility.SettingsKey)
             {
@@ -211,6 +234,46 @@ namespace IntraBox
                     return;
                 }
             }
+        }
+
+        public bool HasEmptyWorkspace()
+        {
+            return _loader.CurrentView == null;
+        }
+
+        public void ParkCurrentResources()
+        {
+            var p = _loader.CurrentView as IParkableResources;
+            if (p != null) p.ParkHeavyResources();
+        }
+
+        public void UnparkCurrentResources()
+        {
+            var p = _loader.CurrentView as IParkableResources;
+            if (p != null) p.UnparkHeavyResources();
+        }
+
+        public bool TryUnloadCurrentSilent()
+        {
+            if (_loader.CurrentView == null) return true;
+            if (!_loader.TryDestroySilent()) return false;
+            _navSyncing = true;
+            NavList.SelectedItem = null;
+            _navSyncing = false;
+            SetSettingsSelected(false);
+            ModuleTitle.Text = "请从左侧选择一个工具";
+            StatusText.Text = "已释放当前工具";
+            return true;
+        }
+
+        public bool IsBusyForTrim()
+        {
+            if (IntraBox.Controls.LoadingOverlay.HasAny()) return true;
+            if (IntraBox.Modules.Screenshot.CaptureOverlayWindow.IsOpen) return true;
+            if (IntraBox.Modules.ScreenRuler.ScreenRulerOverlayWindow.IsOpen) return true;
+            if (IntraBox.Modules.Launcher.LauncherOverlayWindow.IsOpen) return true;
+            try { return IntraBox.Modules.Todo.TodoReminderService.IsPromptOpen; }
+            catch { return false; }
         }
 
         private static void PersistLastModule(string key)
@@ -329,6 +392,13 @@ namespace IntraBox
 
             WindowRestore.PersistFrom(this);
             Hide();
+            MemoryIdleGuard.NotifyParked();
+            // 空闲后再 GC + EmptyWorkingSet（降工作集，不降 IE 等专用内存）。超时后可静默卸载无未保存的当前工具。
+            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+            {
+                GcHelper.CollectAndTrimNow("tray-hide");
+                UpdateMemoryText();
+            }));
         }
 
         /// <summary>抽屉最大化时铺满导航右侧：隐藏模块标题并去掉工作区边距。</summary>

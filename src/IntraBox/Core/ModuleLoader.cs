@@ -47,7 +47,7 @@ namespace IntraBox.Core
         public bool TryDeactivate()
         {
             if (!TryLeave()) return false;
-            DestroyCurrent();
+            DestroyCurrent("exit");
             return true;
         }
 
@@ -57,12 +57,16 @@ namespace IntraBox.Core
             return guard == null || guard.CanLeave();
         }
 
-        /// <summary>
-        /// 销毁当前模块：触发释放回调并断开引用，交由 GC 回收。
-        /// </summary>
+        /// <summary>销毁当前模块：触发释放回调并断开引用，交由 GC 回收。</summary>
         public void DestroyCurrent()
         {
+            DestroyCurrent("switch");
+        }
+
+        private void DestroyCurrent(string cause)
+        {
             bool hadView = _current != null;
+            string leaving = _currentInfo != null ? _currentInfo.Key : null;
 
             if (_current is IModuleView m) m.OnDeactivated();
             if (_host != null) _host.Content = null;
@@ -70,7 +74,28 @@ namespace IntraBox.Core
             _current = null;
             _currentInfo = null;
 
-            if (hadView) GcHelper.CollectSafely();
+            if (!hadView) return;
+            DestroyCollect(leaving, cause);
+        }
+
+        /// <summary>托盘超时卸载：有未保存则放弃且不弹窗。</summary>
+        public bool TryDestroySilent()
+        {
+            if (_current == null) return true;
+            var guard = _current as ILeaveGuard;
+            if (guard != null && guard.HasUnsavedChanges()) return false;
+            DestroyCurrent("tray-unload");
+            return true;
+        }
+
+        private static void DestroyCollect(string leaving, string cause)
+        {
+            string tag = MemoryTrimPolicy.IsHeavyModule(leaving) ? "heavy" : "light";
+            string reason = cause + "-" + tag + ":" + (leaving ?? "");
+            if (MemoryTrimPolicy.IsHeavyModule(leaving))
+                GcHelper.CollectAndTrimIdle(reason);
+            else
+                GcHelper.CollectSafely(reason);
         }
     }
 }

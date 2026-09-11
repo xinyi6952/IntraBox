@@ -279,9 +279,9 @@ namespace IntraBox.Modules.Notes
 
         public static void Flush()
         {
-            EnsureLoaded();
             lock (_sync)
             {
+                if (!_loaded) return;
                 _flushing = true;
                 if (_diskTimer != null)
                 {

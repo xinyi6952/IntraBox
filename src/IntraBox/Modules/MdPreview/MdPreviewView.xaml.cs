@@ -11,7 +11,7 @@ using Markdig;
 
 namespace IntraBox.Modules.MdPreview
 {
-    public partial class MdPreviewView : UserControl, IModuleView, ILeaveGuard
+    public partial class MdPreviewView : UserControl, IModuleView, ILeaveGuard, IParkableResources
     {
         private readonly AsyncTaskGate _gate = new AsyncTaskGate();
 
@@ -156,11 +156,22 @@ namespace IntraBox.Modules.MdPreview
         {
             _timer.Stop();
             CancelPending();
+            ReleasePreview();
             HistoryManager.Save("mdpreview", new Dictionary<string, object>
             {
                 { "input", InputBox.Text ?? "" },
                 { "file", _filePath ?? "" }
             });
+        }
+
+        /// <summary>切走时转到 about:blank，让 IE/Trident 释放当前文档；再次进入由 Render 重新 NavigateToString。</summary>
+        private void ReleasePreview()
+        {
+            _pendingSearch = "";
+            if (Preview == null) return;
+            Preview.LoadCompleted -= Preview_LoadCompleted;
+            try { Preview.Navigate(new Uri("about:blank")); }
+            catch { }
         }
 
         public bool CanLeave()
@@ -170,6 +181,21 @@ namespace IntraBox.Modules.MdPreview
             if (r == MessageBoxResult.Cancel) return false;
             if (r == MessageBoxResult.Yes) return Save();
             return true;
+        }
+
+        public bool HasUnsavedChanges()
+        {
+            return IsDirty();
+        }
+
+        public void ParkHeavyResources()
+        {
+            ReleasePreview();
+        }
+
+        public void UnparkHeavyResources()
+        {
+            Render();
         }
 
         private bool IsDirty()
@@ -228,6 +254,9 @@ namespace IntraBox.Modules.MdPreview
 
         private void Preview_LoadCompleted(object sender, System.Windows.Navigation.NavigationEventArgs e)
         {
+            if (e != null && e.Uri != null
+                && string.Equals(e.Uri.ToString(), "about:blank", StringComparison.OrdinalIgnoreCase))
+                return;
             if (!string.IsNullOrEmpty(_pendingSearch))
                 InvokeSearch(_pendingSearch, 0);
         }

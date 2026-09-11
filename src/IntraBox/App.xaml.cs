@@ -76,6 +76,7 @@ namespace IntraBox
             ConfigManager.Instance.EnsureNewToolsVisible();
             HistoryManager.MigrateGeneratorKey();
             ThemeManager.Apply(ConfigManager.Instance.Settings.Theme);
+            ConfigManager.Instance.EnsureMemorySettings();
             WindowCaption.Hook();
             _tray = new TrayIconManager();
             _tray.Initialize();
@@ -95,10 +96,6 @@ namespace IntraBox
             TryShowWelcome(window);
             window.RestoreLastModule();
             ClipboardMonitor.Start();
-            IntraBox.Modules.Todo.TodoStore.Reload();
-            IntraBox.Modules.Notes.NoteStore.Reload();
-            IntraBox.Modules.Vault.VaultStore.Reload();
-            IntraBox.Modules.Launcher.LauncherStore.Reload();
             IntraBox.Modules.Todo.TodoReminderService.Start();
 
             StartShowWindowListener();
@@ -129,6 +126,7 @@ namespace IntraBox
                 IntraBox.Modules.Vault.VaultStore.Flush();
                 IntraBox.Modules.Launcher.LauncherStore.Flush();
                 IntraBox.Modules.Todo.TodoReminderService.Stop();
+                MemoryIdleGuard.Stop();
                 ConfigManager.Instance.Save();
                 HotkeyService.Uninstall();
                 if (_tray != null) { _tray.Dispose(); _tray = null; }
@@ -204,67 +202,17 @@ namespace IntraBox
         /// <summary>将异常链（含内部异常与堆栈）写入数据根 error.log，便于定位。</summary>
         private static void LogException(Exception ex)
         {
-            try
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("==== " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " ====");
+            var e = ex;
+            while (e != null)
             {
-                DataPaths.Initialize();
-                var path = DataPaths.ErrorLog;
-                RotateLogIfNeeded(path);
-                var sb = new System.Text.StringBuilder();
-                sb.AppendLine("==== " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " ====");
-                var e = ex;
-                while (e != null)
-                {
-                    sb.AppendLine("[" + e.GetType().FullName + "] " + e.Message);
-                    sb.AppendLine(e.StackTrace);
-                    sb.AppendLine("---");
-                    e = e.InnerException;
-                }
-                System.IO.File.AppendAllText(path, sb.ToString());
+                sb.AppendLine("[" + e.GetType().FullName + "] " + e.Message);
+                sb.AppendLine(e.StackTrace);
+                sb.AppendLine("---");
+                e = e.InnerException;
             }
-            catch { /* 日志写入失败不影响运行 */ }
-        }
-
-        /// <summary>error.log 超过 1MB 时只保留尾部 256KB，避免托盘常驻把数据目录写满。</summary>
-        private static void RotateLogIfNeeded(string path)
-        {
-            const long maxBytes = 1024L * 1024L;
-            const int keepBytes = 256 * 1024;
-            if (!System.IO.File.Exists(path)) return;
-            var info = new System.IO.FileInfo(path);
-            if (info.Length <= maxBytes) return;
-
-            byte[] tail;
-            using (var fs = System.IO.File.Open(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite))
-            {
-                int take = (int)Math.Min(keepBytes, fs.Length);
-                fs.Seek(-take, System.IO.SeekOrigin.End);
-                tail = new byte[take];
-                int read = 0;
-                while (read < take)
-                {
-                    int n = fs.Read(tail, read, take - read);
-                    if (n <= 0) break;
-                    read += n;
-                }
-                if (read < take)
-                {
-                    var smaller = new byte[read];
-                    Buffer.BlockCopy(tail, 0, smaller, 0, read);
-                    tail = smaller;
-                }
-            }
-            int start = 0;
-            for (int i = 0; i < tail.Length; i++)
-            {
-                if (tail[i] == (byte)'\n') { start = i + 1; break; }
-            }
-            using (var fs = System.IO.File.Create(path))
-            {
-                var header = System.Text.Encoding.UTF8.GetBytes("==== log rotated ====\r\n");
-                fs.Write(header, 0, header.Length);
-                if (start < tail.Length)
-                    fs.Write(tail, start, tail.Length - start);
-            }
+            LogFileHelper.Append(DataPaths.ErrorLog, sb.ToString());
         }
 
         /// <summary>

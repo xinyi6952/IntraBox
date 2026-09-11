@@ -11,7 +11,7 @@ namespace IntraBox.Modules.Screenshot
             ResultBox.Text = string.IsNullOrEmpty(text) ? "（未识别到文字）" : text;
             ResultBox.Focus();
             ResultBox.SelectAll();
-            Closed += (s, e) => GcHelper.CollectSafely();
+            Closed += (s, e) => GcHelper.CollectSafely("ocr-result-close");
         }
 
         private void Copy_Click(object sender, RoutedEventArgs e)

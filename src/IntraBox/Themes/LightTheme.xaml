@@ -12,6 +12,8 @@
     <SolidColorBrush x:Key="WarningPressedBrush" Color="#9A6C12"/>
     <SolidColorBrush x:Key="HostsUnsavedRowBrush" Color="#F7E8B8"/>
     <SolidColorBrush x:Key="HostsUnsavedRowSelectedBrush" Color="#EDC85C"/>
+    <SolidColorBrush x:Key="HostsNewRowBrush" Color="#C8E6C9"/>
+    <SolidColorBrush x:Key="HostsNewRowSelectedBrush" Color="#81C784"/>
     <SolidColorBrush x:Key="SuccessBrush" Color="#2E7D32"/>
     <SolidColorBrush x:Key="OkBrush" Color="#2E7D32"/>
     <SolidColorBrush x:Key="WindowBgBrush" Color="#F2F2F2"/>

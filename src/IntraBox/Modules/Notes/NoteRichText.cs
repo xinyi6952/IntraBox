@@ -349,14 +349,17 @@ namespace IntraBox.Modules.Notes
 
         private static BitmapImage LoadBitmap(string path, int decodeWidth)
         {
-            var bmp = new BitmapImage();
-            bmp.BeginInit();
-            bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.UriSource = new Uri(path);
-            if (decodeWidth > 0) bmp.DecodePixelWidth = decodeWidth;
-            bmp.EndInit();
-            bmp.Freeze();
-            return bmp;
+            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.StreamSource = fs;
+                if (decodeWidth > 0) bmp.DecodePixelWidth = decodeWidth;
+                bmp.EndInit();
+                bmp.Freeze();
+                return bmp;
+            }
         }
 
         private static List<Image> FindImages(FlowDocument doc)

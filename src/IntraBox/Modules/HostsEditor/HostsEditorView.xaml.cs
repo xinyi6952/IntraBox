@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-        using System.IO;
-        using System.Security.Principal;
-        using System.Windows;
+using System.IO;
+using System.Security.Principal;
+using System.Windows;
 using System.Windows.Controls;
 using IntraBox.Core;
 
@@ -53,6 +53,11 @@ namespace IntraBox.Modules.HostsEditor
             return true;
         }
 
+        public bool HasUnsavedChanges()
+        {
+            return IsDirty();
+        }
+
         private void CommitGrid()
         {
             try
@@ -78,7 +83,10 @@ namespace IntraBox.Modules.HostsEditor
         {
             _savedSnapshot = Snapshot();
             for (int i = 0; i < _rows.Count; i++)
+            {
+                _rows[i].IsUnsavedNew = false;
                 _rows[i].CaptureSavedEnabled();
+            }
         }
 
         private static bool IsAdmin()
@@ -146,17 +154,23 @@ namespace IntraBox.Modules.HostsEditor
 
         private void Add_Click(object sender, RoutedEventArgs e)
         {
+            CommitGrid();
+            var after = HostGrid.SelectedItem as HostsEntry;
+            if (after == null) after = HostGrid.CurrentItem as HostsEntry;
             var row = new HostsEntry
             {
                 IsMapping = true,
                 Enabled = true,
                 Ip = "127.0.0.1",
                 Host = "example.local",
-                Comment = ""
+                Comment = "",
+                IsUnsavedNew = true
             };
             row.CaptureSavedEnabled();
-            _rows.Add(row);
-            _fileLines.Add(row);
+            HostsFileHelper.InsertMappingAfter(_fileLines, _rows, after, row);
+            HostGrid.SelectedItem = row;
+            HostGrid.CurrentItem = row;
+            HostGrid.ScrollIntoView(row);
         }
 
         private void Delete_Click(object sender, RoutedEventArgs e)

@@ -11,6 +11,8 @@ namespace IntraBox.Modules.Launcher
     public partial class LauncherOverlayWindow : Window
     {
         private static LauncherOverlayWindow _open;
+
+        public static bool IsOpen { get { return _open != null; } }
         private List<LauncherHit> _catalog = new List<LauncherHit>();
         private bool _closing;
 

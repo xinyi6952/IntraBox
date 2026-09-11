@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="IntraBox.Modules.Settings.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:core="clr-namespace:IntraBox.Core">
     <UserControl.Resources>
         <Style x:Key="SortMoveBtn" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="MinWidth" Value="44"/>
@@ -74,9 +75,70 @@
                     <TextBlock x:Name="ClipLabel" Margin="12,0,0,0" VerticalAlignment="Center"
                                FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
                 </StackPanel>
+                <TextBlock Text="剪贴板图片条数" FontWeight="SemiBold" Margin="0,8,0,6"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="勾选「记录剪切图片」后生效。默认 20 张，最多 50，且不超过上面的总条数。下调时只丢掉未固定的旧图片，写回仍是原图。"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <Slider x:Name="ClipImageSlider" Width="280" Minimum="1" Maximum="50" TickFrequency="1"
+                            IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                            ValueChanged="ClipImageSlider_ValueChanged"/>
+                    <TextBlock x:Name="ClipImageLabel" Margin="12,0,0,0" VerticalAlignment="Center"
+                               FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+                </StackPanel>
                 <CheckBox x:Name="VaultClipCheck" Margin="0,0,0,16"
                           Content="账号备忘复制的内容写入剪贴板历史"
                           Checked="VaultClip_Changed" Unchecked="VaultClip_Changed"/>
+
+                <TextBlock Text="内存压缩" FontWeight="SemiBold" Margin="0,0,0,6"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="藏到托盘时立即压缩工作集。空闲超时后，无未保存内容则卸载当前工具（再打开从状态记忆恢复）；有未保存则只压工作集、卸预览文档。工作集达到高水位且已在托盘时再回收，落到低水位则停止。不会弹内存告警。切换轻工具不压工作集，避免导航抖动。"/>
+                <CheckBox x:Name="RestoreLastCheck" Margin="0,0,0,8"
+                          Content="启动时打开上次使用的工具"
+                          Checked="MemOpt_Changed" Unchecked="MemOpt_Changed"/>
+                <CheckBox x:Name="TrayUnloadCheck" Margin="0,0,0,8"
+                          Content="托盘空闲后释放当前工具（无未保存时）"
+                          Checked="MemOpt_Changed" Unchecked="MemOpt_Changed"/>
+                <CheckBox x:Name="SkipClipImgParkCheck" Margin="0,0,0,12"
+                          Content="藏托盘期间不把剪贴板图片记入历史"
+                          Checked="MemOpt_Changed" Unchecked="MemOpt_Changed"/>
+                <TextBlock Text="托盘空闲多久后再次回收 / 卸载" Margin="0,0,0,6"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <Slider x:Name="TrayIdleSlider" Width="280"
+                            Minimum="30" Maximum="600" TickFrequency="30"
+                            IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                            ValueChanged="TrayIdleSlider_ValueChanged"/>
+                    <TextBlock x:Name="TrayIdleLabel" Margin="12,0,0,0" VerticalAlignment="Center"
+                               FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+                </StackPanel>
+                <TextBlock Text="工作集高水位（达到后自动回收）" Margin="0,0,0,6"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <Slider x:Name="TrimHighSlider" Width="280"
+                            Minimum="{x:Static core:MemoryTrimPolicy.MinHighMb}"
+                            Maximum="{x:Static core:MemoryTrimPolicy.MaxHighMb}"
+                            TickFrequency="20"
+                            IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                            ValueChanged="TrimHighSlider_ValueChanged"/>
+                    <TextBlock x:Name="TrimHighLabel" Margin="12,0,0,0" VerticalAlignment="Center"
+                               FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+                </StackPanel>
+                <TextBlock Text="工作集低水位（低于此不再按阈值回收）" Margin="0,0,0,6"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                    <Slider x:Name="TrimLowSlider" Width="280"
+                            Minimum="{x:Static core:MemoryTrimPolicy.MinLowMb}"
+                            Maximum="{x:Static core:MemoryTrimPolicy.MaxLowMb}"
+                            TickFrequency="20"
+                            IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                            ValueChanged="TrimLowSlider_ValueChanged"/>
+                    <TextBlock x:Name="TrimLowLabel" Margin="12,0,0,0" VerticalAlignment="Center"
+                               FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+                </StackPanel>
 
                 <TextBlock Text="截屏快捷键" FontWeight="SemiBold" Margin="0,0,0,6"
                            Foreground="{DynamicResource TextPrimaryBrush}"/>

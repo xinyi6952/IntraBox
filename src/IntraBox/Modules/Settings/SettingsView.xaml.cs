@@ -34,8 +34,15 @@ namespace IntraBox.Modules.Settings
         private bool _sortUiOpen;
         private int _loadedMb;
         private int _loadedClip;
+        private int _loadedClipImages;
         private int _loadedHistoryDelay;
         private bool _loadedVaultClip;
+        private bool _loadedRestoreLast;
+        private bool _loadedTrayUnload;
+        private bool _loadedSkipClipImgPark;
+        private int _loadedTrayIdle;
+        private int _loadedTrimHigh;
+        private int _loadedTrimLow;
         private string _loadedVis = "";
         private string _loadedSort = "";
 
@@ -70,7 +77,23 @@ namespace IntraBox.Modules.Settings
             int clip = AppSettings.ClampClipboardMax(s.ClipboardMaxItems);
             ClipSlider.Value = clip;
             UpdateClipLabel(clip);
+            int clipImg = AppSettings.ClampClipboardMaxImages(s.ClipboardMaxImageItems);
+            ClipImageSlider.Value = clipImg;
+            UpdateClipImageLabel(clipImg);
             VaultClipCheck.IsChecked = s.ClipboardRecordVaultCopies;
+            RestoreLastCheck.IsChecked = s.RestoreLastModuleOnStartup;
+            TrayUnloadCheck.IsChecked = s.TrayIdleUnloadModule;
+            SkipClipImgParkCheck.IsChecked = s.ClipboardSkipImagesWhenHidden;
+            int idle = MemoryTrimPolicy.ClampIdleSec(s.TrayIdleReleaseSec);
+            TrayIdleSlider.Value = idle;
+            UpdateTrayIdleLabel(idle);
+            int high = MemoryTrimPolicy.ClampHighMb(s.MemoryTrimHighMb);
+            TrimHighSlider.Value = high;
+            UpdateTrimHighLabel(high);
+            SyncTrimLowSliderMax(high);
+            int low = MemoryTrimPolicy.ClampLowMb(s.MemoryTrimLowMb, high);
+            TrimLowSlider.Value = low;
+            UpdateTrimLowLabel(low);
             int delay = AppSettings.CurrentHistoryPersistDelayMs();
             HistoryDelaySlider.Value = delay;
             UpdateHistoryDelayLabel(delay);
@@ -93,6 +116,11 @@ namespace IntraBox.Modules.Settings
             return true;
         }
 
+        public bool HasUnsavedChanges()
+        {
+            return IsDirty();
+        }
+
         private string CurrentVisKey()
         {
             if (_toolItems == null) return "";
@@ -110,7 +138,14 @@ namespace IntraBox.Modules.Settings
         {
             _loadedMb = SizeLimits.ClampMb((int)SizeSlider.Value);
             _loadedClip = AppSettings.ClampClipboardMax((int)ClipSlider.Value);
+            _loadedClipImages = AppSettings.ClampClipboardMaxImages((int)ClipImageSlider.Value);
             _loadedVaultClip = VaultClipCheck != null && VaultClipCheck.IsChecked == true;
+            _loadedRestoreLast = RestoreLastCheck != null && RestoreLastCheck.IsChecked == true;
+            _loadedTrayUnload = TrayUnloadCheck != null && TrayUnloadCheck.IsChecked == true;
+            _loadedSkipClipImgPark = SkipClipImgParkCheck != null && SkipClipImgParkCheck.IsChecked == true;
+            _loadedTrayIdle = MemoryTrimPolicy.ClampIdleSec((int)TrayIdleSlider.Value);
+            _loadedTrimHigh = MemoryTrimPolicy.ClampHighMb((int)TrimHighSlider.Value);
+            _loadedTrimLow = MemoryTrimPolicy.ClampLowMb((int)TrimLowSlider.Value, _loadedTrimHigh);
             _loadedHistoryDelay = AppSettings.ClampHistoryPersistDelayMs((int)HistoryDelaySlider.Value);
             _loadedVis = CurrentVisKey();
             _loadedSort = CurrentSortKey();
@@ -120,10 +155,19 @@ namespace IntraBox.Modules.Settings
         {
             int mb = SizeLimits.ClampMb((int)SizeSlider.Value);
             int clip = AppSettings.ClampClipboardMax((int)ClipSlider.Value);
+            int clipImg = AppSettings.ClampClipboardMaxImages((int)ClipImageSlider.Value);
             int delay = AppSettings.ClampHistoryPersistDelayMs((int)HistoryDelaySlider.Value);
             bool vaultClip = VaultClipCheck != null && VaultClipCheck.IsChecked == true;
-            return mb != _loadedMb || clip != _loadedClip || delay != _loadedHistoryDelay
+            bool restoreLast = RestoreLastCheck != null && RestoreLastCheck.IsChecked == true;
+            bool trayUnload = TrayUnloadCheck != null && TrayUnloadCheck.IsChecked == true;
+            bool skipImg = SkipClipImgParkCheck != null && SkipClipImgParkCheck.IsChecked == true;
+            int idle = MemoryTrimPolicy.ClampIdleSec((int)TrayIdleSlider.Value);
+            int high = MemoryTrimPolicy.ClampHighMb((int)TrimHighSlider.Value);
+            int low = MemoryTrimPolicy.ClampLowMb((int)TrimLowSlider.Value, high);
+            return mb != _loadedMb || clip != _loadedClip || clipImg != _loadedClipImages || delay != _loadedHistoryDelay
                 || vaultClip != _loadedVaultClip
+                || restoreLast != _loadedRestoreLast || trayUnload != _loadedTrayUnload || skipImg != _loadedSkipClipImgPark
+                || idle != _loadedTrayIdle || high != _loadedTrimHigh || low != _loadedTrimLow
                 || CurrentVisKey() != _loadedVis || CurrentSortKey() != _loadedSort;
         }
 
@@ -479,6 +523,7 @@ namespace IntraBox.Modules.Settings
             TodoStore.Flush();
             NoteStore.Flush();
             IntraBox.Modules.Vault.VaultStore.Flush();
+            IntraBox.Modules.Launcher.LauncherStore.Flush();
             ConfigManager.Instance.Save();
         }
 
@@ -684,15 +729,86 @@ namespace IntraBox.Modules.Settings
         {
             if (_loading || ClipLabel == null) return;
             UpdateClipLabel((int)ClipSlider.Value);
+            if (ClipImageSlider != null) UpdateClipImageLabel((int)ClipImageSlider.Value);
+        }
+
+        private void ClipImageSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_loading || ClipImageLabel == null) return;
+            UpdateClipImageLabel((int)ClipImageSlider.Value);
         }
 
         private void VaultClip_Changed(object sender, RoutedEventArgs e)
         {
         }
 
+        private void MemOpt_Changed(object sender, RoutedEventArgs e)
+        {
+        }
+
+        private void TrayIdleSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_loading || TrayIdleLabel == null) return;
+            UpdateTrayIdleLabel((int)TrayIdleSlider.Value);
+        }
+
+        private void TrimHighSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_loading || TrimHighLabel == null) return;
+            int high = MemoryTrimPolicy.ClampHighMb((int)TrimHighSlider.Value);
+            UpdateTrimHighLabel(high);
+            SyncTrimLowSliderMax(high);
+            if (TrimLowSlider != null)
+            {
+                int low = MemoryTrimPolicy.ClampLowMb((int)TrimLowSlider.Value, high);
+                if ((int)TrimLowSlider.Value != low) TrimLowSlider.Value = low;
+            }
+        }
+
+        private void TrimLowSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_loading || TrimLowLabel == null) return;
+            int high = TrimHighSlider != null ? MemoryTrimPolicy.ClampHighMb((int)TrimHighSlider.Value) : MemoryTrimPolicy.DefaultHighMb;
+            UpdateTrimLowLabel(MemoryTrimPolicy.ClampLowMb((int)TrimLowSlider.Value, high));
+        }
+
+        private void UpdateTrayIdleLabel(int n)
+        {
+            TrayIdleLabel.Text = n + " 秒";
+        }
+
+        private void UpdateTrimHighLabel(int n)
+        {
+            TrimHighLabel.Text = n + " MB";
+        }
+
+        private void SyncTrimLowSliderMax(int high)
+        {
+            if (TrimLowSlider == null) return;
+            int maxLow = high - 20;
+            if (maxLow < MemoryTrimPolicy.MinLowMb) maxLow = MemoryTrimPolicy.MinLowMb;
+            TrimLowSlider.Maximum = maxLow;
+        }
+
+        private void UpdateTrimLowLabel(int n)
+        {
+            TrimLowLabel.Text = n + " MB";
+        }
+
         private void UpdateClipLabel(int n)
         {
             ClipLabel.Text = n + " 条";
+        }
+
+        private void UpdateClipImageLabel(int n)
+        {
+            if (ClipImageLabel == null) return;
+            int total = ClipSlider != null ? AppSettings.ClampClipboardMax((int)ClipSlider.Value) : 20;
+            int effective = ClipboardStore.EffectiveMaxImageItems(total, n);
+            if (effective < n)
+                ClipImageLabel.Text = n + " 张（受总条数限制，实际 " + effective + "）";
+            else
+                ClipImageLabel.Text = n + " 张";
         }
 
         private void HistoryDelaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -748,16 +864,36 @@ namespace IntraBox.Modules.Settings
 
             int mb = SizeLimits.ClampMb((int)SizeSlider.Value);
             int clip = AppSettings.ClampClipboardMax((int)ClipSlider.Value);
+            int clipImg = AppSettings.ClampClipboardMaxImages((int)ClipImageSlider.Value);
             int delay = AppSettings.ClampHistoryPersistDelayMs((int)HistoryDelaySlider.Value);
             SizeSlider.Value = mb;
             ClipSlider.Value = clip;
+            ClipImageSlider.Value = clipImg;
             HistoryDelaySlider.Value = delay;
             UpdateSizeLabel(mb);
             UpdateClipLabel(clip);
+            UpdateClipImageLabel(clipImg);
             UpdateHistoryDelayLabel(delay);
             ConfigManager.Instance.Settings.MaxFileSizeMb = mb;
             ConfigManager.Instance.Settings.ClipboardMaxItems = clip;
+            ConfigManager.Instance.Settings.ClipboardMaxImageItems = clipImg;
             ConfigManager.Instance.Settings.ClipboardRecordVaultCopies = VaultClipCheck != null && VaultClipCheck.IsChecked == true;
+            ConfigManager.Instance.Settings.RestoreLastModuleOnStartup = RestoreLastCheck != null && RestoreLastCheck.IsChecked == true;
+            ConfigManager.Instance.Settings.TrayIdleUnloadModule = TrayUnloadCheck != null && TrayUnloadCheck.IsChecked == true;
+            ConfigManager.Instance.Settings.ClipboardSkipImagesWhenHidden = SkipClipImgParkCheck != null && SkipClipImgParkCheck.IsChecked == true;
+            int idle = MemoryTrimPolicy.ClampIdleSec((int)TrayIdleSlider.Value);
+            int high = MemoryTrimPolicy.ClampHighMb((int)TrimHighSlider.Value);
+            SyncTrimLowSliderMax(high);
+            int low = MemoryTrimPolicy.ClampLowMb((int)TrimLowSlider.Value, high);
+            TrayIdleSlider.Value = idle;
+            TrimHighSlider.Value = high;
+            TrimLowSlider.Value = low;
+            UpdateTrayIdleLabel(idle);
+            UpdateTrimHighLabel(high);
+            UpdateTrimLowLabel(low);
+            ConfigManager.Instance.Settings.TrayIdleReleaseSec = idle;
+            ConfigManager.Instance.Settings.MemoryTrimHighMb = high;
+            ConfigManager.Instance.Settings.MemoryTrimLowMb = low;
             ConfigManager.Instance.Settings.HistoryPersistDelayMs = delay;
             ConfigManager.Instance.Settings.VisibleToolKeys = visible.ToArray();
             ApplyNavOrderFromUi();
@@ -769,7 +905,9 @@ namespace IntraBox.Modules.Settings
             var main = Application.Current != null ? Application.Current.MainWindow as MainWindow : null;
             if (main != null) main.ReloadNav();
 
-            MsgText.Text = "已保存。状态记忆写入延迟 " + delay + " 毫秒，文件上限 " + mb + " MB，主题、显隐与导航排序已记住。";
+            MsgText.Text = "已保存。状态记忆写入延迟 " + delay + " 毫秒，文件上限 " + mb + " MB，剪贴板 " + clip + " 条（图片最多 "
+                + ClipboardStore.EffectiveMaxImageItems(clip, clipImg) + " 张），托盘空闲 " + idle + " 秒，工作集水位 "
+                + low + "–" + high + " MB，主题、显隐与导航排序已记住。";
             return true;
         }
 

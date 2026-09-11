@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 namespace IntraBox.Modules.Notes
 {
-    public partial class NotesView : UserControl, IModuleView, ILeaveGuard
+    public partial class NotesView : UserControl, IModuleView, ILeaveGuard, IParkableResources
     {
         public static string PendingOpenUid;
 
@@ -58,12 +58,34 @@ namespace IntraBox.Modules.Notes
 
         public void OnDeactivated()
         {
+            if (DrawerHost != null && DrawerHost.Visibility == Visibility.Visible
+                && DrawerEditor != null && DrawerEditor.AutoSaveEnabled)
+                DrawerEditor.FlushNow();
+            if (DrawerEditor != null) DrawerEditor.ReleaseMdPreview();
             NoteStore.Flush();
         }
 
         public bool CanLeave()
         {
             return CloseDrawer();
+        }
+
+        public bool HasUnsavedChanges()
+        {
+            if (DrawerHost == null || DrawerHost.Visibility != Visibility.Visible) return false;
+            if (DrawerEditor != null && DrawerEditor.AutoSaveEnabled) return false;
+            return DrawerEditor != null && DrawerEditor.IsDirty();
+        }
+
+        public void ParkHeavyResources()
+        {
+            if (DrawerEditor != null) DrawerEditor.ReleaseMdPreview();
+        }
+
+        public void UnparkHeavyResources()
+        {
+            if (DrawerHost != null && DrawerHost.Visibility == Visibility.Visible && DrawerEditor != null)
+                DrawerEditor.RestoreMdPreview();
         }
 
         private void NewBtn_Click(object sender, RoutedEventArgs e)
@@ -628,6 +650,7 @@ namespace IntraBox.Modules.Notes
 
         private void HideDrawer()
         {
+            if (DrawerEditor != null) DrawerEditor.ReleaseMdPreview();
             DrawerHost.Visibility = Visibility.Collapsed;
             ApplyDrawerSize();
         }

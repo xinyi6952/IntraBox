@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Media.Imaging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using IntraBox.Core;
+using IntraBox.Modules.ClipboardHistory;
 
 namespace IntraBox.Tests
 {
@@ -436,6 +437,22 @@ namespace IntraBox.Tests
                 Assert.AreEqual(0, bgra[1]);
                 Assert.AreEqual(0, bgra[2]);
                 Assert.AreEqual(255, bgra[3]);
+            });
+        }
+
+        [TestMethod]
+        public void TryDecodeOriginal_合法PNG_返回原图像素尺寸()
+        {
+            RunSta(() =>
+            {
+                byte[] png = ClipboardImage.EncodePngBytes(Opaque2x2(), 2, 2);
+                var item = new ClipItem { IsImage = true, ImagePng = png };
+                BitmapSource src;
+                string err;
+                Assert.IsTrue(ClipboardStore.TryDecodeOriginal(item, out src, out err));
+                Assert.IsNull(err);
+                Assert.AreEqual(2, src.PixelWidth);
+                Assert.AreEqual(2, src.PixelHeight);
             });
         }
 

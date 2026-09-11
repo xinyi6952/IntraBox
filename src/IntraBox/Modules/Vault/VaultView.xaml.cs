@@ -54,6 +54,9 @@ namespace IntraBox.Modules.Vault
 
         public void OnDeactivated()
         {
+            if (DrawerHost != null && DrawerHost.Visibility == Visibility.Visible
+                && DrawerEditor != null && DrawerEditor.AutoSaveEnabled)
+                DrawerEditor.FlushSilent();
             VaultStore.Flush();
             DrawerEditor.ForgetSession();
         }
@@ -61,6 +64,13 @@ namespace IntraBox.Modules.Vault
         public bool CanLeave()
         {
             return CloseDrawer();
+        }
+
+        public bool HasUnsavedChanges()
+        {
+            if (DrawerHost == null || DrawerHost.Visibility != Visibility.Visible) return false;
+            if (DrawerEditor != null && DrawerEditor.AutoSaveEnabled) return false;
+            return DrawerEditor != null && DrawerEditor.IsDirty();
         }
 
         private void New_Click(object sender, RoutedEventArgs e)

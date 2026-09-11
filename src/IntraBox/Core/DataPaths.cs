@@ -11,7 +11,7 @@ namespace IntraBox.Core
     public static class DataPaths
     {
         public const string PointerFileName = "datapath.txt";
-        public const int CurrentConfigVersion = 1;
+        public const int CurrentConfigVersion = 2;
 
         private static string _root;
         private static readonly object _sync = new object();
@@ -52,6 +52,7 @@ namespace IntraBox.Core
         public static string FileOrganizeJson { get { return Path.Combine(Root, "fileorganize.json"); } }
         public static string FileOrganizeUndoJson { get { return Path.Combine(Root, "fileorganize-undo.json"); } }
         public static string ErrorLog { get { return Path.Combine(Root, "error.log"); } }
+        public static string GcLog { get { return Path.Combine(Root, "gc.log"); } }
         public static string TodosDir { get { return Path.Combine(Root, "todos"); } }
         public static string TodosIndexJson { get { return Path.Combine(TodosDir, "index.json"); } }
         public static string NotesDir { get { return Path.Combine(Root, "notes"); } }
@@ -156,6 +157,7 @@ namespace IntraBox.Core
             CopyFileIfExists(FileOrganizeJson, Path.Combine(dest, "fileorganize.json"));
             CopyFileIfExists(FileOrganizeUndoJson, Path.Combine(dest, "fileorganize-undo.json"));
             CopyFileIfExists(ErrorLog, Path.Combine(dest, "error.log"));
+            CopyFileIfExists(GcLog, Path.Combine(dest, "gc.log"));
             CopyFileIfExists(LauncherJson, Path.Combine(dest, "launcher.json"));
             string todosSrc = TodosDir;
             string todosDest = Path.Combine(dest, "todos");

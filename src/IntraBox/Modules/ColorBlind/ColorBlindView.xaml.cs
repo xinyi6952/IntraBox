@@ -117,6 +117,12 @@ namespace IntraBox.Modules.ColorBlind
         {
             var dlg = new OpenFileDialog { Filter = "图片|*.png;*.jpg;*.jpeg;*.bmp;*.gif|所有|*.*" };
             if (dlg.ShowDialog() != true) return;
+            string sizeErr;
+            if (!SizeLimits.TryCheckFile(dlg.FileName, out sizeErr))
+            {
+                MsgText.Text = sizeErr;
+                return;
+            }
             try
             {
                 DisposeBmp(ref _src);

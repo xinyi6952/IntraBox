@@ -126,6 +126,15 @@ namespace IntraBox.Modules.Todo
             TrySave(out err, true);
         }
 
+        /// <summary>托盘静默卸载：与自动保存定时器相同，损坏模板不弹窗、不写入。</summary>
+        public void FlushSilent()
+        {
+            if (_saveTimer != null) _saveTimer.Stop();
+            if (_completedLocked) return;
+            string err;
+            TrySave(out err, false);
+        }
+
         public void LoadItem(TodoItem item, bool isNew)
         {
             if (item == null) return;

@@ -2,8 +2,12 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
+using IntraBox.Controls;
 using IntraBox.Core;
 
 namespace IntraBox.Modules.PortList
@@ -14,6 +18,7 @@ namespace IntraBox.Modules.PortList
     public partial class PortListView : UserControl, IModuleView
     {
         private readonly List<PortRow> _all = new List<PortRow>();
+        private readonly AsyncTaskGate _gate = new AsyncTaskGate();
 
         public PortListView()
         {
@@ -22,25 +27,60 @@ namespace IntraBox.Modules.PortList
 
         public void OnActivated()
         {
-            Refresh_Click(null, null);
+            StartRefresh();
         }
 
         public void OnDeactivated()
         {
+            CancelPending();
+        }
+
+        private void CancelPending()
+        {
+            _gate.Cancel();
+            LoadingOverlay.Hide(this);
         }
 
         private void Refresh_Click(object sender, RoutedEventArgs e)
         {
+            StartRefresh();
+        }
+
+        /// <summary>先进入页面并显示遮罩，再后台跑 netstat，避免点导航时卡住。</summary>
+        private async void StartRefresh()
+        {
+            CancelPending();
+            int version = _gate.Bump();
+            var cts = new CancellationTokenSource();
+            _gate.Current = cts;
+            var token = cts.Token;
+            SetMsg("正在读取端口…", false);
             try
             {
+                await Dispatcher.InvokeAsync(new Action(() => { }), DispatcherPriority.Loaded);
+                if (version != _gate.Version) return;
+                LoadingOverlay.Show(this, "正在读取端口…");
+                List<PortRow> rows = await Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    return ParseNetstat(RunNetstat(token));
+                }, token);
+                if (version != _gate.Version) return;
                 _all.Clear();
-                _all.AddRange(ParseNetstat(RunNetstat()));
+                _all.AddRange(rows);
                 ApplyFilter();
                 SetMsg("已刷新", false);
             }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                SetMsg("读取失败：" + ex.RootMessage(), true);
+                if (version == _gate.Version)
+                    SetMsg("读取失败：" + ex.RootMessage(), true);
+            }
+            finally
+            {
+                if (version == _gate.Version)
+                    LoadingOverlay.Hide(this);
             }
         }
 
@@ -142,7 +182,7 @@ namespace IntraBox.Modules.PortList
             }
         }
 
-        private static string RunNetstat()
+        private static string RunNetstat(CancellationToken token)
         {
             var psi = new ProcessStartInfo
             {
@@ -150,17 +190,11 @@ namespace IntraBox.Modules.PortList
                 Arguments = "-ano",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
-                RedirectStandardError = true,
+                RedirectStandardError = false,
                 CreateNoWindow = true,
                 StandardOutputEncoding = Encoding.Default
             };
-            using (var p = Process.Start(psi))
-            {
-                if (p == null) throw new InvalidOperationException("无法启动 netstat");
-                var output = p.StandardOutput.ReadToEnd();
-                p.WaitForExit(15000);
-                return output;
-            }
+            return ProcessRunHelper.ReadStdout(psi, token, 15000);
         }
 
         private static List<PortRow> ParseNetstat(string output)

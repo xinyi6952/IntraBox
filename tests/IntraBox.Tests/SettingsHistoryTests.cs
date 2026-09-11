@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Windows.Media.Imaging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using IntraBox.Core;
 using IntraBox.Modules.ClipboardHistory;
@@ -22,6 +23,26 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
+        public void ClampClipboardMaxImages_缺省回落20_夹取到1至50()
+        {
+            Assert.AreEqual(20, AppSettings.ClampClipboardMaxImages(0));
+            Assert.AreEqual(20, AppSettings.ClampClipboardMaxImages(-3));
+            Assert.AreEqual(1, AppSettings.ClampClipboardMaxImages(1));
+            Assert.AreEqual(20, AppSettings.ClampClipboardMaxImages(20));
+            Assert.AreEqual(50, AppSettings.ClampClipboardMaxImages(50));
+            Assert.AreEqual(50, AppSettings.ClampClipboardMaxImages(51));
+            Assert.AreEqual(50, AppSettings.ClampClipboardMaxImages(200));
+        }
+
+        [TestMethod]
+        public void EffectiveMaxImageItems_不超过总条数()
+        {
+            Assert.AreEqual(20, ClipboardStore.EffectiveMaxImageItems(200, 20));
+            Assert.AreEqual(10, ClipboardStore.EffectiveMaxImageItems(10, 50));
+            Assert.AreEqual(1, ClipboardStore.EffectiveMaxImageItems(1, 20));
+        }
+
+        [TestMethod]
         public void ClampHistoryPersistDelayMs_夹取到300至1000()
         {
             Assert.AreEqual(300, AppSettings.ClampHistoryPersistDelayMs(0));
@@ -31,6 +52,62 @@ namespace IntraBox.Tests
             Assert.AreEqual(1000, AppSettings.ClampHistoryPersistDelayMs(1000));
             Assert.AreEqual(1000, AppSettings.ClampHistoryPersistDelayMs(1001));
             Assert.AreEqual(1000, AppSettings.ClampHistoryPersistDelayMs(9999));
+        }
+
+        [TestMethod]
+        public void ApplyMemorySettings_版本1缺bool补true并夹取默认水位()
+        {
+            var s = new AppSettings();
+            s.ConfigVersion = 1;
+            s.TrayIdleUnloadModule = false;
+            s.ClipboardSkipImagesWhenHidden = false;
+            s.RestoreLastModuleOnStartup = false;
+            s.TrayIdleReleaseSec = 0;
+            s.MemoryTrimHighMb = 0;
+            s.MemoryTrimLowMb = 0;
+            Assert.IsTrue(ConfigManager.ApplyMemorySettings(s));
+            Assert.AreEqual(2, s.ConfigVersion);
+            Assert.IsTrue(s.TrayIdleUnloadModule);
+            Assert.IsTrue(s.ClipboardSkipImagesWhenHidden);
+            Assert.IsTrue(s.RestoreLastModuleOnStartup);
+            Assert.AreEqual(MemoryTrimPolicy.DefaultIdleSec, s.TrayIdleReleaseSec);
+            Assert.AreEqual(MemoryTrimPolicy.DefaultHighMb, s.MemoryTrimHighMb);
+            Assert.AreEqual(MemoryTrimPolicy.DefaultLowMb, s.MemoryTrimLowMb);
+        }
+
+        [TestMethod]
+        public void ApplyMemorySettings_版本2不把用户关闭改回true()
+        {
+            var s = new AppSettings();
+            s.ConfigVersion = 2;
+            s.TrayIdleUnloadModule = false;
+            s.ClipboardSkipImagesWhenHidden = false;
+            s.RestoreLastModuleOnStartup = false;
+            s.TrayIdleReleaseSec = 90;
+            s.MemoryTrimHighMb = 220;
+            s.MemoryTrimLowMb = 120;
+            Assert.IsFalse(ConfigManager.ApplyMemorySettings(s));
+            Assert.AreEqual(2, s.ConfigVersion);
+            Assert.IsFalse(s.TrayIdleUnloadModule);
+            Assert.IsFalse(s.ClipboardSkipImagesWhenHidden);
+            Assert.IsFalse(s.RestoreLastModuleOnStartup);
+        }
+
+        [TestMethod]
+        public void ApplyMemorySettings_越界水位被夹取()
+        {
+            var s = new AppSettings();
+            s.ConfigVersion = 2;
+            s.TrayIdleUnloadModule = true;
+            s.ClipboardSkipImagesWhenHidden = true;
+            s.RestoreLastModuleOnStartup = true;
+            s.TrayIdleReleaseSec = 10;
+            s.MemoryTrimHighMb = 99999;
+            s.MemoryTrimLowMb = 1;
+            Assert.IsTrue(ConfigManager.ApplyMemorySettings(s));
+            Assert.AreEqual(MemoryTrimPolicy.MinIdleSec, s.TrayIdleReleaseSec);
+            Assert.AreEqual(MemoryTrimPolicy.MaxHighMb, s.MemoryTrimHighMb);
+            Assert.AreEqual(MemoryTrimPolicy.MinLowMb, s.MemoryTrimLowMb);
         }
 
         [TestMethod]
@@ -177,6 +254,123 @@ namespace IntraBox.Tests
             {
                 ClipboardStore.Items.Clear();
             }
+        }
+
+        [TestMethod]
+        public void ClipboardStore_图片条数上限_挤掉最旧未固定图_固定图保留()
+        {
+            var s = ConfigManager.Instance.Settings;
+            int oldMax = s.ClipboardMaxItems;
+            int oldImg = s.ClipboardMaxImageItems;
+            ClipboardStore.Items.Clear();
+            try
+            {
+                s.ClipboardMaxItems = 200;
+                s.ClipboardMaxImageItems = 2;
+
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { IsImage = true, ImageSig = "a", Preview = "a" }));
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { IsImage = true, ImageSig = "b", Preview = "b" }));
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { Text = "keep-text" }));
+                Assert.AreEqual(2, ClipboardStore.CountImages());
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { IsImage = true, ImageSig = "c", Preview = "c" }));
+                Assert.AreEqual(2, ClipboardStore.CountImages());
+                Assert.AreEqual("c", ClipboardStore.Items[0].ImageSig);
+                Assert.IsFalse(HasImageSig("a"));
+                Assert.IsTrue(HasImageSig("b"));
+                Assert.AreEqual(1, CountText("keep-text"));
+
+                ClipboardStore.Items.Clear();
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { IsImage = true, ImageSig = "pin", Preview = "pin" }));
+                ClipboardStore.Items[0].IsPinned = true;
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { IsImage = true, ImageSig = "x", Preview = "x" }));
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { IsImage = true, ImageSig = "y", Preview = "y" }));
+                Assert.AreEqual(2, ClipboardStore.CountImages());
+                Assert.IsTrue(HasImageSig("pin"));
+                Assert.IsTrue(HasImageSig("y"));
+                Assert.IsFalse(HasImageSig("x"));
+            }
+            finally
+            {
+                s.ClipboardMaxItems = oldMax;
+                s.ClipboardMaxImageItems = oldImg;
+                ClipboardStore.Items.Clear();
+            }
+        }
+
+        [TestMethod]
+        public void ClipboardStore_TrimToLimit_先裁图片再裁总条数()
+        {
+            var s = ConfigManager.Instance.Settings;
+            int oldMax = s.ClipboardMaxItems;
+            int oldImg = s.ClipboardMaxImageItems;
+            ClipboardStore.Items.Clear();
+            try
+            {
+                s.ClipboardMaxItems = 200;
+                s.ClipboardMaxImageItems = 50;
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { IsImage = true, ImageSig = "i1", Preview = "i1" }));
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { IsImage = true, ImageSig = "i2", Preview = "i2" }));
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { IsImage = true, ImageSig = "i3", Preview = "i3" }));
+                Assert.IsTrue(ClipboardStore.Add(new ClipItem { Text = "t1" }));
+                s.ClipboardMaxImageItems = 1;
+                ClipboardStore.TrimToLimit();
+                Assert.AreEqual(1, ClipboardStore.CountImages());
+                Assert.AreEqual(1, CountText("t1"));
+            }
+            finally
+            {
+                s.ClipboardMaxItems = oldMax;
+                s.ClipboardMaxImageItems = oldImg;
+                ClipboardStore.Items.Clear();
+            }
+        }
+
+        private static bool HasImageSig(string sig)
+        {
+            for (int i = 0; i < ClipboardStore.Items.Count; i++)
+            {
+                if (ClipboardStore.Items[i].IsImage && ClipboardStore.Items[i].ImageSig == sig)
+                    return true;
+            }
+            return false;
+        }
+
+        private static int CountText(string text)
+        {
+            int n = 0;
+            for (int i = 0; i < ClipboardStore.Items.Count; i++)
+            {
+                if (!ClipboardStore.Items[i].IsImage && ClipboardStore.Items[i].Text == text) n++;
+            }
+            return n;
+        }
+
+        [TestMethod]
+        public void TryDecodeOriginal_无PNG或损坏_失败且不返回图()
+        {
+            BitmapSource src;
+            string err;
+            Assert.IsFalse(ClipboardStore.TryDecodeOriginal(null, out src, out err));
+            Assert.IsNull(src);
+            StringAssert.Contains(err, "缩略图");
+
+            var noPng = new ClipItem { IsImage = true, ImagePng = null, Preview = "x" };
+            Assert.IsFalse(ClipboardStore.TryDecodeOriginal(noPng, out src, out err));
+            Assert.IsNull(src);
+            StringAssert.Contains(err, "缩略图");
+
+            var empty = new ClipItem { IsImage = true, ImagePng = new byte[0] };
+            Assert.IsFalse(ClipboardStore.TryDecodeOriginal(empty, out src, out err));
+            Assert.IsNull(src);
+
+            var bad = new ClipItem { IsImage = true, ImagePng = new byte[] { 1, 2, 3, 4 } };
+            Assert.IsFalse(ClipboardStore.TryDecodeOriginal(bad, out src, out err));
+            Assert.IsNull(src);
+            StringAssert.Contains(err, "缩略图");
+
+            var text = new ClipItem { IsImage = false, Text = "hi" };
+            Assert.IsFalse(ClipboardStore.TryDecodeOriginal(text, out src, out err));
+            Assert.IsNull(src);
         }
     }
 }

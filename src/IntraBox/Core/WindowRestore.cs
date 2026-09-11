@@ -16,6 +16,7 @@ namespace IntraBox.Core
             w.Topmost = true;
             w.Topmost = false;
             w.Focus();
+            MemoryIdleGuard.NotifyResumed();
         }
 
         public static void PersistFrom(Window w)

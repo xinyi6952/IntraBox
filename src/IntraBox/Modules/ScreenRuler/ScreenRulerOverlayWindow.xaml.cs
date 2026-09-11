@@ -15,6 +15,8 @@ namespace IntraBox.Modules.ScreenRuler
     public partial class ScreenRulerOverlayWindow : Window
     {
         private static ScreenRulerOverlayWindow _open;
+
+        public static bool IsOpen { get { return _open != null; } }
         private int _mode; // 0 H 1 V 2 Rect
         private bool _dragging;
         private Point _start;

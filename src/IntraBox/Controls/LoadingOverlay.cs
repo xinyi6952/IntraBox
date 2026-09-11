@@ -16,15 +16,38 @@ namespace IntraBox.Controls
     {
         private static readonly System.Collections.Generic.Dictionary<UIElement, LoadingAdorner> _map =
             new System.Collections.Generic.Dictionary<UIElement, LoadingAdorner>();
-        // 每 target 一个世代号：Hide / 重新 Show 时递增，用于作废尚未布局完成时的延迟重试回调，
-        // 避免模块已销毁或已 Hide 后延迟回调仍挂上 Adorner 残留遮罩。
+        // 每 target 一个世代号：Hide / 重新 Show 时单调递增，用于作废尚未布局完成时的延迟重试。
+        // Hide 只 Bump、不 Remove：否则下一次 Show 又从 1 起算，旧回调会当成新任务合法。
+        // 控件真正离开可视化树（Unloaded 且 PresentationSource 为空）时再从表里删，避免钉死已销毁控件。
         private static readonly System.Collections.Generic.Dictionary<UIElement, int> _gen =
             new System.Collections.Generic.Dictionary<UIElement, int>();
+        private static readonly System.Collections.Generic.HashSet<UIElement> _unloadedHooked =
+            new System.Collections.Generic.HashSet<UIElement>();
+
+        /// <summary>任一目标上仍挂着遮罩时，托盘自动 Trim/卸载应让路。</summary>
+        public static bool HasAny()
+        {
+            return _map.Count > 0;
+        }
+
+        /// <summary>世代单调 +1。缺省/负值按 0 再加。</summary>
+        public static int NextGen(int current)
+        {
+            if (current < 0) current = 0;
+            return current + 1;
+        }
+
+        /// <summary>延迟回调是否仍对应当前任务。表里没有条目或号对不上则作废。</summary>
+        public static bool IsCallbackCurrent(bool hasEntry, int storedGen, int callbackGen)
+        {
+            return hasEntry && storedGen == callbackGen;
+        }
 
         public static void Show(FrameworkElement target, string text = null)
         {
             if (target == null) return;
             UIElement key = target;
+            EnsureUnloadedHook(target);
             int gen = BumpGen(key);
             LoadingAdorner ad;
             if (_map.TryGetValue(key, out ad) && ad != null)
@@ -39,8 +62,9 @@ namespace IntraBox.Controls
                 target.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     int cur;
-                    if (!_gen.TryGetValue(key, out cur) || cur != gen) return;     // 已被取消
-                    if (PresentationSource.FromVisual(target) == null) return;    // 已不在可视化树
+                    bool has = _gen.TryGetValue(key, out cur);
+                    if (!IsCallbackCurrent(has, cur, gen)) return;
+                    if (PresentationSource.FromVisual(target) == null) return;
                     Show(target, text);
                 }), DispatcherPriority.Loaded);
                 return;
@@ -53,23 +77,63 @@ namespace IntraBox.Controls
         public static void Hide(FrameworkElement target)
         {
             if (target == null) return;
-            UIElement key = target;
-            BumpGen(key); // 作废尚未触发的延迟重试
-            LoadingAdorner ad;
-            if (!_map.TryGetValue(key, out ad) || ad == null) return;
-            var layer = AdornerLayer.GetAdornerLayer(target);
-            try { if (layer != null) layer.Remove(ad); } catch { }
-            ad.Stop();
-            _map.Remove(key);
+            BumpGen(target); // 作废尚未触发的延迟重试（回调里 stored != callbackGen）
+            RemoveAdorner(target);
+            // 不 _gen.Remove：世代须单调递增，直到控件离开可视化树
         }
 
         private static int BumpGen(UIElement key)
         {
             int g;
             _gen.TryGetValue(key, out g);
-            g++;
+            g = NextGen(g);
             _gen[key] = g;
             return g;
+        }
+
+        private static void EnsureUnloadedHook(FrameworkElement target)
+        {
+            UIElement key = target;
+            if (_unloadedHooked.Contains(key)) return;
+            _unloadedHooked.Add(key);
+            target.Unloaded += OnTargetUnloaded;
+        }
+
+        private static void OnTargetUnloaded(object sender, RoutedEventArgs e)
+        {
+            var target = sender as FrameworkElement;
+            if (target == null) return;
+            // 换父节点也会 Unloaded；仍在树里则只是重挂，不要清世代
+            try
+            {
+                if (PresentationSource.FromVisual(target) != null) return;
+            }
+            catch { }
+            Detach(target);
+        }
+
+        private static void Detach(FrameworkElement target)
+        {
+            UIElement key = target;
+            BumpGen(key);
+            RemoveAdorner(target);
+            _gen.Remove(key);
+            if (_unloadedHooked.Contains(key))
+            {
+                target.Unloaded -= OnTargetUnloaded;
+                _unloadedHooked.Remove(key);
+            }
+        }
+
+        private static void RemoveAdorner(FrameworkElement target)
+        {
+            UIElement key = target;
+            LoadingAdorner ad;
+            if (!_map.TryGetValue(key, out ad) || ad == null) return;
+            var layer = AdornerLayer.GetAdornerLayer(target);
+            try { if (layer != null) layer.Remove(ad); } catch { }
+            ad.Stop();
+            _map.Remove(key);
         }
     }
 

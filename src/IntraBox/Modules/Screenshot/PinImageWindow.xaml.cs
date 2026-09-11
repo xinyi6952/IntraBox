@@ -127,7 +127,7 @@ namespace IntraBox.Modules.Screenshot
             {
                 Mouse.OverrideCursor = null;
                 if (bmp != null) bmp.Dispose();
-                GcHelper.CollectSafely();
+                GcHelper.CollectSafely("pin-ocr");
             }
         }
 
@@ -204,7 +204,7 @@ namespace IntraBox.Modules.Screenshot
         {
             if (Img != null) Img.Source = null;
             base.OnClosed(e);
-            GcHelper.CollectSafely();
+            GcHelper.CollectSafely("pin-close");
         }
     }
 }

@@ -28,6 +28,8 @@ namespace IntraBox.Modules.Screenshot
     {
         private static CaptureOverlayWindow _open;
 
+        public static bool IsOpen { get { return _open != null; } }
+
         private Bitmap _fullBmp;
         private Rectangle _virtualPx;
         private Point _dragStart;
@@ -507,7 +509,7 @@ namespace IntraBox.Modules.Screenshot
             {
                 Mouse.OverrideCursor = null;
                 if (bmp != null) bmp.Dispose();
-                GcHelper.CollectSafely();
+                GcHelper.CollectSafely("capture-ocr");
             }
         }
 
@@ -716,7 +718,7 @@ namespace IntraBox.Modules.Screenshot
             }
             if (BgImage != null) BgImage.Source = null;
             base.OnClosed(e);
-            GcHelper.CollectSafely();
+            GcHelper.CollectSafely("capture-close");
         }
     }
 }

@@ -59,6 +59,12 @@ namespace IntraBox.Modules.Launcher
             return CloseDrawer();
         }
 
+        public bool HasUnsavedChanges()
+        {
+            if (DrawerHost == null || DrawerHost.Visibility != Visibility.Visible) return false;
+            return IsDirty();
+        }
+
         private void NewBtn_Click(object sender, RoutedEventArgs e)
         {
             var menu = NewBtn != null ? NewBtn.ContextMenu : null;

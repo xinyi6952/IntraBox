@@ -36,7 +36,7 @@ namespace IntraBox
         private void Trim_Click(object sender, RoutedEventArgs e)
         {
             MemoryUsage after;
-            if (!GcHelper.TryCollectAndTrim(out after))
+            if (!GcHelper.TryCollectAndTrim(out after, "manual"))
             {
                 MsgText.Text = "刚回收过，请稍后再试";
                 return;

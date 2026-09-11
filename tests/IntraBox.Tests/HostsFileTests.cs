@@ -133,6 +133,49 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
+        public void InsertMappingAfter_无选中_追加末尾()
+        {
+            string src = "# head\r\n127.0.0.1 a.local\r\n# tail\r\n";
+            var lines = HostsFileHelper.Parse(src);
+            var maps = Mappings(lines);
+            var neu = NewMap("10.0.0.1", "c.local");
+            HostsFileHelper.InsertMappingAfter(lines, maps, null, neu);
+            Assert.AreEqual(2, maps.Count);
+            Assert.AreEqual("c.local", maps[1].Host);
+            string outText = HostsFileHelper.Render(lines, maps, "\r\n");
+            Assert.AreEqual("# head\r\n127.0.0.1 a.local\r\n10.0.0.1 c.local\r\n# tail\r\n", outText);
+        }
+
+        [TestMethod]
+        public void InsertMappingAfter_选中行下插入_保留中间注释()
+        {
+            string src = "# head\r\n127.0.0.1 a.local\r\n# mid\r\n10.0.0.1 b.local\r\n";
+            var lines = HostsFileHelper.Parse(src);
+            var maps = Mappings(lines);
+            var neu = NewMap("192.168.0.1", "c.local");
+            HostsFileHelper.InsertMappingAfter(lines, maps, maps[0], neu);
+            Assert.AreEqual(3, maps.Count);
+            Assert.AreEqual("c.local", maps[1].Host);
+            Assert.AreEqual("b.local", maps[2].Host);
+            string outText = HostsFileHelper.Render(lines, maps, "\r\n");
+            Assert.AreEqual(
+                "# head\r\n127.0.0.1 a.local\r\n192.168.0.1 c.local\r\n# mid\r\n10.0.0.1 b.local\r\n",
+                outText);
+        }
+
+        [TestMethod]
+        public void 新增行_IsUnsavedNew_保存后清除()
+        {
+            var e = NewMap("127.0.0.1", "n.local");
+            e.IsUnsavedNew = true;
+            e.CaptureSavedEnabled();
+            Assert.IsTrue(e.IsUnsavedNew);
+            Assert.IsFalse(e.UnsavedEnabled);
+            e.IsUnsavedNew = false;
+            Assert.IsFalse(e.IsUnsavedNew);
+        }
+
+        [TestMethod]
         public void 纯注释行_不当成映射()
         {
             var e = HostsFileHelper.ParseLine("# Copyright (c) 1993-2009 Microsoft Corp.");
@@ -204,6 +247,18 @@ namespace IntraBox.Tests
                 if (lines[i].IsMapping) maps.Add(lines[i]);
             }
             return maps;
+        }
+
+        private static HostsEntry NewMap(string ip, string host)
+        {
+            return new HostsEntry
+            {
+                IsMapping = true,
+                Enabled = true,
+                Ip = ip,
+                Host = host,
+                Comment = ""
+            };
         }
     }
 }

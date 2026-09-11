@@ -18,9 +18,33 @@ namespace IntraBox.Core
         [DataMember]
         public bool FirstRun { get; set; } = true;
 
-        /// <summary>缓存最近 N 个模块（0 = 用完立即销毁，最省内存）</summary>
+        /// <summary>缓存最近 N 个模块（保留字段，加载器始终按 0 处理：切走即销毁）。</summary>
         [DataMember]
         public int CacheModuleCount { get; set; } = 0;
+
+        /// <summary>启动时是否打开上次工具。缺字段为 false，配置版本&lt;2 迁移时补 true。</summary>
+        [DataMember]
+        public bool RestoreLastModuleOnStartup { get; set; } = true;
+
+        /// <summary>藏托盘空闲秒数后再 Trim，并可按开关卸载当前工具。0 或缺省 = 90，夹取 30–600。</summary>
+        [DataMember]
+        public int TrayIdleReleaseSec { get; set; } = MemoryTrimPolicy.DefaultIdleSec;
+
+        /// <summary>托盘空闲超时后销毁当前工具（无未保存时）。再打开从状态记忆恢复。缺字段为 false，版本&lt;2 迁移补 true。</summary>
+        [DataMember]
+        public bool TrayIdleUnloadModule { get; set; } = true;
+
+        /// <summary>主窗已藏托盘且工作集不低于此 MB 时自动 Trim。0 = 220，夹取 80–2048。</summary>
+        [DataMember]
+        public int MemoryTrimHighMb { get; set; } = MemoryTrimPolicy.DefaultHighMb;
+
+        /// <summary>工作集已落到此 MB 以下则停止按阈值 Trim。0 = 120，且始终低于高水位。</summary>
+        [DataMember]
+        public int MemoryTrimLowMb { get; set; } = MemoryTrimPolicy.DefaultLowMb;
+
+        /// <summary>藏托盘期间不把剪贴板图片解码入库（文本仍记）。缺字段为 false，版本&lt;2 迁移补 true。</summary>
+        [DataMember]
+        public bool ClipboardSkipImagesWhenHidden { get; set; } = true;
 
         /// <summary>上次使用的模块标识（启动时可自动恢复）</summary>
         [DataMember]
@@ -77,14 +101,31 @@ namespace IntraBox.Core
         [DataMember]
         public int ClipboardMaxItems { get; set; } = 20;
 
+        /// <summary>剪贴板历史中图片条数上限。默认 20，范围 1–50；实际生效为 min(本项, 总条数)。旧配置缺字段为 0，加载时按默认 20。</summary>
+        [DataMember]
+        public int ClipboardMaxImageItems { get; set; } = DefaultClipboardMaxImages;
+
         /// <summary>是否把剪贴板中的图片记入历史。默认 false；开关在剪贴板工具顶栏。</summary>
         [DataMember]
         public bool ClipboardRecordImages { get; set; }
+
+        public const int DefaultClipboardMaxImages = 20;
+        public const int MinClipboardMaxImages = 1;
+        public const int MaxClipboardMaxImages = 50;
 
         /// <summary>将条数夹取到 1–200（小于 1 变为 1，大于 200 变为 200）。</summary>
         public static int ClampClipboardMax(int n)
         {
             return Math.Max(1, Math.Min(200, n));
+        }
+
+        /// <summary>图片条数：缺省/0 回落默认 20，其余夹到 1–50。</summary>
+        public static int ClampClipboardMaxImages(int n)
+        {
+            if (n <= 0) return DefaultClipboardMaxImages;
+            if (n < MinClipboardMaxImages) return MinClipboardMaxImages;
+            if (n > MaxClipboardMaxImages) return MaxClipboardMaxImages;
+            return n;
         }
 
         public const int HistoryPersistDelayMinMs = 300;

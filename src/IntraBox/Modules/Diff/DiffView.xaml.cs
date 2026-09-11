@@ -828,6 +828,11 @@ namespace IntraBox.Modules.Diff
             return true;
         }
 
+        public bool HasUnsavedChanges()
+        {
+            return _leftDirty || _rightDirty;
+        }
+
         /// <summary>文件比对且该侧有未保存修改时询问。Cancel 则拒绝离开。</summary>
         private bool ConfirmSaveIfDirty(bool isLeft)
         {

@@ -14,6 +14,7 @@ namespace IntraBox.Core
     {
         private bool _enabled;
         private bool _savedEnabled;
+        private bool _isUnsavedNew;
 
         public bool IsMapping { get; set; }
         public string Raw { get; set; }
@@ -49,6 +50,18 @@ namespace IntraBox.Core
         public bool UnsavedEnabled
         {
             get { return _enabled != _savedEnabled; }
+        }
+
+        /// <summary>本次新增、尚未写入 Hosts 文件的行（表格绿底）。</summary>
+        public bool IsUnsavedNew
+        {
+            get { return _isUnsavedNew; }
+            set
+            {
+                if (_isUnsavedNew == value) return;
+                _isUnsavedNew = value;
+                Raise("IsUnsavedNew");
+            }
         }
 
         public void CaptureSavedEnabled()
@@ -176,7 +189,39 @@ namespace IntraBox.Core
         }
 
         /// <summary>
-        /// 按 fileLines 原顺序输出。已从 mappings 删除的映射行跳过；新建映射追加在末尾。
+        /// 把映射插到选中行下方（表格与文件顺序一致）。无选中行则插在最后一条映射之下；
+        /// 文件里若映射后还有注释，新行加在最后一条映射后、注释前。
+        /// </summary>
+        public static void InsertMappingAfter(
+            IList<HostsEntry> fileLines, IList<HostsEntry> mappings, HostsEntry after, HostsEntry neu)
+        {
+            if (neu == null) return;
+            HostsEntry fileAfter = after;
+            if (mappings != null)
+            {
+                int mapIdx = after == null ? -1 : mappings.IndexOf(after);
+                if (mapIdx >= 0)
+                {
+                    mappings.Insert(mapIdx + 1, neu);
+                }
+                else
+                {
+                    mappings.Add(neu);
+                    if (mappings.Count >= 2)
+                        fileAfter = mappings[mappings.Count - 2];
+                }
+            }
+            if (fileLines != null)
+            {
+                int fileIdx = fileAfter == null ? -1 : fileLines.IndexOf(fileAfter);
+                if (fileIdx >= 0) fileLines.Insert(fileIdx + 1, neu);
+                else fileLines.Add(neu);
+            }
+        }
+
+        /// <summary>
+        /// 按 fileLines 原顺序输出。已从 mappings 删除的映射行跳过；
+        /// 未进入 fileLines 的新建映射追加在末尾。
         /// </summary>
         public static string Render(IList<HostsEntry> fileLines, IList<HostsEntry> mappings, string newLine)
         {

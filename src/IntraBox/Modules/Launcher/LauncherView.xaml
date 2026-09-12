@@ -120,7 +120,7 @@
                                                 Visibility="{Binding ExpanderVisibility}"
                                                 Content="{Binding ExpanderGlyph}" ToolTip="展开/折叠"/>
                                         <TextBlock Grid.Column="1" Text="{Binding Name}" Style="{StaticResource FavCellText}"
-                                                   ToolTip="{Binding Name}" Margin="4,0,0,0"/>
+                                                   ToolTip="{Binding Hint}" Margin="4,0,0,0"/>
                                     </Grid>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
@@ -165,7 +165,8 @@
                                                 Visibility="{Binding OpenOpsVisibility}" Click="OpOpen_Click"/>
                                         <Button Content="移动" Style="{StaticResource RowOpBtn}"
                                                 Visibility="{Binding MoveOpsVisibility}" Click="OpMove_Click"/>
-                                        <Button Content="删除" Style="{StaticResource RowOpBtn}" Click="OpDelete_Click"/>
+                                        <Button Content="删除" Style="{StaticResource RowOpBtn}"
+                                                Visibility="{Binding DeleteOpsVisibility}" Click="OpDelete_Click"/>
                                     </StackPanel>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>

@@ -231,6 +231,38 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
+        public void ScreenDipSize_96DPI_等于像素()
+        {
+            var s = ClipboardImage.ScreenDipSize(1920, 1080, 96, 96);
+            Assert.AreEqual(1920, s.Width, 0.01);
+            Assert.AreEqual(1080, s.Height, 0.01);
+        }
+
+        [TestMethod]
+        public void ScreenDipSize_150百分_按屏幕像素一对一()
+        {
+            var s = ClipboardImage.ScreenDipSize(1920, 1080, 144, 144);
+            Assert.AreEqual(1280, s.Width, 0.01);
+            Assert.AreEqual(720, s.Height, 0.01);
+        }
+
+        [TestMethod]
+        public void ScreenDipSize_DPI无效_回退96()
+        {
+            var s = ClipboardImage.ScreenDipSize(100, 50, 0, -1);
+            Assert.AreEqual(100, s.Width, 0.01);
+            Assert.AreEqual(50, s.Height, 0.01);
+        }
+
+        [TestMethod]
+        public void ScreenDipSize_非法像素_至少为1()
+        {
+            var s = ClipboardImage.ScreenDipSize(0, -3, 96, 96);
+            Assert.AreEqual(1, s.Width, 0.01);
+            Assert.AreEqual(1, s.Height, 0.01);
+        }
+
+        [TestMethod]
         public void ToFrozenBgra32_DPI无效_回退96()
         {
             RunSta(() =>

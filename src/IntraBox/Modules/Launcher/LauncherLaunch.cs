@@ -13,7 +13,8 @@ namespace IntraBox.Modules.Launcher
         {
             if (node == null || node.IsCategory) return false;
             string detail = (node.Name ?? "") + "\n" + (node.Target ?? "");
-            if (LauncherProcess.IsAlreadyRunning(node.Kind, node.Target, node.OpenWith))
+            if (!LauncherSystemCatalog.IsNotepadItem(node.Uid)
+                && LauncherProcess.IsAlreadyRunning(node.Kind, node.Target, node.OpenWith))
             {
                 string again = "该程序已在运行，确定再打开一份？\n\n" + detail;
                 return AskOpen(owner, again);
@@ -75,7 +76,17 @@ namespace IntraBox.Modules.Launcher
                 }
                 return StartShell(openWith, LauncherTarget.QuoteArg(target));
             }
+            if (LauncherSystemCatalog.IsNotepadItem(node.Uid))
+                return StartNotepadEmpty(target);
             return StartShell(target, null);
+        }
+
+        private static bool StartNotepadEmpty(string notepadExe)
+        {
+            string empty = LauncherNotepad.TryCreateEmptyDocument();
+            if (string.IsNullOrEmpty(empty))
+                return StartShell(notepadExe, null);
+            return StartShell(notepadExe, LauncherTarget.QuoteArg(empty));
         }
 
         private static bool StartShell(string fileName, string arguments)

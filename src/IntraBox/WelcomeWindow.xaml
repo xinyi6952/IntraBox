@@ -9,8 +9,10 @@
         <Button DockPanel.Dock="Bottom" Content="开始使用" MinWidth="120" HorizontalAlignment="Right"
                 Style="{StaticResource PrimaryButton}" IsDefault="True" Click="Ok_Click"/>
         <StackPanel>
-            <TextBlock Text="IntraBox（内聚）" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,8"
+            <TextBlock Text="IntraBox（内聚）" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,4"
                        Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock x:Name="VersionText" FontSize="13" Margin="0,0,0,12"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,12" FontSize="14"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        Text="面向内网与开发者的绿色免安装效率工具箱。"/>

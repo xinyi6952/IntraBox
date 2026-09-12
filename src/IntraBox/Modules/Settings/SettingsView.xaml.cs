@@ -48,7 +48,12 @@ namespace IntraBox.Modules.Settings
 
         public SettingsView()
         {
+            _loading = true;
             InitializeComponent();
+            RangeBaseUtil.SetBounds(TrimHighSlider, MemoryTrimPolicy.MinHighMb, MemoryTrimPolicy.MaxHighMb);
+            RangeBaseUtil.SetBounds(TrimLowSlider, MemoryTrimPolicy.MinLowMb, MemoryTrimPolicy.MaxLowMb);
+            VersionText.Text = "版本 " + AppVersion.Display;
+            _loading = false;
         }
 
         public void OnActivated()
@@ -784,10 +789,9 @@ namespace IntraBox.Modules.Settings
 
         private void SyncTrimLowSliderMax(int high)
         {
-            if (TrimLowSlider == null) return;
             int maxLow = high - 20;
             if (maxLow < MemoryTrimPolicy.MinLowMb) maxLow = MemoryTrimPolicy.MinLowMb;
-            TrimLowSlider.Maximum = maxLow;
+            RangeBaseUtil.SetBounds(TrimLowSlider, MemoryTrimPolicy.MinLowMb, maxLow);
         }
 
         private void UpdateTrimLowLabel(int n)
@@ -820,6 +824,19 @@ namespace IntraBox.Modules.Settings
         private void UpdateHistoryDelayLabel(int ms)
         {
             HistoryDelayLabel.Text = ms + " 毫秒";
+        }
+
+        private void VersionText_Click(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                Clipboard.SetText(AppVersion.Full);
+                MsgText.Text = "已复制 " + AppVersion.Full;
+            }
+            catch
+            {
+                MsgText.Text = "复制版本号失败";
+            }
         }
 
         private void Welcome_Click(object sender, RoutedEventArgs e)

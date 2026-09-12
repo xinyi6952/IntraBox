@@ -130,6 +130,20 @@ namespace IntraBox.Core
             return bmp;
         }
 
+        /// <summary>
+        /// 按屏幕 DPI 把像素换成 DIP，使 1 图像素对应 1 屏幕像素。
+        /// 位图常标 96DPI，WPF 按 DIP 排布时在 125%/150% 缩放下会显得被放大。
+        /// dpi 无效时按 96；宽高至少为 1。
+        /// </summary>
+        public static Size ScreenDipSize(int pixelWidth, int pixelHeight, double dpiX, double dpiY)
+        {
+            if (dpiX < 1) dpiX = 96;
+            if (dpiY < 1) dpiY = 96;
+            if (pixelWidth < 1) pixelWidth = 1;
+            if (pixelHeight < 1) pixelHeight = 1;
+            return new Size(pixelWidth * 96.0 / dpiX, pixelHeight * 96.0 / dpiY);
+        }
+
         public static BitmapSource CreateThumb(byte[] bgra, int width, int height, int maxEdge, double dpiX, double dpiY)
         {
             if (bgra == null || width < 1 || height < 1 || maxEdge < 1) return null;

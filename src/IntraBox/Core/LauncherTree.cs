@@ -110,12 +110,22 @@ namespace IntraBox.Core
                 return false;
             }
             string p = newParentUid ?? "";
+            if (LauncherSystemCatalog.IsSystemUid(uid))
+            {
+                error = "系统快捷方式不能移动。";
+                return false;
+            }
             if (p.Length > 0)
             {
                 var parent = Find(nodes, p);
                 if (parent == null || !parent.IsCategory)
                 {
                     error = "目标目录不存在。";
+                    return false;
+                }
+                if (LauncherSystemCatalog.IsSystemUid(p))
+                {
+                    error = "不能移入系统目录。";
                     return false;
                 }
             }
@@ -383,11 +393,25 @@ namespace IntraBox.Core
             list.Sort(CompareSiblings);
         }
 
+        private static int NonSystemCount(List<LauncherNode> accepted)
+        {
+            int c = 0;
+            for (int i = 0; i < accepted.Count; i++)
+            {
+                if (accepted[i] != null && !LauncherSystemCatalog.IsSystemUid(accepted[i].Uid))
+                    c++;
+            }
+            return c;
+        }
+
         private static int CompareSiblings(LauncherNode a, LauncherNode b)
         {
             if (a == null && b == null) return 0;
             if (a == null) return 1;
             if (b == null) return -1;
+            bool aSys = a.Uid == LauncherSystemCatalog.FolderUid;
+            bool bSys = b.Uid == LauncherSystemCatalog.FolderUid;
+            if (aSys != bSys) return aSys ? -1 : 1;
             int pin = b.Pinned.CompareTo(a.Pinned);
             if (pin != 0) return pin;
             int cat = (b.IsCategory ? 1 : 0).CompareTo(a.IsCategory ? 1 : 0);
@@ -400,7 +424,8 @@ namespace IntraBox.Core
         private static void CollectBounded(LauncherNode n, int depth, Dictionary<string, List<LauncherNode>> children,
             List<LauncherNode> accepted, HashSet<string> acceptedIds)
         {
-            if (n == null || accepted.Count >= MaxNodes) return;
+            if (n == null) return;
+            if (!LauncherSystemCatalog.IsSystemUid(n.Uid) && NonSystemCount(accepted) >= MaxNodes) return;
             if (depth >= MaxDepth) return;
             if (!acceptedIds.Add(n.Uid)) return;
             accepted.Add(n);
@@ -484,6 +509,7 @@ namespace IntraBox.Core
             {
                 var n = kids[i];
                 if (!n.IsCategory) continue;
+                if (LauncherSystemCatalog.IsSystemUid(n.Uid)) continue;
                 var catKids = ChildrenOf(children, n.Uid);
                 bool has = false;
                 for (int j = 0; j < catKids.Count; j++)

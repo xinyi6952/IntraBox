@@ -18,6 +18,7 @@ namespace IntraBox.Modules.Vault
         private static Timer _diskTimer;
         private static int _inflight;
         private static bool _loaded;
+        private static bool _writeBlocked;
         private static bool _sampleSeeded;
 
         public static void Reload()
@@ -315,9 +316,11 @@ namespace IntraBox.Modules.Vault
         {
             _items = new List<VaultItem>();
             _sampleSeeded = false;
+            _writeBlocked = false;
             _loaded = true;
             Directory.CreateDirectory(DataPaths.VaultDir);
             string path = DataPaths.VaultIndexJson;
+            bool loadFailed = false;
             if (File.Exists(path))
             {
                 try
@@ -339,9 +342,25 @@ namespace IntraBox.Modules.Vault
                         }
                     }
                 }
-                catch { }
+                catch
+                {
+                    loadFailed = true;
+                }
             }
-            if (!_sampleSeeded)
+            if (loadFailed)
+            {
+                _items = new List<VaultItem>();
+                _sampleSeeded = false;
+                if (!DataFileGuard.TryQuarantine(path))
+                    _writeBlocked = true;
+                else
+                {
+                    _sampleSeeded = true;
+                    try { WriteLocked(); }
+                    catch { }
+                }
+            }
+            else if (!_sampleSeeded)
             {
                 SeedSamplesLocked();
                 _sampleSeeded = true;
@@ -464,6 +483,7 @@ namespace IntraBox.Modules.Vault
 
         private static void WriteLocked()
         {
+            if (_writeBlocked) return;
             Directory.CreateDirectory(DataPaths.VaultDir);
             var file = new VaultIndexFile
             {

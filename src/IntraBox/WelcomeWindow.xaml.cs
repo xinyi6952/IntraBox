@@ -1,4 +1,5 @@
-using System.Windows;
+﻿using System.Windows;
+using IntraBox.Core;
 
 namespace IntraBox
 {
@@ -7,6 +8,8 @@ namespace IntraBox
         public WelcomeWindow()
         {
             InitializeComponent();
+            VersionText.Text = "版本 " + AppVersion.Display;
+            VersionText.ToolTip = AppVersion.Full;
         }
 
         private void Ok_Click(object sender, RoutedEventArgs e)

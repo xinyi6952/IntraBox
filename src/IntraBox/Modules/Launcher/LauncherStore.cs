@@ -3,17 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using IntraBox.Core;
-using Newtonsoft.Json;
 
 namespace IntraBox.Modules.Launcher
 {
-    public sealed class LauncherState
-    {
-        public List<LauncherNode> Nodes { get; set; }
-        public List<LauncherFavorite> Favorites { get; set; }
-        public List<string> Recents { get; set; }
-    }
-
     /// <summary>读写数据根 launcher.json。节点最多 200，收藏深度 8，最近最多 30。</summary>
     public static class LauncherStore
     {
@@ -22,7 +14,10 @@ namespace IntraBox.Modules.Launcher
         private static readonly object _sync = new object();
         private static List<LauncherNode> _nodes = new List<LauncherNode>();
         private static List<string> _recents = new List<string>();
+        private static List<string> _systemPinned = new List<string>();
         private static bool _loaded;
+        /// <summary>原文件损坏且无法挪走时禁止 Flush，避免把用户数据盖成空表。</summary>
+        private static bool _writeBlocked;
 
         public static void Reload()
         {
@@ -36,7 +31,7 @@ namespace IntraBox.Modules.Launcher
         {
             lock (_sync)
             {
-                if (!_loaded) return;
+                if (!_loaded || _writeBlocked) return;
                 try { WriteLocked(); }
                 catch { }
             }
@@ -47,7 +42,7 @@ namespace IntraBox.Modules.Launcher
             EnsureLoaded();
             lock (_sync)
             {
-                return CloneList(_nodes);
+                return MergeLocked();
             }
         }
 
@@ -56,11 +51,12 @@ namespace IntraBox.Modules.Launcher
             EnsureLoaded();
             lock (_sync)
             {
+                var merged = MergeLocked();
                 var list = new List<LauncherNode>();
-                for (int i = 0; i < _nodes.Count; i++)
+                for (int i = 0; i < merged.Count; i++)
                 {
-                    if (_nodes[i] != null && !_nodes[i].IsCategory)
-                        list.Add(LauncherTree.Clone(_nodes[i]));
+                    if (merged[i] != null && !merged[i].IsCategory)
+                        list.Add(merged[i]);
                 }
                 return list;
             }
@@ -81,7 +77,7 @@ namespace IntraBox.Modules.Launcher
             EnsureLoaded();
             lock (_sync)
             {
-                return LauncherTree.Clone(LauncherTree.Find(_nodes, uid));
+                return LauncherTree.Clone(LauncherTree.Find(MergeLocked(), uid));
             }
         }
 
@@ -95,6 +91,11 @@ namespace IntraBox.Modules.Launcher
         public static string TryAddCategory(string parentUid, string name, out string error)
         {
             error = "";
+            if (LauncherSystemCatalog.IsSystemUid(parentUid))
+            {
+                error = "不能在系统目录中新增。";
+                return null;
+            }
             if (string.IsNullOrWhiteSpace(name))
             {
                 error = "请填写目录名称。";
@@ -117,6 +118,11 @@ namespace IntraBox.Modules.Launcher
         public static string TryAddFavorite(string parentUid, string name, string kind, string target, string openWith, bool confirmOpen, out string error)
         {
             error = "";
+            if (LauncherSystemCatalog.IsSystemUid(parentUid))
+            {
+                error = "不能在系统目录中新增。";
+                return null;
+            }
             if (string.IsNullOrWhiteSpace(name))
             {
                 error = "请填写名称。";
@@ -160,6 +166,11 @@ namespace IntraBox.Modules.Launcher
                 error = "目录不存在。";
                 return false;
             }
+            if (LauncherSystemCatalog.IsSystemUid(uid))
+            {
+                error = "系统快捷方式不能修改。";
+                return false;
+            }
             if (string.IsNullOrWhiteSpace(name))
             {
                 error = "请填写目录名称。";
@@ -190,6 +201,11 @@ namespace IntraBox.Modules.Launcher
             if (string.IsNullOrEmpty(uid))
             {
                 error = "收藏不存在。";
+                return false;
+            }
+            if (LauncherSystemCatalog.IsSystemUid(uid))
+            {
+                error = "系统快捷方式不能修改。";
                 return false;
             }
             if (string.IsNullOrWhiteSpace(name))
@@ -232,6 +248,11 @@ namespace IntraBox.Modules.Launcher
                 error = "收藏不存在。";
                 return false;
             }
+            if (LauncherSystemCatalog.IsSystemUid(uid))
+            {
+                error = "系统快捷方式不能移动。";
+                return false;
+            }
             EnsureLoaded();
             lock (_sync)
             {
@@ -257,6 +278,7 @@ namespace IntraBox.Modules.Launcher
         public static bool Remove(string uid)
         {
             if (string.IsNullOrEmpty(uid)) return false;
+            if (LauncherSystemCatalog.IsSystemUid(uid)) return false;
             EnsureLoaded();
             lock (_sync)
             {
@@ -278,9 +300,25 @@ namespace IntraBox.Modules.Launcher
         public static bool SetPinned(string uid, bool pinned)
         {
             if (string.IsNullOrEmpty(uid)) return false;
+            if (LauncherSystemCatalog.IsSystemFolder(uid)) return false;
             EnsureLoaded();
             lock (_sync)
             {
+                if (LauncherSystemCatalog.IsSystemItem(uid))
+                {
+                    var built = LauncherSystemCatalog.BuildCurrent(_systemPinned);
+                    if (LauncherTree.Find(built, uid) == null) return false;
+                    if (pinned)
+                    {
+                        if (!_systemPinned.Contains(uid)) _systemPinned.Add(uid);
+                    }
+                    else
+                    {
+                        _systemPinned.Remove(uid);
+                    }
+                    WriteLocked();
+                    return true;
+                }
                 var cur = LauncherTree.Find(_nodes, uid);
                 if (cur == null) return false;
                 cur.Pinned = pinned;
@@ -296,6 +334,11 @@ namespace IntraBox.Modules.Launcher
             if (string.IsNullOrEmpty(uid))
             {
                 error = "条目不存在。";
+                return null;
+            }
+            if (LauncherSystemCatalog.IsSystemUid(uid))
+            {
+                error = "系统快捷方式不能复制。";
                 return null;
             }
             EnsureLoaded();
@@ -357,6 +400,11 @@ namespace IntraBox.Modules.Launcher
         {
             error = "";
             parentUid = parentUid ?? "";
+            if (LauncherSystemCatalog.IsSystemUid(parentUid))
+            {
+                error = "不能在系统目录中新增。";
+                return false;
+            }
             if (parentUid.Length > 0)
             {
                 var parent = LauncherTree.Find(_nodes, parentUid);
@@ -391,50 +439,61 @@ namespace IntraBox.Modules.Launcher
         {
             _nodes = new List<LauncherNode>();
             _recents = new List<string>();
+            _systemPinned = new List<string>();
+            _writeBlocked = false;
             _loaded = true;
             string path = DataPaths.LauncherJson;
             if (!File.Exists(path)) return;
             try
             {
                 string json = File.ReadAllText(path, Encoding.UTF8);
-                if (string.IsNullOrWhiteSpace(json)) return;
-                var state = JsonConvert.DeserializeObject<LauncherState>(json);
-                if (state == null) return;
-                if (state.Nodes != null && state.Nodes.Count > 0)
-                    _nodes = LauncherTree.Sanitize(state.Nodes);
-                else if (state.Favorites != null && state.Favorites.Count > 0)
+                var loaded = LauncherFile.TryLoad(json, MaxRecents);
+                if (!loaded.Ok)
                 {
-                    _nodes = LauncherTree.MigrateFromFavorites(state.Favorites);
+                    RecoverCorruptLocked(path);
+                    return;
+                }
+                _nodes = loaded.Nodes ?? new List<LauncherNode>();
+                _recents = loaded.Recents ?? new List<string>();
+                _systemPinned = loaded.SystemPinned ?? new List<string>();
+                if (loaded.NeedsRewrite)
+                {
                     try { WriteLocked(); }
                     catch { }
-                }
-                if (state.Recents != null)
-                {
-                    for (int i = 0; i < state.Recents.Count && _recents.Count < MaxRecents; i++)
-                    {
-                        string id = state.Recents[i];
-                        if (string.IsNullOrWhiteSpace(id)) continue;
-                        if (_recents.Contains(id)) continue;
-                        _recents.Add(id);
-                    }
                 }
             }
             catch
             {
+                RecoverCorruptLocked(path);
             }
+        }
+
+        private static void RecoverCorruptLocked(string path)
+        {
+            if (!DataFileGuard.TryQuarantine(path))
+            {
+                _writeBlocked = true;
+                return;
+            }
+            try { WriteLocked(); }
+            catch { }
         }
 
         private static void WriteLocked()
         {
+            if (_writeBlocked) return;
             string path = DataPaths.LauncherJson;
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            var state = new LauncherState
-            {
-                Nodes = CloneList(_nodes),
-                Recents = new List<string>(_recents)
-            };
-            string json = JsonConvert.SerializeObject(state, Formatting.Indented);
+            string json = LauncherFile.Save(CloneList(_nodes), new List<string>(_recents), new List<string>(_systemPinned));
             File.WriteAllText(path, json, new UTF8Encoding(false));
+        }
+
+        private static List<LauncherNode> MergeLocked()
+        {
+            var merged = LauncherSystemCatalog.BuildCurrent(_systemPinned);
+            for (int i = 0; i < _nodes.Count; i++)
+                merged.Add(LauncherTree.Clone(_nodes[i]));
+            return merged;
         }
 
         private static void RemoveRecentLocked(string id)

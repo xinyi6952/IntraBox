@@ -16,7 +16,7 @@ namespace IntraBox.Modules.Launcher
     public partial class LauncherView : UserControl, IModuleView, ILeaveGuard
     {
         private readonly List<FavRow> _rows = new List<FavRow>();
-        private readonly HashSet<string> _collapsed = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> _collapsed = DefaultCollapsed();
         private bool _loading;
         private bool _drawerMax;
         private bool _skipListClick;
@@ -36,6 +36,11 @@ namespace IntraBox.Modules.Launcher
         {
             InitializeComponent();
             SizeChanged += (s, e) => ApplyDrawerSize();
+        }
+
+        private static HashSet<string> DefaultCollapsed()
+        {
+            return new HashSet<string>(StringComparer.Ordinal) { LauncherSystemCatalog.FolderUid };
         }
 
         public void OnActivated()
@@ -186,6 +191,7 @@ namespace IntraBox.Modules.Launcher
             if (src == null) return;
             var row = FavList.SelectedItem as FavRow;
             if (row == null) return;
+            if (LauncherSystemCatalog.IsSystemUid(row.Uid)) return;
             OpenDrawer(row.Uid);
         }
 
@@ -193,6 +199,12 @@ namespace IntraBox.Modules.Launcher
         {
             var row = FavList.SelectedItem as FavRow;
             if (row == null) return;
+            if (LauncherSystemCatalog.IsSystemItem(row.Uid))
+            {
+                OpenRow(row);
+                return;
+            }
+            if (LauncherSystemCatalog.IsSystemFolder(row.Uid)) return;
             OpenDrawer(row.Uid);
         }
 
@@ -217,18 +229,24 @@ namespace IntraBox.Modules.Launcher
             bool has = row != null;
             bool cat = has && row.IsCategory;
             bool pin = has && row.Pinned;
+            bool sys = has && LauncherSystemCatalog.IsSystemUid(row.Uid);
+            bool sysFolder = has && LauncherSystemCatalog.IsSystemFolder(row.Uid);
             for (int i = 0; i < menu.Items.Count; i++)
             {
                 var mi = menu.Items[i] as MenuItem;
                 if (mi == null) continue;
                 string h = mi.Header as string;
                 mi.IsEnabled = has;
-                if (h == "打开" || h == "移动")
+                if (h == "打开")
                     mi.Visibility = has && !cat ? Visibility.Visible : Visibility.Collapsed;
+                if (h == "移动")
+                    mi.Visibility = has && !cat && !sys ? Visibility.Visible : Visibility.Collapsed;
                 if (h == "新增收藏" || h == "新增目录")
-                    mi.Visibility = cat ? Visibility.Visible : Visibility.Collapsed;
-                if (h == "置顶") mi.Visibility = has && !pin ? Visibility.Visible : Visibility.Collapsed;
-                if (h == "取消置顶") mi.Visibility = pin ? Visibility.Visible : Visibility.Collapsed;
+                    mi.Visibility = cat && !sys ? Visibility.Visible : Visibility.Collapsed;
+                if (h == "置顶") mi.Visibility = has && !pin && !sysFolder ? Visibility.Visible : Visibility.Collapsed;
+                if (h == "取消置顶") mi.Visibility = pin && !sysFolder ? Visibility.Visible : Visibility.Collapsed;
+                if (h == "编辑" || h == "复制" || h == "删除")
+                    mi.Visibility = has && !sys ? Visibility.Visible : Visibility.Collapsed;
             }
         }
 
@@ -316,6 +334,11 @@ namespace IntraBox.Modules.Launcher
         {
             if (row == null || !row.IsCategory) return;
             SkipClick();
+            if (LauncherSystemCatalog.IsSystemUid(row.Uid))
+            {
+                MsgText.Text = "不能在系统目录中新增。";
+                return;
+            }
             if (!CloseDrawer()) return;
             ExpandParent(row.Uid);
             OpenDrawerNew(category, row.Uid);
@@ -325,6 +348,7 @@ namespace IntraBox.Modules.Launcher
         {
             if (row == null) return;
             SkipClick();
+            if (LauncherSystemCatalog.IsSystemFolder(row.Uid)) return;
             LauncherStore.SetPinned(row.Uid, pinned);
             RefreshList();
         }
@@ -333,6 +357,11 @@ namespace IntraBox.Modules.Launcher
         {
             if (row == null) return;
             SkipClick();
+            if (LauncherSystemCatalog.IsSystemUid(row.Uid))
+            {
+                MsgText.Text = "系统快捷方式不能复制。";
+                return;
+            }
             if (!CloseDrawer()) return;
             string err;
             string uid = LauncherStore.TryDuplicate(row.Uid, out err);
@@ -351,6 +380,11 @@ namespace IntraBox.Modules.Launcher
         {
             if (row == null || row.IsCategory) return;
             SkipClick();
+            if (LauncherSystemCatalog.IsSystemUid(row.Uid))
+            {
+                MsgText.Text = "系统快捷方式不能移动。";
+                return;
+            }
             if (!CloseDrawer()) return;
             string parent;
             if (!LauncherMoveWindow.TryPick(Window.GetWindow(this), LauncherStore.SnapshotNodes(), row.ParentUid, out parent))
@@ -376,6 +410,11 @@ namespace IntraBox.Modules.Launcher
         {
             if (row == null) return;
             SkipClick();
+            if (LauncherSystemCatalog.IsSystemUid(row.Uid))
+            {
+                MsgText.Text = "系统快捷方式不能删除。";
+                return;
+            }
             string detail = row.Name;
             if (row.IsCategory)
             {
@@ -407,10 +446,16 @@ namespace IntraBox.Modules.Launcher
 
         private void OpenDrawerNew(bool category, string parentUid)
         {
+            parentUid = parentUid ?? "";
+            if (LauncherSystemCatalog.IsSystemUid(parentUid))
+            {
+                MsgText.Text = "不能在系统目录中新增。";
+                return;
+            }
             _isNew = true;
             _editCategory = category;
             _editUid = null;
-            _parentUid = parentUid ?? "";
+            _parentUid = parentUid;
             ExpandParent(_parentUid);
             _loading = true;
             NameBox.Text = "";
@@ -432,6 +477,7 @@ namespace IntraBox.Modules.Launcher
         private void OpenDrawer(string uid)
         {
             if (string.IsNullOrEmpty(uid)) return;
+            if (LauncherSystemCatalog.IsSystemUid(uid)) return;
             if (DrawerHost.Visibility == Visibility.Visible && !_isNew && _editUid == uid)
                 return;
             if (!CloseDrawer()) return;
@@ -757,17 +803,24 @@ namespace IntraBox.Modules.Launcher
             public string ExpanderGlyph { get; set; }
             public Visibility OpenOpsVisibility { get; set; }
             public Visibility MoveOpsVisibility { get; set; }
+            public Visibility DeleteOpsVisibility { get; set; }
+            public string Hint { get; set; }
 
             public static FavRow From(LauncherFlatRow flat)
             {
                 var n = flat.Node;
                 bool cat = n.IsCategory;
+                bool sys = LauncherSystemCatalog.IsSystemUid(n.Uid);
+                bool sysFolder = LauncherSystemCatalog.IsSystemFolder(n.Uid);
+                string kindText = cat
+                    ? (sysFolder ? "系统" : "目录")
+                    : LauncherTarget.KindLabel(n.Kind);
                 return new FavRow
                 {
                     Uid = n.Uid,
                     ParentUid = n.ParentUid ?? "",
                     Name = n.Name ?? "",
-                    KindText = cat ? "目录" : LauncherTarget.KindLabel(n.Kind),
+                    KindText = kindText,
                     Target = cat ? "" : (n.Target ?? ""),
                     OpenWithText = cat ? "" : LauncherTarget.OpenWithLabel(n.Kind, n.OpenWith),
                     Pinned = n.Pinned,
@@ -777,7 +830,9 @@ namespace IntraBox.Modules.Launcher
                     ExpanderVisibility = cat && flat.HasChildren ? Visibility.Visible : Visibility.Collapsed,
                     ExpanderGlyph = flat.Expanded ? "−" : "+",
                     OpenOpsVisibility = cat ? Visibility.Collapsed : Visibility.Visible,
-                    MoveOpsVisibility = cat ? Visibility.Collapsed : Visibility.Visible
+                    MoveOpsVisibility = cat || sys ? Visibility.Collapsed : Visibility.Visible,
+                    DeleteOpsVisibility = sys ? Visibility.Collapsed : Visibility.Visible,
+                    Hint = sys ? "系统自带，不能修改或删除。可置顶或打开。" : (n.Name ?? "")
                 };
             }
         }

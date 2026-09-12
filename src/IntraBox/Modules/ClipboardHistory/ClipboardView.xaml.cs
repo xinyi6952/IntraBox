@@ -129,17 +129,20 @@ namespace IntraBox.Modules.ClipboardHistory
                 ViewerTitle.Text = (item.Preview ?? "[图片]")
                     + "  " + item.Time.ToString("yyyy-MM-dd HH:mm:ss");
                 ViewerImage.Source = src;
-                ViewerImage.Visibility = Visibility.Visible;
-                ViewerText.Visibility = Visibility.Collapsed;
+                ApplyViewerImageSize(src);
+                ViewerImageBox.Visibility = Visibility.Visible;
+                ViewerScroll.Visibility = Visibility.Collapsed;
                 ViewerText.Text = "";
             }
             else
             {
                 ViewerTitle.Text = "文本  " + item.Time.ToString("yyyy-MM-dd HH:mm:ss");
                 ViewerText.Text = item.Text ?? "";
-                ViewerText.Visibility = Visibility.Visible;
-                ViewerImage.Visibility = Visibility.Collapsed;
+                ViewerScroll.Visibility = Visibility.Visible;
+                ViewerImageBox.Visibility = Visibility.Collapsed;
                 ViewerImage.Source = null;
+                ViewerImage.Width = double.NaN;
+                ViewerImage.Height = double.NaN;
             }
             ViewerOverlay.Visibility = Visibility.Visible;
         }
@@ -147,8 +150,30 @@ namespace IntraBox.Modules.ClipboardHistory
         private void ViewerClose_Click(object sender, RoutedEventArgs e)
         {
             ViewerOverlay.Visibility = Visibility.Collapsed;
+            ViewerImageBox.Visibility = Visibility.Collapsed;
+            ViewerScroll.Visibility = Visibility.Visible;
             ViewerImage.Source = null;
+            ViewerImage.Width = double.NaN;
+            ViewerImage.Height = double.NaN;
             ViewerText.Text = "";
+        }
+
+        /// <summary>按屏幕像素 1:1 设 DIP 尺寸；Viewbox 只缩小不放大，完整落入窗口。</summary>
+        private void ApplyViewerImageSize(BitmapSource src)
+        {
+            if (src == null || ViewerImage == null) return;
+            double dpiX = 96;
+            double dpiY = 96;
+            try
+            {
+                var dpi = VisualTreeHelper.GetDpi(this);
+                dpiX = dpi.PixelsPerInchX;
+                dpiY = dpi.PixelsPerInchY;
+            }
+            catch { }
+            Size dip = ClipboardImage.ScreenDipSize(src.PixelWidth, src.PixelHeight, dpiX, dpiY);
+            ViewerImage.Width = dip.Width;
+            ViewerImage.Height = dip.Height;
         }
 
         private void DeleteSelected()

@@ -159,6 +159,12 @@ namespace IntraBox.Core
             CopyFileIfExists(ErrorLog, Path.Combine(dest, "error.log"));
             CopyFileIfExists(GcLog, Path.Combine(dest, "gc.log"));
             CopyFileIfExists(LauncherJson, Path.Combine(dest, "launcher.json"));
+            if (Directory.Exists(src))
+            {
+                string[] baks = Directory.GetFiles(src, "launcher.json*.bak");
+                for (int i = 0; i < baks.Length; i++)
+                    CopyFileIfExists(baks[i], Path.Combine(dest, Path.GetFileName(baks[i])));
+            }
             string todosSrc = TodosDir;
             string todosDest = Path.Combine(dest, "todos");
             if (Directory.Exists(todosSrc))

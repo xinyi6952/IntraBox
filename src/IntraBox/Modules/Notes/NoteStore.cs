@@ -20,6 +20,7 @@ namespace IntraBox.Modules.Notes
         private static int _inflight;
         private static bool _flushing;
         private static bool _loaded;
+        private static bool _writeBlocked;
         private static bool _sampleSeeded;
         private static int _sampleRev;
         private const int CurrentSampleRev = 3;
@@ -310,9 +311,11 @@ namespace IntraBox.Modules.Notes
             _items = new List<NoteItem>();
             _sampleSeeded = false;
             _sampleRev = 0;
+            _writeBlocked = false;
+            string path = DataPaths.NotesIndexJson;
+            bool loadFailed = false;
             try
             {
-                string path = DataPaths.NotesIndexJson;
                 if (File.Exists(path))
                 {
                     string json = File.ReadAllText(path, Encoding.UTF8);
@@ -338,8 +341,21 @@ namespace IntraBox.Modules.Notes
                 _items = new List<NoteItem>();
                 _sampleSeeded = false;
                 _sampleRev = 0;
+                loadFailed = true;
             }
-            if (!_sampleSeeded)
+            if (loadFailed)
+            {
+                if (!DataFileGuard.TryQuarantine(path))
+                    _writeBlocked = true;
+                else
+                {
+                    _sampleSeeded = true;
+                    _sampleRev = CurrentSampleRev;
+                    try { WriteLocked(); }
+                    catch { }
+                }
+            }
+            else if (!_sampleSeeded)
             {
                 SeedSamplesLocked();
                 _sampleSeeded = true;
@@ -575,6 +591,7 @@ namespace IntraBox.Modules.Notes
 
         private static void WriteLocked()
         {
+            if (_writeBlocked) return;
             Directory.CreateDirectory(DataPaths.NotesDir);
             var file = new NoteIndexFile
             {

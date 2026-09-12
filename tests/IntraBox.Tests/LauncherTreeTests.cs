@@ -185,6 +185,11 @@ namespace IntraBox.Tests
             Assert.IsFalse(LauncherTree.CanMoveFavorite(nodes, "f", "missing", out err));
             fav.ParentUid = "p";
             Assert.IsTrue(LauncherTree.CanMoveFavorite(nodes, "f", "p", out err));
+            var sysFav = Item(LauncherSystemCatalog.ItemUid("calc"), LauncherSystemCatalog.FolderUid, "计算器", LauncherTarget.KindApp, @"C:\Windows\System32\calc.exe");
+            var sysCat = Cat(LauncherSystemCatalog.FolderUid, "", LauncherSystemCatalog.FolderName);
+            var withSys = new List<LauncherNode> { sysCat, sysFav, cat, fav };
+            Assert.IsFalse(LauncherTree.CanMoveFavorite(withSys, sysFav.Uid, "p", out err));
+            Assert.IsFalse(LauncherTree.CanMoveFavorite(withSys, "f", LauncherSystemCatalog.FolderUid, out err));
         }
 
         private static LauncherFavorite Fav(string uid, string name, string kind, string target, string cat)

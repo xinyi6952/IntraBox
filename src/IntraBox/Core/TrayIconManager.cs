@@ -20,7 +20,7 @@ namespace IntraBox.Core
             _notifyIcon = new WF.NotifyIcon
             {
                 Icon = ExtractAppIcon(),
-                Text = "IntraBox",
+                Text = AppVersion.ProductTitle,
                 Visible = true
             };
 

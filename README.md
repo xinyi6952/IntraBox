@@ -42,7 +42,8 @@
 ```
 IntraBox/
 ├── IntraBox.sln                 解决方案
-├── build.bat                    构建脚本（编译 + 同步到 dist）
+├── build.bat                    构建脚本（升版本号 + 编译 + 同步到 dist）
+├── version.txt                  产品版本（四段，每次打包最后一段 +1）
 ├── test.bat                     测试脚本（跑 MSTest 单元测试）
 ├── src/IntraBox/                主项目（net48 WPF）
 │   ├── App.xaml(.cs)            应用入口（单实例/托盘/全局异常/热键/剪贴板监听）
@@ -59,8 +60,8 @@ IntraBox/
 
 ## 构建
 
-- **增量构建**：双击 `build.bat`。若托盘里 IntraBox 仍在运行，会弹出确认（默认「否」）；确认后结束进程再编译，产物同步到 `dist/IntraBox/`。
-- **完全重建**：双击 `rebuild.bat` —— 执行前会弹出确认（默认「否」）。确认后若 IntraBox 仍在运行会再询问是否结束进程（默认「否」）。都确认后才删除编译缓存、`dist/IntraBox/`，并清空运行时数据（`%LOCALAPPDATA%\IntraBox\Data`：配置/历史/待办/笔记/账号备忘/启动器等），下次启动回到首次默认（欢迎引导、示例待办）。任一确认取消则不删文件、不结束进程。
+- **增量构建**：双击 `build.bat`。若托盘里 IntraBox 仍在运行，会弹出确认（默认「否」）；确认后结束进程，**产品版本最后一段 +1**，再编译并同步到 `dist/IntraBox/`。
+- **完全重建**：双击 `rebuild.bat` —— 执行前会弹出确认（默认「否」）。确认后若 IntraBox 仍在运行会再询问是否结束进程（默认「否」）。都确认后才升版本号、删除编译缓存、`dist/IntraBox/`，并清空运行时数据（`%LOCALAPPDATA%\IntraBox\Data`：配置/历史/待办/笔记/账号备忘/启动器等），下次启动回到首次默认（欢迎引导、示例待办）。任一确认取消则不升版本、不删文件、不结束进程。
 
 > 运行环境：Win10 1903+ 已预装 .NET Framework 4.8；Win7 SP1 需先装 [.NET Framework 4.8](https://dotnet.microsoft.com/download/dotnet-framework/net48) 与 VC++ 运行库。
 

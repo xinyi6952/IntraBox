@@ -24,6 +24,8 @@ namespace IntraBox
         public MainWindow()
         {
             InitializeComponent();
+            Title = AppVersion.ProductTitle;
+            NavTitle.ToolTip = "版本 " + AppVersion.Display + "（" + AppVersion.Full + "）";
             LoadNav();
             ApplyNavCollapsed(ConfigManager.Instance.Settings.NavCollapsed);
             _memoryTimer.Interval = TimeSpan.FromSeconds(5);

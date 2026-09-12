@@ -48,6 +48,19 @@ if errorlevel 1 (
     exit /b 0
 )
 
+echo Bumping pack version...
+echo --- Version --- >> "%LOG%"
+set "APPVER="
+for /f "usebackq delims=" %%V in (`powershell -NoProfile -ExecutionPolicy Bypass -File "tools\bump-version.ps1"`) do set "APPVER=%%V"
+if not defined APPVER (
+    echo [ERROR] Version bump failed.
+    echo [ERROR] Version bump failed.>> "%LOG%"
+    goto :fail
+)
+echo Pack version: %APPVER%
+echo Pack version: %APPVER%>> "%LOG%"
+echo.
+
 echo Building... NuGet restore then compile. Output is live below (also in build.log).
 echo --- MSBuild --- >> "%LOG%"
 "%MSBUILD%" "src\IntraBox\IntraBox.csproj" /t:"Restore;Build" /p:Configuration=Release /p:NuGetAudit=false /m /v:m /fl "/flp:LogFile=%LOG%;Append;Encoding=UTF-8;Verbosity=minimal"
@@ -82,6 +95,7 @@ echo [OK] Synced to dist.>> "%LOG%"
 echo.
 echo ============================================================
 echo [SUCCESS] Build completed.
+echo   Version: %APPVER%
 echo   Output : src\IntraBox\bin\Release\IntraBox.exe
 echo   Publish: dist\IntraBox\IntraBox.exe
 echo   Log    : build.log

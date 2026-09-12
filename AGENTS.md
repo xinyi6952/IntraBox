@@ -9,6 +9,7 @@
 - 不擅自加 NuGet；确定性逻辑优先 `src/IntraBox/Core/*Helper` + MSTest（`test.bat`）。
 - 新工具：`Modules/` 子目录，注册 `ModuleRegistry`，写入 `NavOrder`；按需加载、用完销毁。
 - 托盘里的 IntraBox 会锁 exe；`build.bat` / `rebuild.bat` 会询问，确认后才结束进程再编，取消则中止。
+- 产品版本在仓库根 `version.txt`（四段有序）。`build.bat` / `rebuild.bat` 开编前把最后一段 +1 并写入 AssemblyInfo；`test.bat` 与 VS F5 不升号。升主/次版本时改 `version.txt` 前两段。与 ConfigVersion / 落盘 FormatVersion 无关。
 - 行为变更时同步 `docs/产品设计文档.md`、`docs/测试用例.md`，必要时 `docs/使用说明.txt`。
 - 未经仓库主人明确要求：不 `git commit`、不 push、不改 git config。
 - 远程：`origin` 为 [Gitee 主仓库](https://gitee.com/xinyi6952/IntraBox)，`github` 为镜像。若主人要求 push，只推 `origin`；不要默认 `git push github`。托管说明见 [docs/开源仓库.md](docs/开源仓库.md)。

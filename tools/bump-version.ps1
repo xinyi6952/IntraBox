@@ -31,11 +31,6 @@ function Format-Full($nums) {
     return "{0}.{1}.{2}.{3}" -f $nums[0], $nums[1], $nums[2], $nums[3]
 }
 
-function Format-Display($nums) {
-    if ($nums[2] -eq 0) { return "{0}.{1}.{2}" -f $nums[0], $nums[1], $nums[3] }
-    return Format-Full $nums
-}
-
 function Bump-Pack($nums) {
     $a = @([int]$nums[0], [int]$nums[1], [int]$nums[2], [int]$nums[3])
     if ($a[3] -lt 65535) { $a[3] = $a[3] + 1 }
@@ -52,7 +47,6 @@ if (-not (Test-Path $versionPath)) {
 $nums = Parse-FourPart ([System.IO.File]::ReadAllText($versionPath))
 if (-not $SyncOnly) { $nums = Bump-Pack $nums }
 $full = Format-Full $nums
-$display = Format-Display $nums
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText($versionPath, $full + "`r`n", $utf8NoBom)
@@ -62,9 +56,9 @@ $asm = [System.IO.File]::ReadAllText($assemblyPath)
 $asm2 = [regex]::Replace($asm, '\[assembly:\s*AssemblyVersion\("[^"]*"\)\]', "[assembly: AssemblyVersion(`"$full`")]")
 $asm2 = [regex]::Replace($asm2, '\[assembly:\s*AssemblyFileVersion\("[^"]*"\)\]', "[assembly: AssemblyFileVersion(`"$full`")]")
 if ($asm2 -match 'AssemblyInformationalVersion') {
-    $asm2 = [regex]::Replace($asm2, '\[assembly:\s*AssemblyInformationalVersion\("[^"]*"\)\]', "[assembly: AssemblyInformationalVersion(`"$display`")]")
+    $asm2 = [regex]::Replace($asm2, '\[assembly:\s*AssemblyInformationalVersion\("[^"]*"\)\]', "[assembly: AssemblyInformationalVersion(`"$full`")]")
 } else {
-    $asm2 = [regex]::Replace($asm2, '(\[assembly:\s*AssemblyFileVersion\("[^"]*"\)\])', "`$1`r`n[assembly: AssemblyInformationalVersion(`"$display`")]")
+    $asm2 = [regex]::Replace($asm2, '(\[assembly:\s*AssemblyFileVersion\("[^"]*"\)\])', "`$1`r`n[assembly: AssemblyInformationalVersion(`"$full`")]")
 }
 if ($asm2 -eq $asm -and $asm -notmatch [regex]::Escape($full)) {
     throw "Failed to patch AssemblyVersion in AssemblyInfo.cs"
@@ -72,5 +66,5 @@ if ($asm2 -eq $asm -and $asm -notmatch [regex]::Escape($full)) {
 $utf8Bom = New-Object System.Text.UTF8Encoding $true
 [System.IO.File]::WriteAllText($assemblyPath, $asm2, $utf8Bom)
 
-Write-Host ("Pack version {0} (display {1})" -f $full, $display)
+Write-Host ("Pack version {0}" -f $full)
 Write-Output $full

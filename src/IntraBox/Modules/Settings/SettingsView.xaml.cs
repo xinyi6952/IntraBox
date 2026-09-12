@@ -830,8 +830,8 @@ namespace IntraBox.Modules.Settings
         {
             try
             {
-                Clipboard.SetText(AppVersion.Full);
-                MsgText.Text = "已复制 " + AppVersion.Full;
+                Clipboard.SetText(AppVersion.Display);
+                MsgText.Text = "已复制 " + AppVersion.Display;
             }
             catch
             {

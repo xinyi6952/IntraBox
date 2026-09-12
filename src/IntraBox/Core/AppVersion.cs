@@ -5,7 +5,7 @@ namespace IntraBox.Core
 {
     /// <summary>
     /// 产品版本：四段有序数字 主.次.修订.打包。
-    /// 界面展示在修订为 0 时写成 主.次.打包（如 1.0.312）。
+    /// 窗口标题、托盘、设置、欢迎页与 exe 属性都用同一串（如 1.0.0.312）。
     /// 与 config/launcher 等数据格式版本无关。
     /// </summary>
     public static class AppVersion
@@ -27,13 +27,13 @@ namespace IntraBox.Core
             }
         }
 
-        /// <summary>界面用短号，如 1.0.312。</summary>
+        /// <summary>界面与文件属性同一串四段号，如 1.0.0.312。</summary>
         public static string Display
         {
-            get { return FormatDisplay(Current); }
+            get { return Full; }
         }
 
-        /// <summary>四段全号，如 1.0.0.312，用于比较与文件属性。</summary>
+        /// <summary>四段全号，如 1.0.0.312。</summary>
         public static string Full
         {
             get { return FormatFull(Current); }
@@ -64,9 +64,6 @@ namespace IntraBox.Core
 
         public static string FormatDisplay(Version v)
         {
-            v = Normalize(v);
-            if (v.Build == 0)
-                return v.Major + "." + v.Minor + "." + v.Revision;
             return FormatFull(v);
         }
 

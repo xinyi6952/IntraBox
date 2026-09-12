@@ -278,7 +278,7 @@
                 </StackPanel>
                 <TextBlock x:Name="VersionText" HorizontalAlignment="Right" VerticalAlignment="Center"
                            Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"
-                           ToolTip="点击复制完整版本号" MouseLeftButtonUp="VersionText_Click"/>
+                           ToolTip="点击复制版本号" MouseLeftButtonUp="VersionText_Click"/>
             </Grid>
         </Border>
     </Grid>

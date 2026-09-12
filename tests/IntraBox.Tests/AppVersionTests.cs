@@ -8,16 +8,12 @@ namespace IntraBox.Tests
     public class AppVersionTests
     {
         [TestMethod]
-        public void FormatDisplay_修订为0时写成三段()
+        public void FormatDisplay_始终四段与全号相同()
         {
-            Assert.AreEqual("1.0.312", AppVersion.FormatDisplay(new Version(1, 0, 0, 312)));
-            Assert.AreEqual("1.0.0", AppVersion.FormatDisplay(new Version(1, 0, 0, 0)));
-        }
-
-        [TestMethod]
-        public void FormatDisplay_修订非0时保留四段()
-        {
+            Assert.AreEqual("1.0.0.312", AppVersion.FormatDisplay(new Version(1, 0, 0, 312)));
+            Assert.AreEqual("1.0.0.0", AppVersion.FormatDisplay(new Version(1, 0, 0, 0)));
             Assert.AreEqual("1.1.2.3", AppVersion.FormatDisplay(new Version(1, 1, 2, 3)));
+            Assert.AreEqual(AppVersion.FormatFull(new Version(1, 0, 0, 4)), AppVersion.FormatDisplay(new Version(1, 0, 0, 4)));
         }
 
         [TestMethod]
@@ -54,13 +50,14 @@ namespace IntraBox.Tests
             Version v;
             Assert.IsFalse(AppVersion.TryParse("  ", out v));
             Assert.IsTrue(AppVersion.TryParse("1.0.0.2", out v));
-            Assert.AreEqual("1.0.2", AppVersion.FormatDisplay(v));
+            Assert.AreEqual("1.0.0.2", AppVersion.FormatDisplay(v));
         }
 
         [TestMethod]
-        public void ProductTitle_含IntraBox与展示号()
+        public void ProductTitle_含IntraBox与四段号()
         {
             StringAssert.StartsWith(AppVersion.ProductTitle, "IntraBox ");
+            Assert.AreEqual(AppVersion.Full, AppVersion.Display);
             Assert.AreEqual(AppVersion.Display, AppVersion.FormatDisplay(AppVersion.Current));
         }
     }

@@ -9,7 +9,7 @@ namespace IntraBox
         {
             InitializeComponent();
             VersionText.Text = "版本 " + AppVersion.Display;
-            VersionText.ToolTip = AppVersion.Full;
+            VersionText.ToolTip = AppVersion.Display;
         }
 
         private void Ok_Click(object sender, RoutedEventArgs e)

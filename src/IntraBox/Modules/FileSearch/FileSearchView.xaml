@@ -10,7 +10,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <WrapPanel Margin="0,0,0,8">
-            <TextBlock Text="目录" VerticalAlignment="Center" Margin="0,4,8,4"
+            <controls:RequiredLabel Text="目录" VerticalAlignment="Center" Margin="0,4,8,4"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
             <TextBox x:Name="DirBox" Width="320" Margin="0,4,8,4"/>
             <Button Content="浏览…" Click="Browse_Click" Margin="0,4,12,4"/>

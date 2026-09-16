@@ -20,7 +20,7 @@
                        Foreground="{DynamicResource OkBrush}" TextWrapping="Wrap"/>
         </WrapPanel>
 
-        <TextBlock x:Name="InputCaption" Grid.Row="1" Text="输入（文本或 Base64 字符串）" Margin="0,0,0,4"
+        <controls:RequiredLabel x:Name="InputCaption" Grid.Row="1" Text="输入（文本或 Base64 字符串）" Margin="0,0,0,4"
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
         <controls:CodeEditor x:Name="InputBox" Grid.Row="2"/>
 

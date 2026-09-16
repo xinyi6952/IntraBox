@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
+using IntraBox.Controls;
 
 namespace IntraBox.Core
 {
@@ -19,7 +20,7 @@ namespace IntraBox.Core
         public UIElement CurrentView { get { return _current; } }
 
         /// <summary>
-        /// 激活指定模块。若当前模块拒绝离开（未保存），返回 false 且不切换。
+        /// 激活指定模块。若当前模块拒绝离开（在途任务或未保存），返回 false 且不切换。
         /// </summary>
         public bool Activate(ModuleInfo info, ContentControl host)
         {
@@ -53,8 +54,35 @@ namespace IntraBox.Core
 
         private bool TryLeave()
         {
+            if (!ConfirmBusyLeave()) return false;
             var guard = _current as ILeaveGuard;
             return guard == null || guard.CanLeave();
+        }
+
+        /// <summary>
+        /// 在途任务：IBusyTool 优先；否则当前视图若挂着 LoadingOverlay 也确认。
+        /// 确认离开后由 DestroyCurrent → OnDeactivated 取消任务。
+        /// </summary>
+        private bool ConfirmBusyLeave()
+        {
+            var busy = _current as IBusyTool;
+            if (busy != null)
+                return BusyLeaveHelper.ConfirmIfBusy(busy.IsBusy, busy.BusyMessage);
+
+            var fe = _current as FrameworkElement;
+            if (fe != null && LoadingOverlay.IsShowing(fe))
+                return BusyLeaveHelper.ConfirmIfBusy(true, null);
+
+            return true;
+        }
+
+        /// <summary>托盘静默卸载：有在途任务则放弃（不弹窗）。</summary>
+        private bool HasBusyWork()
+        {
+            var busy = _current as IBusyTool;
+            if (busy != null && busy.IsBusy) return true;
+            var fe = _current as FrameworkElement;
+            return fe != null && LoadingOverlay.IsShowing(fe);
         }
 
         /// <summary>销毁当前模块：触发释放回调并断开引用，交由 GC 回收。</summary>
@@ -78,10 +106,11 @@ namespace IntraBox.Core
             DestroyCollect(leaving, cause);
         }
 
-        /// <summary>托盘超时卸载：有未保存则放弃且不弹窗。</summary>
+        /// <summary>托盘超时卸载：有未保存或在途任务则放弃且不弹窗。</summary>
         public bool TryDestroySilent()
         {
             if (_current == null) return true;
+            if (HasBusyWork()) return false;
             var guard = _current as ILeaveGuard;
             if (guard != null && guard.HasUnsavedChanges()) return false;
             DestroyCurrent("tray-unload");

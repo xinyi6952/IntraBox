@@ -197,11 +197,11 @@ namespace IntraBox.Modules.Vault
         {
             var view = VaultList != null ? VaultList.View as GridView : null;
             if (view == null || view.Columns.Count < 5) return;
-            view.Columns[0].Header = SortTitle("置顶", "pin");
-            view.Columns[1].Header = SortTitle("分类", "title");
-            view.Columns[2].Header = SortTitle("条数", "count");
-            view.Columns[3].Header = SortTitle("创建时间", "created");
-            view.Columns[4].Header = SortTitle("修改时间", "updated");
+            view.Columns[0].Header = SortTitle("分类", "title");
+            view.Columns[1].Header = SortTitle("条数", "count");
+            view.Columns[2].Header = SortTitle("创建时间", "created");
+            view.Columns[3].Header = SortTitle("修改时间", "updated");
+            view.Columns[4].Header = SortTitle("置顶", "pin");
         }
 
         private static string SortKeyFromHeader(string content)
@@ -233,8 +233,8 @@ namespace IntraBox.Modules.Vault
             if (gv == null || gv.Columns.Count < 5) return;
             double w = VaultList.ActualWidth - SystemParameters.VerticalScrollBarWidth - 8;
             if (w < 200) return;
-            double[] min = { 52, 140, 52, 128, 128 };
-            double need = 52 + 140 + 52 + 128 + 128;
+            double[] min = { 140, 52, 128, 128, 52 };
+            double need = 140 + 52 + 128 + 128 + 52;
             if (w <= need)
             {
                 for (int i = 0; i < 5; i++)
@@ -242,11 +242,11 @@ namespace IntraBox.Modules.Vault
                 return;
             }
             double extra = w - need;
-            gv.Columns[0].Width = 52;
-            gv.Columns[1].Width = 140 + extra;
-            gv.Columns[2].Width = 52;
+            gv.Columns[0].Width = 140 + extra;
+            gv.Columns[1].Width = 52;
+            gv.Columns[2].Width = 128;
             gv.Columns[3].Width = 128;
-            gv.Columns[4].Width = 128;
+            gv.Columns[4].Width = 52;
         }
 
         private void VaultList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -349,21 +349,21 @@ namespace IntraBox.Modules.Vault
             string uid = SelectedUid();
             if (string.IsNullOrEmpty(uid))
             {
-                MsgText.Text = "请先选择一个分类";
+                FormHint.Apply(MsgText, "请先选择一个分类");
                 return;
             }
             string text, err;
             if (!TryPlaintext(uid, out text, out err))
             {
-                if (!string.IsNullOrEmpty(err)) MsgText.Text = err;
+                if (!string.IsNullOrEmpty(err)) FormHint.Apply(MsgText, err);
                 return;
             }
             if (!VaultClipboard.TryCopy(text, out err))
             {
-                MsgText.Text = err ?? "复制失败";
+                FormHint.Apply(MsgText, err ?? "复制失败");
                 return;
             }
-            MsgText.Text = "已复制全部账号密码";
+            FormHint.Apply(MsgText, "已复制全部账号密码");
         }
 
         private void ExportSelected()
@@ -371,13 +371,13 @@ namespace IntraBox.Modules.Vault
             string uid = SelectedUid();
             if (string.IsNullOrEmpty(uid))
             {
-                MsgText.Text = "请先选择一个分类";
+                FormHint.Apply(MsgText, "请先选择一个分类");
                 return;
             }
             string text, err;
             if (!TryPlaintext(uid, out text, out err))
             {
-                if (!string.IsNullOrEmpty(err)) MsgText.Text = err;
+                if (!string.IsNullOrEmpty(err)) FormHint.Apply(MsgText, err);
                 return;
             }
             string title = DrawerHost.Visibility == Visibility.Visible && DrawerEditor.CurrentUid == uid
@@ -392,7 +392,7 @@ namespace IntraBox.Modules.Vault
             try
             {
                 File.WriteAllText(dlg.FileName, text, new UTF8Encoding(true));
-                MsgText.Text = "已导出";
+                FormHint.Apply(MsgText, "已导出");
             }
             catch (Exception ex)
             {
@@ -405,13 +405,13 @@ namespace IntraBox.Modules.Vault
             string uid = SelectedUid();
             if (string.IsNullOrEmpty(uid))
             {
-                MsgText.Text = "请先选择或打开一个分类";
+                FormHint.Apply(MsgText, "请先选择或打开一个分类");
                 return;
             }
             var meta = VaultStore.GetByUid(uid);
             if (meta != null && meta.ReadOnly)
             {
-                MsgText.Text = "已锁定，只能查看。取消勾选「锁定」后才能导入。";
+                FormHint.Apply(MsgText, "已锁定，只能查看。取消勾选「锁定」后才能导入。");
                 return;
             }
             var dlg = new OpenFileDialog { Filter = "文本|*.txt|所有文件|*.*" };
@@ -435,13 +435,13 @@ namespace IntraBox.Modules.Vault
             var parsed = VaultText.ParseExport(raw);
             if (parsed.Count == 0)
             {
-                MsgText.Text = "没有可导入的账号密码";
+                FormHint.Apply(MsgText, "没有可导入的账号密码");
                 return;
             }
             if (DrawerHost.Visibility == Visibility.Visible && DrawerEditor.CurrentUid == uid)
             {
                 int n = DrawerEditor.ImportEntries(parsed);
-                MsgText.Text = n == 0 ? "没有可导入的账号密码" : "已导入 " + n + " 条";
+                FormHint.Apply(MsgText, n == 0 ? "没有可导入的账号密码" : "已导入 " + n + " 条");
                 return;
             }
             if (meta == null) return;
@@ -463,7 +463,7 @@ namespace IntraBox.Modules.Vault
                 return;
             }
             RefreshListKeep();
-            MsgText.Text = "已导入 " + parsed.Count + " 条";
+            FormHint.Apply(MsgText, "已导入 " + parsed.Count + " 条");
         }
 
         private bool TryPlaintext(string uid, out string text, out string error)
@@ -517,7 +517,7 @@ namespace IntraBox.Modules.Vault
             if (row == null) return;
             if (row.Locked)
             {
-                MsgText.Text = "已锁定，只能查看。取消勾选「锁定」后才能编辑或删除。";
+                FormHint.Apply(MsgText, "已锁定，只能查看。取消勾选「锁定」后才能编辑或删除。");
                 return;
             }
             VaultStore.SetPinned(row.Uid, true);
@@ -530,7 +530,7 @@ namespace IntraBox.Modules.Vault
             if (row == null) return;
             if (row.Locked)
             {
-                MsgText.Text = "已锁定，只能查看。取消勾选「锁定」后才能编辑或删除。";
+                FormHint.Apply(MsgText, "已锁定，只能查看。取消勾选「锁定」后才能编辑或删除。");
                 return;
             }
             VaultStore.SetPinned(row.Uid, false);
@@ -543,7 +543,7 @@ namespace IntraBox.Modules.Vault
             if (row == null) return;
             if (row.Locked)
             {
-                MsgText.Text = "已锁定，只能查看。取消勾选「锁定」后才能删除。";
+                FormHint.Apply(MsgText, "已锁定，只能查看。取消勾选「锁定」后才能删除。");
                 return;
             }
             if (!ConfirmHelper.Delete(row.Title)) return;
@@ -553,7 +553,7 @@ namespace IntraBox.Modules.Vault
                 return;
             VaultStore.Delete(row.Uid);
             RefreshList();
-            MsgText.Text = "已删除";
+            FormHint.Apply(MsgText, "已删除");
         }
 
         private void SkipClick()

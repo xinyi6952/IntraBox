@@ -1,114 +1,130 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using IntraBox.Controls;
+using System.Windows.Input;
 using IntraBox.Core;
 
 namespace IntraBox.Modules.Timestamp
 {
     /// <summary>
-    /// 时间戳转换：Unix 时间戳（秒/毫秒）与可读时间互转。
-    /// 容错：非法数字/日期以非阻断方式提示。
+    /// 时间转换：识别常见乱格式，列出本地/UTC/ISO/RFC/Unix/中文等可互抄写法。
     /// </summary>
     public partial class TimestampView : UserControl, IModuleView
     {
+        private bool _loading;
+
         public TimestampView()
         {
             InitializeComponent();
-            OutputBox.MaximizeToggle += (s, e) =>
+            FilterBar.Attach(ResultGrid);
+            InputBox.TextChangedByUser += (s, e) =>
             {
-                bool on = !OutputBox.IsMaximized;
-                InPlaceMaximize.Apply(on, OutputBox, 4, 5, ToolbarPanel, InputCaption, InputBox, OutputCaption);
-                OutputBox.IsMaximized = on;
+                if (!_loading) ConvertCore(false);
             };
-        }
-
-        // 当前单位是否为「秒」（index 0 = 秒，1 = 毫秒）
-        private bool IsSeconds => UnitCombo.SelectedIndex == 0;
-
-        // 时间戳 → 时间
-        private void TsToTime_Click(object sender, RoutedEventArgs e)
-        {
-            ClearMsg();
-            if (string.IsNullOrWhiteSpace(InputBox.Text)) { SetMsg("输入不能为空"); return; }
-            long v;
-            if (!long.TryParse(InputBox.Text.Trim(), out v))
-            {
-                SetMsg("错误：请输入合法的整数时间戳");
-                return;
-            }
-
-            try
-            {
-                var dto = IsSeconds
-                    ? DateTimeOffset.FromUnixTimeSeconds(v)
-                    : DateTimeOffset.FromUnixTimeMilliseconds(v);
-                OutputBox.Text = dto.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SetMsg("错误：时间戳超出有效范围");
-            }
-        }
-
-        // 时间 → 时间戳
-        private void TimeToTs_Click(object sender, RoutedEventArgs e)
-        {
-            ClearMsg();
-            if (string.IsNullOrWhiteSpace(InputBox.Text)) { SetMsg("输入不能为空"); return; }
-            DateTime dt;
-            if (!DateTime.TryParse(InputBox.Text.Trim(), out dt))
-            {
-                SetMsg("错误：无法解析为时间，请使用如 2026-08-22 12:30:00 的格式");
-                return;
-            }
-
-            var dto = new DateTimeOffset(dt);
-            OutputBox.Text = IsSeconds
-                ? dto.ToUnixTimeSeconds().ToString()
-                : dto.ToUnixTimeMilliseconds().ToString();
-        }
-
-        // 填入当前时间
-        private void FillNow_Click(object sender, RoutedEventArgs e)
-        {
-            ClearMsg();
-            InputBox.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-        }
-
-        private void SetMsg(string text)
-        {
-            MsgText.Text = text;
-        }
-
-        private void ClearMsg()
-        {
-            MsgText.Text = "";
         }
 
         public void OnActivated()
         {
             Dictionary<string, object> state;
-            if (!HistoryManager.TryLoad("timestamp", out state)) return;
-            SetComboIndex(UnitCombo, HistoryManager.GetInt(state, "unit", 0));
-            InputBox.Text = HistoryManager.GetString(state, "input");
+            _loading = true;
+            if (HistoryManager.TryLoad("timestamp", out state))
+                InputBox.Text = HistoryManager.GetString(state, "input");
+            _loading = false;
+            ConvertCore(false);
         }
 
         public void OnDeactivated()
         {
             HistoryManager.Save("timestamp", new Dictionary<string, object>
             {
-                { "input", InputBox.Text ?? "" },
-                { "unit", UnitCombo.SelectedIndex }
+                { "input", InputBox.Text ?? "" }
             });
         }
 
-        private static void SetComboIndex(ComboBox combo, int index)
+        private void Convert_Click(object sender, RoutedEventArgs e)
         {
-            if (combo == null || combo.Items.Count == 0) return;
-            if (index < 0 || index >= combo.Items.Count) return;
-            combo.SelectedIndex = index;
+            ConvertCore(true);
+        }
+
+        private void FillNow_Click(object sender, RoutedEventArgs e)
+        {
+            _loading = true;
+            InputBox.Text = DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            _loading = false;
+            ConvertCore(true);
+        }
+
+        private void ConvertCore(bool fromButton)
+        {
+            string text = InputBox.Text ?? "";
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                ResultGrid.ItemsSource = null;
+                if (fromButton) SetMsg("请填写时间", true);
+                else SetMsg("", false);
+                return;
+            }
+
+            TimeParseResult parsed;
+            string err;
+            if (!TimestampHelper.TryParse(text, DateTimeOffset.Now, out parsed, out err))
+            {
+                ResultGrid.ItemsSource = null;
+                SetMsg(err, true);
+                return;
+            }
+
+            TimeSpan localOff = TimeZoneInfo.Local.GetUtcOffset(parsed.Instant.UtcDateTime);
+            var rows = TimestampHelper.FormatRows(parsed, localOff);
+            ResultGrid.ItemsSource = rows;
+            FilterBar.Apply();
+            SetMsg("已识别为" + parsed.Kind + "，列出 " + rows.Count + " 种写法。", false);
+        }
+
+        private void Copy_Click(object sender, RoutedEventArgs e)
+        {
+            CopyRows(ResultGrid.ItemsSource as List<TimeFormatRow>);
+        }
+
+        private void Value_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            var fe = sender as FrameworkElement;
+            CopyValue(fe != null ? fe.DataContext as TimeFormatRow : null);
+            e.Handled = true;
+        }
+
+        private void CopyValue(TimeFormatRow row)
+        {
+            if (row == null || string.IsNullOrEmpty(row.Value)) return;
+            string err;
+            if (ClipboardHelper.TrySetText(row.Value, out err)) SetMsg("已复制 " + row.Name, false);
+            else SetMsg(err, true);
+        }
+
+        private void CopyRows(List<TimeFormatRow> rows)
+        {
+            if (rows == null || rows.Count == 0)
+            {
+                SetMsg("没有可复制的内容", true);
+                return;
+            }
+            var sb = new StringBuilder();
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var r = rows[i];
+                if (r == null) continue;
+                sb.Append(r.Name).Append('\t').AppendLine(r.Value);
+            }
+            string err;
+            if (ClipboardHelper.TrySetText(sb.ToString(), out err)) SetMsg("已复制", false);
+            else SetMsg(err, true);
+        }
+
+        private void SetMsg(string t, bool err)
+        {
+            FormHint.Apply(MsgText, t, err);
         }
     }
 }

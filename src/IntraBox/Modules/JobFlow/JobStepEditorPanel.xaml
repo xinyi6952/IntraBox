@@ -1,0 +1,230 @@
+﻿<UserControl x:Class="IntraBox.Modules.JobFlow.JobStepEditorPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="JobAutoGrowBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
+            <Setter Property="AcceptsReturn" Value="True"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+        </Style>
+    </UserControl.Resources>
+    <StackPanel>
+        <WrapPanel Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,12,4">
+                <TextBlock Text="*" Foreground="{DynamicResource DangerBrush}" FontWeight="Bold" Margin="0,0,4,0"/>
+                <TextBlock Text="名称" VerticalAlignment="Center"/>
+            </StackPanel>
+            <Grid Width="220" Margin="0,4,12,4">
+                <TextBox x:Name="StepNameBox" TextChanged="Cue_Changed"/>
+                <TextBlock x:Name="StepNameCue" Text="登录取 token" IsHitTestVisible="False"
+                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+            </Grid>
+            <TextBlock x:Name="KindLabel" VerticalAlignment="Center" Margin="0,4,12,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <CheckBox x:Name="StepEnabledCheck" Content="启用" Margin="0,4,12,4" IsChecked="True"/>
+            <TextBlock Text="超时秒" VerticalAlignment="Center" Margin="0,4,8,4"/>
+            <Grid Width="88" Margin="0,4,8,4">
+                <TextBox x:Name="TimeoutBox" TextChanged="Cue_Changed"/>
+                <TextBlock x:Name="TimeoutCue" Text="空则不超时" IsHitTestVisible="False"
+                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </Grid>
+        </WrapPanel>
+
+        <StackPanel x:Name="RestPanel">
+            <WrapPanel Margin="0,0,0,6">
+                <TextBlock Text="*" Foreground="{DynamicResource DangerBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,4,4,4"/>
+                <TextBlock Text="方法" VerticalAlignment="Center" Margin="0,4,8,4"/>
+                <ComboBox x:Name="MethodCombo" Width="90" Margin="0,4,12,4">
+                    <ComboBoxItem Content="GET"/>
+                    <ComboBoxItem Content="POST"/>
+                    <ComboBoxItem Content="PUT"/>
+                    <ComboBoxItem Content="PATCH"/>
+                    <ComboBoxItem Content="DELETE"/>
+                </ComboBox>
+                <Button Content="粘贴 curl 识别" Style="{StaticResource BarMenuButton}" Margin="0,4,8,4" Click="PasteCurl_Click"/>
+            </WrapPanel>
+            <DockPanel Margin="0,0,0,6">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,6,8,0" Width="64">
+                    <TextBlock Text="*" Foreground="{DynamicResource DangerBrush}" FontWeight="Bold" Margin="0,0,4,0"/>
+                    <TextBlock Text="URL"/>
+                </StackPanel>
+                <Grid>
+                    <TextBox x:Name="UrlBox" AcceptsReturn="False" TextChanged="Cue_Changed"/>
+                    <TextBlock x:Name="UrlCue" Text="https://api.example.com/login" IsHitTestVisible="False"
+                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </Grid>
+            </DockPanel>
+            <DockPanel Margin="0,4,0,6">
+                <TextBlock DockPanel.Dock="Left" Text="Header" VerticalAlignment="Top" Margin="0,6,8,0" Width="64"/>
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,4">
+                        <Button DockPanel.Dock="Right" Content="删行" Style="{StaticResource BarMenuButton}" Click="DelHeader_Click"/>
+                        <Button DockPanel.Dock="Right" Content="增行" Style="{StaticResource BarMenuButton}" Margin="0,0,8,0" Click="AddHeader_Click"/>
+                        <TextBlock Text="表格编辑，取消勾选等于暂时不用该头。新建 REST 已带 Content-Type / Accept。"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <DataGrid x:Name="HeaderGrid" Height="132" AutoGenerateColumns="False" CanUserAddRows="False"
+                              HeadersVisibility="Column" BorderThickness="1">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="启用" Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Width="50"/>
+                            <DataGridTextColumn Header="名称" Binding="{Binding Name, UpdateSourceTrigger=LostFocus}" Width="140"
+                                                ElementStyle="{StaticResource DataGridEllipsisText}"/>
+                            <DataGridTextColumn Header="值" Binding="{Binding Value, UpdateSourceTrigger=LostFocus}" Width="*"
+                                                ElementStyle="{StaticResource DataGridEllipsisText}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </DockPanel>
+            <DockPanel Margin="0,0,0,6">
+                <TextBlock DockPanel.Dock="Left" Text="Body" VerticalAlignment="Top" Margin="0,6,8,0" Width="64"/>
+                <Grid>
+                    <TextBox x:Name="BodyBox" Style="{StaticResource JobAutoGrowBox}" MinHeight="90" MaxHeight="360"
+                             FontFamily="Consolas" TextChanged="Cue_Changed"/>
+                    <TextBlock x:Name="BodyCue" Text=""
+                               IsHitTestVisible="False" Foreground="{DynamicResource TextSecondaryBrush}"
+                               Margin="10,8,0,0"/>
+                </Grid>
+            </DockPanel>
+        </StackPanel>
+
+        <StackPanel x:Name="SoapPanel" Visibility="Collapsed">
+            <DockPanel Margin="0,0,0,6">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,6,8,0" Width="64">
+                    <TextBlock Text="*" Foreground="{DynamicResource DangerBrush}" FontWeight="Bold" Margin="0,0,4,0"/>
+                    <TextBlock Text="端点"/>
+                </StackPanel>
+                <Grid>
+                    <TextBox x:Name="SoapUrlBox" AcceptsReturn="False" TextChanged="Cue_Changed"/>
+                    <TextBlock x:Name="SoapUrlCue" Text="http://localhost:8080/demo" IsHitTestVisible="False"
+                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </Grid>
+            </DockPanel>
+            <WrapPanel Margin="0,0,0,6">
+                <TextBlock Text="版本" VerticalAlignment="Center" Margin="0,4,8,4"/>
+                <ComboBox x:Name="SoapVerCombo" Width="70" Margin="0,4,12,4">
+                    <ComboBoxItem Content="1.1"/>
+                    <ComboBoxItem Content="1.2"/>
+                </ComboBox>
+                <TextBlock Text="Action" VerticalAlignment="Center" Margin="0,4,8,4"/>
+                <TextBox x:Name="SoapActionBox" Width="220" Margin="0,4,8,4"/>
+                <Button Content="导入 WSDL" Style="{StaticResource BarMenuButton}" Margin="0,4,8,4" Click="ImportWsdl_Click"/>
+            </WrapPanel>
+            <DockPanel Margin="0,0,0,6">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,6,8,0" Width="64">
+                    <TextBlock Text="*" Foreground="{DynamicResource DangerBrush}" FontWeight="Bold" Margin="0,0,4,0"/>
+                    <TextBlock Text="信封"/>
+                </StackPanel>
+                <TextBox x:Name="EnvelopeBox" Style="{StaticResource JobAutoGrowBox}" MinHeight="120" MaxHeight="360" FontFamily="Consolas"/>
+            </DockPanel>
+            <DockPanel Margin="0,0,0,6">
+                <TextBlock DockPanel.Dock="Left" Text="xmlns" VerticalAlignment="Top" Margin="0,6,8,0" Width="64"/>
+                <TextBox x:Name="NsBox" Style="{StaticResource JobAutoGrowBox}" MinHeight="48" MaxHeight="160" FontFamily="Consolas"
+                         ToolTip="每行 prefix=uri"/>
+            </DockPanel>
+        </StackPanel>
+
+        <StackPanel x:Name="OpenPanel" Visibility="Collapsed">
+            <DockPanel Margin="0,0,0,6">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,6,8,0" Width="64">
+                    <TextBlock Text="*" Foreground="{DynamicResource DangerBrush}" FontWeight="Bold" Margin="0,0,4,0"/>
+                    <TextBlock Text="URL"/>
+                </StackPanel>
+                <Grid>
+                    <TextBox x:Name="OpenUrlBox" AcceptsReturn="False" TextChanged="Cue_Changed"/>
+                    <TextBlock x:Name="OpenUrlCue" Text="https://oa.example.intra/report" IsHitTestVisible="False"
+                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </Grid>
+            </DockPanel>
+        </StackPanel>
+
+        <StackPanel x:Name="PathPanel" Visibility="Collapsed">
+            <DockPanel Margin="0,0,0,6">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,6,8,0" Width="72">
+                    <TextBlock x:Name="PathStar" Text="*" Foreground="{DynamicResource DangerBrush}" FontWeight="Bold" Margin="0,0,4,0"/>
+                    <TextBlock x:Name="PathLabel" Text="路径"/>
+                </StackPanel>
+                <Grid>
+                    <TextBox x:Name="PathBox" TextChanged="Cue_Changed"/>
+                    <TextBlock x:Name="PathCue" Text="C:\tools\prepare.bat" IsHitTestVisible="False"
+                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </Grid>
+            </DockPanel>
+            <DockPanel x:Name="ScriptPanel" Margin="0,0,0,6" Visibility="Collapsed">
+                <TextBlock DockPanel.Dock="Left" Text="内联脚本" VerticalAlignment="Top" Margin="0,6,8,0" Width="72"/>
+                <TextBox x:Name="ScriptBodyBox" Style="{StaticResource JobAutoGrowBox}" MinHeight="90" MaxHeight="360"
+                         FontFamily="Consolas" ToolTip="非空则写入临时 .py 再跑；空则用路径。路径与脚本至少填一项。"/>
+            </DockPanel>
+            <DockPanel x:Name="PythonExePanel" Margin="0,0,0,6" Visibility="Collapsed">
+                <TextBlock DockPanel.Dock="Left" Text="解释器" VerticalAlignment="Top" Margin="0,6,8,0" Width="72"/>
+                <TextBox x:Name="PythonExeBox" ToolTip="空则自动解析 py -3 / python / python3"/>
+            </DockPanel>
+            <DockPanel x:Name="ArgsPanel" Margin="0,0,0,6">
+                <TextBlock DockPanel.Dock="Left" Text="参数" VerticalAlignment="Top" Margin="0,6,8,0" Width="72"/>
+                <TextBox x:Name="ArgsBox"/>
+            </DockPanel>
+            <DockPanel x:Name="WorkDirPanel" Margin="0,0,0,6">
+                <TextBlock DockPanel.Dock="Left" Text="工作目录" VerticalAlignment="Top" Margin="0,6,8,0" Width="72"/>
+                <TextBox x:Name="WorkDirBox"/>
+            </DockPanel>
+            <WrapPanel x:Name="ExitCodePanel" Margin="0,0,0,6">
+                <TextBlock Text="允许退出码" VerticalAlignment="Center" Margin="0,4,8,4"/>
+                <TextBox x:Name="AllowedExitBox" Width="120" Margin="0,4,8,4" Text="0"/>
+            </WrapPanel>
+        </StackPanel>
+
+        <TextBlock Text="抽取（选填）：变量名 + JSONPath 或 XPath" Margin="0,4,0,4"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <DockPanel Margin="0,0,0,6">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="添加抽取" Style="{StaticResource BarMenuButton}" Margin="0,0,8,0" Click="AddExtract_Click"/>
+                <Button Content="删除抽取" Style="{StaticResource BarMenuButton}" Click="DelExtract_Click"/>
+            </StackPanel>
+            <TextBlock/>
+        </DockPanel>
+        <DataGrid x:Name="ExtractGrid" Height="90" AutoGenerateColumns="False" CanUserAddRows="False"
+                  HeadersVisibility="Column" BorderThickness="1" Margin="0,0,0,10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="变量" Binding="{Binding Name}" Width="100"
+                                    ElementStyle="{StaticResource DataGridEllipsisText}"/>
+                <DataGridTextColumn Header="路径" Binding="{Binding Path}" Width="*"
+                                    ElementStyle="{StaticResource DataGridEllipsisText}"/>
+                <DataGridCheckBoxColumn Header="允许空" Binding="{Binding AllowEmpty}" Width="60"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Expander Header="高级" IsExpanded="False" Margin="0,0,0,8">
+            <StackPanel>
+                <WrapPanel Margin="0,8,0,6">
+                    <CheckBox x:Name="StepContinueCheck" Content="失败继续" Margin="0,4,12,4"/>
+                    <CheckBox x:Name="StepInsecureCheck" Content="不校验证书" Margin="0,4,12,4"
+                              ToolTip="仅 REST/SOAP；默认关"/>
+                </WrapPanel>
+                <TextBlock Text="步骤循环（非脚本：仅重复/遍历，上限 50）" Margin="0,0,0,4"/>
+                <WrapPanel>
+                    <TextBlock Text="方式" VerticalAlignment="Center" Margin="0,4,8,4"/>
+                    <ComboBox x:Name="LoopKindCombo" Width="110" Margin="0,4,12,4">
+                        <ComboBoxItem Content="无"/>
+                        <ComboBoxItem Content="重复N次"/>
+                        <ComboBoxItem Content="遍历变量"/>
+                    </ComboBox>
+                    <TextBlock Text="次数" VerticalAlignment="Center" Margin="0,4,8,4"/>
+                    <TextBox x:Name="LoopCountBox" Width="40" Margin="0,4,12,4" Text="1"/>
+                    <TextBlock Text="源变量" VerticalAlignment="Center" Margin="0,4,8,4"/>
+                    <TextBox x:Name="LoopSourceBox" Width="100" Margin="0,4,12,4"/>
+                    <TextBlock Text="项名" VerticalAlignment="Center" Margin="0,4,8,4"/>
+                    <TextBox x:Name="LoopItemBox" Width="70" Margin="0,4,12,4" Text="item"/>
+                    <TextBlock Text="属性" VerticalAlignment="Center" Margin="0,4,8,4"/>
+                    <TextBox x:Name="LoopPropBox" Width="70" Margin="0,4,8,4"/>
+                </WrapPanel>
+            </StackPanel>
+        </Expander>
+
+        <WrapPanel Margin="0,0,0,8">
+            <Button Content="测通 TCP" Margin="0,0,8,0" Click="ProbeTcp_Click"/>
+            <Button Content="测通+HTTP" Margin="0,0,8,0" Click="ProbeHttp_Click"/>
+        </WrapPanel>
+        <TextBlock x:Name="PanelMsg" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </StackPanel>
+</UserControl>

@@ -51,7 +51,7 @@ namespace IntraBox.Modules.Launcher
             if (SearchBox != null)
                 SearchBox.ToolTip = "搜索名称或目标。热键 " + hk + " 呼出浮层（托盘隐藏仍有效，可在设置中更改）。";
             RefreshList();
-            MsgText.Text = "";
+            FormHint.Apply(MsgText, "");
         }
 
         public void OnDeactivated()
@@ -221,6 +221,26 @@ namespace IntraBox.Modules.Launcher
             RefreshList();
         }
 
+        private void FavList_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            var row = RowFromOriginalSource(e.OriginalSource as DependencyObject);
+            if (row == null) row = FavList.SelectedItem as FavRow;
+            if (row != null && LauncherSystemCatalog.IsSystemFolder(row.Uid))
+                e.Handled = true;
+        }
+
+        private static FavRow RowFromOriginalSource(DependencyObject src)
+        {
+            while (src != null)
+            {
+                var item = src as ListViewItem;
+                if (item != null) return item.DataContext as FavRow;
+                try { src = VisualTreeHelper.GetParent(src); }
+                catch { break; }
+            }
+            return null;
+        }
+
         private void ListMenu_Opened(object sender, RoutedEventArgs e)
         {
             var row = FavList.SelectedItem as FavRow;
@@ -231,6 +251,11 @@ namespace IntraBox.Modules.Launcher
             bool pin = has && row.Pinned;
             bool sys = has && LauncherSystemCatalog.IsSystemUid(row.Uid);
             bool sysFolder = has && LauncherSystemCatalog.IsSystemFolder(row.Uid);
+            if (sysFolder)
+            {
+                menu.IsOpen = false;
+                return;
+            }
             for (int i = 0; i < menu.Items.Count; i++)
             {
                 var mi = menu.Items[i] as MenuItem;
@@ -336,7 +361,7 @@ namespace IntraBox.Modules.Launcher
             SkipClick();
             if (LauncherSystemCatalog.IsSystemUid(row.Uid))
             {
-                MsgText.Text = "不能在系统目录中新增。";
+                FormHint.Apply(MsgText, "不能在系统目录中新增。");
                 return;
             }
             if (!CloseDrawer()) return;
@@ -359,7 +384,7 @@ namespace IntraBox.Modules.Launcher
             SkipClick();
             if (LauncherSystemCatalog.IsSystemUid(row.Uid))
             {
-                MsgText.Text = "系统快捷方式不能复制。";
+                FormHint.Apply(MsgText, "系统快捷方式不能复制。");
                 return;
             }
             if (!CloseDrawer()) return;
@@ -367,13 +392,13 @@ namespace IntraBox.Modules.Launcher
             string uid = LauncherStore.TryDuplicate(row.Uid, out err);
             if (uid == null)
             {
-                MsgText.Text = err;
+                FormHint.Apply(MsgText, err);
                 return;
             }
             ExpandParent(row.ParentUid);
             RefreshList();
             SelectUid(uid);
-            MsgText.Text = "已复制";
+            FormHint.Apply(MsgText, "已复制");
         }
 
         private void MoveRow(FavRow row)
@@ -382,7 +407,7 @@ namespace IntraBox.Modules.Launcher
             SkipClick();
             if (LauncherSystemCatalog.IsSystemUid(row.Uid))
             {
-                MsgText.Text = "系统快捷方式不能移动。";
+                FormHint.Apply(MsgText, "系统快捷方式不能移动。");
                 return;
             }
             if (!CloseDrawer()) return;
@@ -391,19 +416,19 @@ namespace IntraBox.Modules.Launcher
                 return;
             if (parent == (row.ParentUid ?? ""))
             {
-                MsgText.Text = "未移动";
+                FormHint.Apply(MsgText, "未移动");
                 return;
             }
             string err;
             if (!LauncherStore.TryMove(row.Uid, parent, out err))
             {
-                MsgText.Text = err;
+                FormHint.Apply(MsgText, err);
                 return;
             }
             ExpandParent(parent);
             RefreshList();
             SelectUid(row.Uid);
-            MsgText.Text = "已移动";
+            FormHint.Apply(MsgText, "已移动");
         }
 
         private void DeleteRow(FavRow row)
@@ -412,7 +437,7 @@ namespace IntraBox.Modules.Launcher
             SkipClick();
             if (LauncherSystemCatalog.IsSystemUid(row.Uid))
             {
-                MsgText.Text = "系统快捷方式不能删除。";
+                FormHint.Apply(MsgText, "系统快捷方式不能删除。");
                 return;
             }
             string detail = row.Name;
@@ -429,7 +454,7 @@ namespace IntraBox.Modules.Launcher
                 return;
             LauncherStore.Remove(row.Uid);
             RefreshList();
-            MsgText.Text = "已删除";
+            FormHint.Apply(MsgText, "已删除");
         }
 
         private static FavRow RowFromSender(object sender)
@@ -449,7 +474,7 @@ namespace IntraBox.Modules.Launcher
             parentUid = parentUid ?? "";
             if (LauncherSystemCatalog.IsSystemUid(parentUid))
             {
-                MsgText.Text = "不能在系统目录中新增。";
+                FormHint.Apply(MsgText, "不能在系统目录中新增。");
                 return;
             }
             _isNew = true;
@@ -693,7 +718,7 @@ namespace IntraBox.Modules.Launcher
             SetDrawerMsg("已保存", false);
             DrawerTitle.Text = _editCategory ? "编辑目录" : "编辑收藏";
             RefreshList();
-            MsgText.Text = "已保存";
+            FormHint.Apply(MsgText, "已保存");
         }
 
         private void SaveClose_Click(object sender, RoutedEventArgs e)
@@ -706,7 +731,7 @@ namespace IntraBox.Modules.Launcher
             }
             HideDrawer();
             RefreshList();
-            MsgText.Text = "已保存";
+            FormHint.Apply(MsgText, "已保存");
         }
 
         private bool CloseDrawer()
@@ -777,14 +802,7 @@ namespace IntraBox.Modules.Launcher
         private void SetDrawerMsg(string text, bool error)
         {
             if (DrawerMsg == null) return;
-            DrawerMsg.Text = text ?? "";
-            try
-            {
-                DrawerMsg.Foreground = FindResource(error ? "DangerBrush" : "TextSecondaryBrush") as Brush;
-            }
-            catch
-            {
-            }
+            FormHint.Apply(DrawerMsg, text ?? "", error);
         }
 
         private sealed class FavRow

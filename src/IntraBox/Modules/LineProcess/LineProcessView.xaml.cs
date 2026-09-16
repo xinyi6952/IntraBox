@@ -74,8 +74,7 @@ namespace IntraBox.Modules.LineProcess
 
         private void SetMsg(string text, bool error)
         {
-            MsgText.Foreground = FindResource(error ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
-            MsgText.Text = text;
+             FormHint.Apply(MsgText, text, error);
         }
 
         private void Copy_Click(object sender, RoutedEventArgs e)
@@ -83,13 +82,11 @@ namespace IntraBox.Modules.LineProcess
             string err;
             if (ClipboardHelper.TrySetText(OutputBox.Text ?? "", out err))
             {
-                MsgText.Foreground = FindResource("OkBrush") as System.Windows.Media.Brush;
-                MsgText.Text = "已复制";
+                FormHint.Apply(MsgText, "已复制");
             }
             else
             {
-                MsgText.Foreground = FindResource("DangerBrush") as System.Windows.Media.Brush;
-                MsgText.Text = err;
+                FormHint.Apply(MsgText, err);
             }
         }
     }

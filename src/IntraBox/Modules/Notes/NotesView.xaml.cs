@@ -125,12 +125,12 @@ namespace IntraBox.Modules.Notes
             parentUid = parentUid ?? "";
             if (NoteStore.IsLocked(parentUid))
             {
-                MsgText.Text = LockedMsg;
+                FormHint.Apply(MsgText, LockedMsg);
                 return;
             }
             if (!NoteStore.CanAddUnder(parentUid))
             {
-                MsgText.Text = "无法再新增：数量或层级已达上限。";
+                FormHint.Apply(MsgText, "无法再新增：数量或层级已达上限。");
                 return;
             }
             string title = NoteStore.UniqueTitle(parentUid, NoteKind.DefaultTitle(kind), null);
@@ -158,12 +158,12 @@ namespace IntraBox.Modules.Notes
             parentUid = parentUid ?? "";
             if (NoteStore.IsLocked(parentUid))
             {
-                MsgText.Text = LockedMsg;
+                FormHint.Apply(MsgText, LockedMsg);
                 return;
             }
             if (!NoteStore.CanAddUnder(parentUid))
             {
-                MsgText.Text = "无法再新增：数量或层级已达上限。";
+                FormHint.Apply(MsgText, "无法再新增：数量或层级已达上限。");
                 return;
             }
             string title = NoteStore.UniqueTitle(parentUid, NoteKind.DefaultFolderTitle, null);
@@ -276,11 +276,11 @@ namespace IntraBox.Modules.Notes
         {
             var view = NoteList != null ? NoteList.View as GridView : null;
             if (view == null || view.Columns.Count < 5) return;
-            view.Columns[0].Header = SortTitle("置顶", "pin");
-            view.Columns[1].Header = SortTitle("标题", "title");
-            view.Columns[2].Header = SortTitle("创建时间", "created");
-            view.Columns[3].Header = SortTitle("修改时间", "updated");
-            view.Columns[4].Header = SortTitle("类型", "kind");
+            view.Columns[0].Header = SortTitle("标题", "title");
+            view.Columns[1].Header = SortTitle("创建时间", "created");
+            view.Columns[2].Header = SortTitle("修改时间", "updated");
+            view.Columns[3].Header = SortTitle("类型", "kind");
+            view.Columns[4].Header = SortTitle("置顶", "pin");
         }
 
         private static string SortKeyFromHeader(string content)
@@ -312,7 +312,7 @@ namespace IntraBox.Modules.Notes
             if (gv == null || gv.Columns.Count < 5) return;
             double w = NoteList.ActualWidth - SystemParameters.VerticalScrollBarWidth - 8;
             if (w < 200) return;
-            double[] min = { 52, 200, 136, 136, 88 };
+            double[] min = { 200, 136, 136, 88, 52 };
             double need = 0;
             for (int i = 0; i < 5; i++)
                 need += min[i];
@@ -332,8 +332,8 @@ namespace IntraBox.Modules.Notes
                 return;
             }
             double extra = w - need;
-            gv.Columns[0].Width = min[0];
-            gv.Columns[1].Width = min[1] + extra;
+            gv.Columns[0].Width = min[0] + extra;
+            gv.Columns[1].Width = min[1];
             gv.Columns[2].Width = min[2];
             gv.Columns[3].Width = min[3];
             gv.Columns[4].Width = min[4];
@@ -414,7 +414,7 @@ namespace IntraBox.Modules.Notes
             if (row == null || row.IsFolder) return;
             if (row.Locked)
             {
-                MsgText.Text = LockedMsg;
+                FormHint.Apply(MsgText, LockedMsg);
                 return;
             }
             SkipClick();
@@ -424,19 +424,19 @@ namespace IntraBox.Modules.Notes
                 return;
             if (parent == (row.ParentUid ?? ""))
             {
-                MsgText.Text = "未移动";
+                FormHint.Apply(MsgText, "未移动");
                 return;
             }
             string err;
             if (!NoteStore.TryMove(row.Uid, parent, out err))
             {
-                MsgText.Text = err;
+                FormHint.Apply(MsgText, err);
                 return;
             }
             ExpandParent(parent);
             RefreshList();
             SelectUid(row.Uid);
-            MsgText.Text = "已移动";
+            FormHint.Apply(MsgText, "已移动");
         }
 
         private void MenuAddRich_Click(object sender, RoutedEventArgs e)
@@ -480,7 +480,7 @@ namespace IntraBox.Modules.Notes
             if (row == null) return;
             if (row.Locked)
             {
-                MsgText.Text = LockedMsg;
+                FormHint.Apply(MsgText, LockedMsg);
                 return;
             }
             SkipClick();
@@ -494,7 +494,7 @@ namespace IntraBox.Modules.Notes
             if (row == null) return;
             if (row.Locked)
             {
-                MsgText.Text = LockedMsg;
+                FormHint.Apply(MsgText, LockedMsg);
                 return;
             }
             SkipClick();
@@ -514,13 +514,13 @@ namespace IntraBox.Modules.Notes
             string uid = NoteStore.TryDuplicate(row.Uid, out err);
             if (uid == null)
             {
-                MsgText.Text = err;
+                FormHint.Apply(MsgText, err);
                 return;
             }
             ExpandParent(src.ParentUid);
             RefreshList();
             SelectUid(uid);
-            MsgText.Text = "已复制";
+            FormHint.Apply(MsgText, "已复制");
         }
 
         private void MenuExport_Click(object sender, RoutedEventArgs e)
@@ -556,7 +556,7 @@ namespace IntraBox.Modules.Notes
                     NoteRichText.LoadInto(tmp, it.Uid);
                     File.WriteAllText(dlg.FileName, NoteRichText.ToPlain(tmp.Document), Encoding.UTF8);
                 }
-                MsgText.Text = "已导出";
+                FormHint.Apply(MsgText, "已导出");
             }
             catch (Exception ex)
             {
@@ -578,9 +578,9 @@ namespace IntraBox.Modules.Notes
             if (row == null) return;
             if (NoteStore.SubtreeHasLock(row.Uid))
             {
-                MsgText.Text = row.IsFolder
+                FormHint.Apply(MsgText, row.IsFolder
                     ? "目录或其下有锁定项，不能删除。取消锁定后再删。"
-                    : LockedMsg;
+                    : LockedMsg);
                 return;
             }
             string detail = row.Title;
@@ -600,7 +600,7 @@ namespace IntraBox.Modules.Notes
                 return;
             NoteStore.Delete(row.Uid);
             RefreshList();
-            MsgText.Text = "已删除";
+            FormHint.Apply(MsgText, "已删除");
         }
 
         private void SkipClick()

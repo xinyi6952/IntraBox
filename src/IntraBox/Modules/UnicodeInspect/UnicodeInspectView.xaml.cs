@@ -45,7 +45,7 @@ namespace IntraBox.Modules.UnicodeInspect
             var cts = new CancellationTokenSource();
             _gate.Current = cts;
             var token = cts.Token;
-            MsgText.Text = "分析中…";
+            FormHint.Apply(MsgText, "分析中…");
             LoadingOverlay.Show(this, "分析中…");
             try
             {
@@ -54,11 +54,11 @@ namespace IntraBox.Modules.UnicodeInspect
                 if (version != _gate.Version) return;
                 ResultGrid.ItemsSource = rows;
                 FilterBar.Apply();
-                MsgText.Text = "共 " + rows.Count + " 个码点";
+                FormHint.Apply(MsgText, "共 " + rows.Count + " 个码点");
                 LoadingOverlay.Hide(this);
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { if (version == _gate.Version) { MsgText.Text = "错误：" + ex.RootMessage(); LoadingOverlay.Hide(this); } }
+            catch (Exception ex) { if (version == _gate.Version) { FormHint.Apply(MsgText, "错误：" + ex.RootMessage()); LoadingOverlay.Hide(this); } }
         }
 
         private void Copy_Click(object sender, RoutedEventArgs e)

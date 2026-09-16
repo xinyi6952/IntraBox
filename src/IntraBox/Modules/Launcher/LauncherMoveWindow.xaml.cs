@@ -91,7 +91,7 @@ namespace IntraBox.Modules.Launcher
             var item = CatTree.SelectedItem as TreeViewItem;
             if (item == null)
             {
-                ErrorText.Text = "请选择一个目录。";
+                FormHint.Apply(ErrorText, "请选择一个目录。");
                 return;
             }
             SelectedParentUid = item.Tag as string ?? "";

@@ -23,7 +23,7 @@ namespace IntraBox.Core
         private static readonly string[] HeavyKeys =
         {
             "formatter", "diff", "mdpreview", "notes", "txt2excel", "imageconvert",
-            "colorblind", "dupfiles", "qrcode", "screenshot", "hash", "filesearch",
+            "colorblind", "dupfiles", "qrcode", "screenshot", "hash", "filesearch", "dirsize",
             "crypto", "base64", "textstats", "unicodeinspect", "jsonschema", "jsontoclass",
             "regexviz", "certdecode"
         };

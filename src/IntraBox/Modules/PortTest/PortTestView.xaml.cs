@@ -15,11 +15,21 @@ namespace IntraBox.Modules.PortTest
     /// <summary>
     /// 端口连通性测试：TCP 连接 + 可选 Ping，显示成功/失败与耗时。
     /// </summary>
-    public partial class PortTestView : UserControl, IModuleView
+    public partial class PortTestView : UserControl, IModuleView, IBusyTool
     {
         private readonly ObservableCollection<string> _results = new ObservableCollection<string>();
         private CancellationTokenSource _cts;
         private bool _alive = true;
+
+        public bool IsBusy
+        {
+            get { return _cts != null; }
+        }
+
+        public string BusyMessage
+        {
+            get { return "端口测试仍在进行中，离开将取消当前测试。确定离开？"; }
+        }
 
         public PortTestView()
         {
@@ -29,71 +39,83 @@ namespace IntraBox.Modules.PortTest
 
         private async void Test_Click(object sender, RoutedEventArgs e)
         {
-            MsgText.Text = "";
+            FormHint.Apply(MsgText, "");
             var host = HostBox.Text.Trim();
-            if (string.IsNullOrEmpty(host)) { MsgText.Text = "请输入主机"; return; }
+            if (string.IsNullOrEmpty(host)) { FormHint.Apply(MsgText, "请输入主机"); return; }
             if (!int.TryParse(PortBox.Text.Trim(), out int port) || port < 1 || port > 65535)
             {
-                MsgText.Text = "请输入合法端口（1-65535）";
+                FormHint.Apply(MsgText, "请输入合法端口（1-65535）");
                 return;
             }
 
             if (_cts != null) { _cts.Cancel(); _cts.Dispose(); }
-            _cts = new CancellationTokenSource();
-            var token = _cts.Token;
+            var cts = new CancellationTokenSource();
+            _cts = cts;
+            var token = cts.Token;
 
-            _results.Clear();
-            AddResult("目标：" + host + ":" + port);
-
-            if (PingCheck.IsChecked == true)
+            try
             {
+                _results.Clear();
+                AddResult("目标：" + host + ":" + port);
+
+                if (PingCheck.IsChecked == true)
+                {
+                    try
+                    {
+                        using (var ping = new Ping())
+                        {
+                            var reply = await ping.SendPingAsync(host, 3000);
+                            if (!_alive || token.IsCancellationRequested) return;
+                            AddResult(reply.Status == IPStatus.Success
+                                ? "Ping：成功 " + reply.RoundtripTime + " ms"
+                                : "Ping：失败 " + reply.Status);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (_alive) AddResult("Ping：异常 " + ex.RootMessage());
+                    }
+                }
+
+                TcpClient client = new TcpClient();
+                var connectTask = client.ConnectAsync(host, port);
                 try
                 {
-                    using (var ping = new Ping())
+                    var sw = Stopwatch.StartNew();
+                    var timeout = Task.Delay(3000, token);
+                    var done = await Task.WhenAny(connectTask, timeout);
+                    sw.Stop();
+                    if (!_alive || token.IsCancellationRequested)
                     {
-                        var reply = await ping.SendPingAsync(host, 3000);
-                        if (!_alive || token.IsCancellationRequested) return;
-                        AddResult(reply.Status == IPStatus.Success
-                            ? "Ping：成功 " + reply.RoundtripTime + " ms"
-                            : "Ping：失败 " + reply.Status);
+                        ScheduleClose(client, connectTask);
+                        return;
+                    }
+                    if (done == connectTask && !connectTask.IsFaulted)
+                    {
+                        AddResult("TCP：" + port + " 端口连通，" + sw.ElapsedMilliseconds + " ms");
+                        try { client.Close(); } catch { }
+                    }
+                    else
+                    {
+                        AddResult("TCP：" + port + " 端口连接超时/失败");
+                        ScheduleClose(client, connectTask);
+                        client = null;
                     }
                 }
                 catch (Exception ex)
                 {
-                    if (_alive) AddResult("Ping：异常 " + ex.RootMessage());
-                }
-            }
-
-            TcpClient client = new TcpClient();
-            var connectTask = client.ConnectAsync(host, port);
-            try
-            {
-                var sw = Stopwatch.StartNew();
-                var timeout = Task.Delay(3000, token);
-                var done = await Task.WhenAny(connectTask, timeout);
-                sw.Stop();
-                if (!_alive || token.IsCancellationRequested)
-                {
-                    ScheduleClose(client, connectTask);
-                    return;
-                }
-                if (done == connectTask && !connectTask.IsFaulted)
-                {
-                    AddResult("TCP：" + port + " 端口连通，" + sw.ElapsedMilliseconds + " ms");
-                    try { client.Close(); } catch { }
-                }
-                else
-                {
-                    AddResult("TCP：" + port + " 端口连接超时/失败");
+                    if (_alive) AddResult("TCP：异常 " + ex.RootMessage());
                     ScheduleClose(client, connectTask);
                     client = null;
                 }
             }
-            catch (Exception ex)
+            finally
             {
-                if (_alive) AddResult("TCP：异常 " + ex.RootMessage());
-                ScheduleClose(client, connectTask);
-                client = null;
+                if (object.ReferenceEquals(_cts, cts))
+                {
+                    try { cts.Dispose(); } catch { }
+                    _cts = null;
+                }
             }
         }
 

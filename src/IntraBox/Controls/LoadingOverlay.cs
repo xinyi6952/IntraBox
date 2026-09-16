@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Threading;
+using IntraBox.Core;
 
 namespace IntraBox.Controls
 {
@@ -28,6 +29,14 @@ namespace IntraBox.Controls
         public static bool HasAny()
         {
             return _map.Count > 0;
+        }
+
+        /// <summary>指定目标上是否仍挂着加载遮罩（用于离开模块前的忙闲判断）。</summary>
+        public static bool IsShowing(UIElement target)
+        {
+            if (target == null) return false;
+            LoadingAdorner ad;
+            return _map.TryGetValue(target, out ad) && ad != null;
         }
 
         /// <summary>世代单调 +1。缺省/负值按 0 再加。</summary>
@@ -194,8 +203,7 @@ namespace IntraBox.Controls
 
             if (!string.IsNullOrEmpty(Text))
             {
-                double ppd = 1.0;
-                try { ppd = VisualTreeHelper.GetDpi(this).PixelsPerDip; } catch { }
+                double ppd = WinCompatHelper.PixelsPerDip(this);
                 var ft = new FormattedText(
                     Text,
                     System.Globalization.CultureInfo.CurrentUICulture,

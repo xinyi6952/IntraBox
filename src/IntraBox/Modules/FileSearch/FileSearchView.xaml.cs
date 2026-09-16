@@ -19,9 +19,19 @@ namespace IntraBox.Modules.FileSearch
     /// 目录内按文件名关键字/通配符搜索，可按大小、修改时间过滤。
     /// 参考 SearchFast / FolderDeepSearch：EnumerateFiles + 通配符转正则，结果可定位到资源管理器。
     /// </summary>
-    public partial class FileSearchView : UserControl, IModuleView
+    public partial class FileSearchView : UserControl, IModuleView, IBusyTool
     {
         private readonly AsyncTaskGate _gate = new AsyncTaskGate();
+
+        public bool IsBusy
+        {
+            get { return LoadingOverlay.IsShowing(this); }
+        }
+
+        public string BusyMessage
+        {
+            get { return "文件查找仍在搜索中，离开将取消当前搜索。确定离开？"; }
+        }
 
         private void CancelPending()
         {
@@ -49,7 +59,7 @@ namespace IntraBox.Modules.FileSearch
             }
             if (string.IsNullOrWhiteSpace(DirBox.Text))
                 DirBox.Text = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            MsgText.Text = "输入关键字或通配符后搜索。双击或点「定位到文件夹」打开资源管理器。";
+            FormHint.Apply(MsgText, "输入关键字或通配符后搜索。双击或点「定位到文件夹」打开资源管理器。");
         }
 
         public void OnDeactivated()
@@ -81,7 +91,7 @@ namespace IntraBox.Modules.FileSearch
             if (!Directory.Exists(dir))
             {
                 _hits.Clear();
-                MsgText.Text = "目录不存在。";
+                FormHint.Apply(MsgText, "目录不存在。");
                 ResultGrid.Items.Refresh();
                 return;
             }
@@ -101,7 +111,7 @@ namespace IntraBox.Modules.FileSearch
             var cts = new CancellationTokenSource();
             _gate.Current = cts;
             var token = cts.Token;
-            MsgText.Text = "搜索中…";
+            FormHint.Apply(MsgText, "搜索中…");
             LoadingOverlay.Show(this, "搜索中…");
 
             SearchResult result = null;
@@ -116,7 +126,7 @@ namespace IntraBox.Modules.FileSearch
                 if (version == _gate.Version)
                 {
                     _hits.Clear();
-                    MsgText.Text = "搜索失败：" + ex.RootMessage();
+                    FormHint.Apply(MsgText, "搜索失败：" + ex.RootMessage());
                     ResultGrid.Items.Refresh();
                     LoadingOverlay.Hide(this);
                 }
@@ -127,7 +137,7 @@ namespace IntraBox.Modules.FileSearch
 
             _hits.Clear();
             _hits.AddRange(result.Hits);
-            MsgText.Text = result.Message;
+            FormHint.Apply(MsgText, result.Message);
             LoadingOverlay.Hide(this);
             FilterBar.Apply();
         }
@@ -185,7 +195,7 @@ namespace IntraBox.Modules.FileSearch
             var hit = ResultGrid.SelectedItem as Hit;
             if (hit == null || string.IsNullOrEmpty(hit.FullPath))
             {
-                MsgText.Text = "请先选中一条结果。";
+                FormHint.Apply(MsgText, "请先选中一条结果。");
                 return;
             }
             try
@@ -194,7 +204,7 @@ namespace IntraBox.Modules.FileSearch
             }
             catch (Exception ex)
             {
-                MsgText.Text = "无法打开资源管理器：" + ex.RootMessage();
+                FormHint.Apply(MsgText, "无法打开资源管理器：" + ex.RootMessage());
             }
         }
 

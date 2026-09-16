@@ -77,8 +77,7 @@ namespace IntraBox.Modules.CertDecode
 
         private void SetMsg(string t, bool err)
         {
-            MsgText.Foreground = FindResource(err ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
-            MsgText.Text = t;
+             FormHint.Apply(MsgText, t, err);
         }
     }
 }

@@ -33,6 +33,7 @@
             <Grid x:Name="NavPanel" Grid.Column="0" Background="{DynamicResource NavBgBrush}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
@@ -46,8 +47,26 @@
                             Content="«" Padding="8,4" MinHeight="28" MinWidth="32"
                             ToolTip="折叠导航" Click="NavToggle_Click"/>
                 </Grid>
+                <Grid x:Name="NavSearchPanel" Grid.Row="1" Margin="8,0,8,8">
+                    <TextBox x:Name="NavSearchBox" MinHeight="30"
+                             VerticalContentAlignment="Center"
+                             Padding="6,2,26,2"
+                             ToolTip="输入工具名或分类，支持模糊匹配"
+                             TextChanged="NavSearchBox_TextChanged"
+                             KeyDown="NavSearchBox_KeyDown"/>
+                    <Button x:Name="NavSearchClearBtn"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Width="22" Height="22" MinWidth="22" MinHeight="22"
+                            Margin="0,0,4,0" Padding="0"
+                            Content="×" FontSize="14"
+                            Visibility="Collapsed" Focusable="False"
+                            Background="Transparent" BorderThickness="0"
+                            Foreground="{DynamicResource TextSecondaryBrush}"
+                            Cursor="Hand" ToolTip="清空"
+                            Click="NavSearchClear_Click"/>
+                </Grid>
                 <ListBox x:Name="NavList"
-                         Grid.Row="1"
+                         Grid.Row="2"
                          Style="{x:Null}"
                          BorderThickness="0"
                          Background="Transparent"
@@ -95,7 +114,7 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
-                <Border x:Name="SettingsNavWrap" Grid.Row="2"
+                <Border x:Name="SettingsNavWrap" Grid.Row="3"
                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                         Padding="8,8,8,12">
                     <Border x:Name="SettingsNavBtn" Background="Transparent" CornerRadius="4" Padding="12,8"

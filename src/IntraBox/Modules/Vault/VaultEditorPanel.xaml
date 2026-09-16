@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="IntraBox.Modules.Vault.VaultEditorPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:IntraBox.Controls"
              PreviewKeyDown="Panel_PreviewKeyDown">
     <UserControl.CommandBindings>
         <CommandBinding Command="ApplicationCommands.Save" Executed="SaveCommand_Executed"/>
@@ -43,12 +44,12 @@
                     <ColumnDefinition Width="Auto" SharedSizeGroup="VaultCopy"/>
                     <ColumnDefinition Width="Auto" SharedSizeGroup="VaultDel"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="平台（可空）" TextWrapping="Wrap"
+                <TextBlock Grid.Column="0" Text="平台" TextWrapping="Wrap"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <TextBlock Grid.Column="1" Text="URL（可空）" TextWrapping="Wrap"
+                <TextBlock Grid.Column="1" Text="URL" TextWrapping="Wrap"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <TextBlock Grid.Column="2" Text="账号" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <TextBlock Grid.Column="3" Text="密码" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <controls:RequiredLabel Grid.Column="2" Text="账号" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <controls:RequiredLabel Grid.Column="3" Text="密码" Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <TextBlock Grid.Column="4" Text="加密" HorizontalAlignment="Center" Margin="8,0"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
             </Grid>

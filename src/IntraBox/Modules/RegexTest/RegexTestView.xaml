@@ -12,7 +12,7 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,8">
             <WrapPanel>
-                <TextBlock Text="正则" VerticalAlignment="Center" Margin="0,4,8,4"
+                <controls:RequiredLabel Text="正则" VerticalAlignment="Center" Margin="0,4,8,4"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <TextBox x:Name="PatternBox" MinWidth="280" Margin="0,4,12,4" FontFamily="Consolas" TextChanged="PatternBox_TextChanged"/>
                 <Button Content="测试" Style="{StaticResource PrimaryButton}" Margin="0,4,12,4"

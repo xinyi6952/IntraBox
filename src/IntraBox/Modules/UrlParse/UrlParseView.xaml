@@ -16,7 +16,7 @@
             <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"
                        Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
         </WrapPanel>
-        <TextBlock Grid.Row="1" Text="URL" Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <controls:RequiredLabel Grid.Row="1" Text="URL" Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
         <controls:CodeEditor x:Name="InputBox" Grid.Row="2"/>
         <DataGrid x:Name="ResultGrid" Grid.Row="3" Margin="0,8,0,0" AutoGenerateColumns="False" IsReadOnly="True"
                   CanUserAddRows="False" HeadersVisibility="Column">

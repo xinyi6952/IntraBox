@@ -158,28 +158,25 @@ namespace IntraBox.Modules.Hash
 
         private void SetOk(string text)
         {
-            MsgText.Foreground = FindResource("OkBrush") as System.Windows.Media.Brush;
-            MsgText.Text = text;
+            FormHint.Apply(MsgText, text);
             LoadingOverlay.Hide(this);
         }
 
         private void SetMsg(string text)
         {
-            MsgText.Foreground = FindResource("DangerBrush") as System.Windows.Media.Brush;
-            MsgText.Text = text;
+            FormHint.Apply(MsgText, text, true);
             LoadingOverlay.Hide(this);
         }
 
         private void SetBusy(string text)
         {
-            MsgText.Foreground = FindResource("TextSecondaryBrush") as System.Windows.Media.Brush;
-            MsgText.Text = text;
+            FormHint.Apply(MsgText, text);
             LoadingOverlay.Show(this, text);
         }
 
         private void ClearMsg()
         {
-            MsgText.Text = "";
+            FormHint.Apply(MsgText, "");
             LoadingOverlay.Hide(this);
         }
 

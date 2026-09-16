@@ -29,7 +29,7 @@ if not defined VSTEST (
 )
 
 echo Building test project...
-"%MSBUILD%" "tests\IntraBox.Tests\IntraBox.Tests.csproj" /t:Restore;Build /p:Configuration=Release /m
+"%MSBUILD%" "tests\IntraBox.Tests\IntraBox.Tests.csproj" /t:Restore;Build /p:Configuration=Release /p:NuGetAudit=false /m
 if errorlevel 1 (
     echo.
     echo [FAILED] Test project build failed. See errors above.

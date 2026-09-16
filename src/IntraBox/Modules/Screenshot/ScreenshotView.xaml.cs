@@ -18,7 +18,7 @@ namespace IntraBox.Modules.Screenshot
             HotkeyHint.Text = ok
                 ? "全局热键已注册：" + HotkeyService.Instance.DisplayText
                 : "热键注册失败（可能被占用），请用按钮开始截屏。";
-            MsgText.Text = "";
+            FormHint.Apply(MsgText, "");
         }
 
         public void OnDeactivated()

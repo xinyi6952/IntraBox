@@ -18,9 +18,10 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <DockPanel Grid.Row="0" Margin="0,0,0,10">
-                    <Button DockPanel.Dock="Right" Content="×" Width="28" Height="28" MinWidth="28" MinHeight="28"
+                    <Button x:Name="CaptionCloseBtn" DockPanel.Dock="Right" Content="×" Width="28" Height="28" MinWidth="28" MinHeight="28"
                             Padding="0" FontSize="16" Background="Transparent" BorderThickness="0"
-                            Foreground="{DynamicResource TextSecondaryBrush}" Click="Close_Click"/>
+                            Foreground="{DynamicResource TextSecondaryBrush}" Click="Snooze_Click"
+                            ToolTip="稍后"/>
                     <TextBlock Text="任务提醒" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 </DockPanel>
                 <StackPanel Grid.Row="1" Margin="0,0,0,14">
@@ -33,8 +34,7 @@
                 <WrapPanel Grid.Row="2" HorizontalAlignment="Right">
                     <Button x:Name="StopBtn" Content="今日不再提醒" MinWidth="120" Margin="0,0,8,0"
                             Style="{StaticResource WarningButton}" Click="Stop_Click"/>
-                    <Button x:Name="SnoozeBtn" Content="稍后 10 分钟" MinWidth="100" Margin="0,0,8,0" Click="Snooze_Click"/>
-                    <Button Content="关闭" MinWidth="72" Style="{StaticResource PrimaryButton}" Click="Close_Click"/>
+                    <Button x:Name="SnoozeBtn" Content="稍后 10 分钟" MinWidth="100" Click="Snooze_Click"/>
                 </WrapPanel>
             </Grid>
         </Border>

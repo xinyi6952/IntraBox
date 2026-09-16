@@ -29,7 +29,7 @@ namespace IntraBox.Modules.DupFiles
                 if (dlg.ShowDialog() == WinForms.DialogResult.OK)
                 {
                     _dir = dlg.SelectedPath;
-                    MsgText.Text = _dir;
+                    FormHint.Apply(MsgText, _dir);
                 }
             }
         }
@@ -38,7 +38,7 @@ namespace IntraBox.Modules.DupFiles
         {
             if (string.IsNullOrEmpty(_dir) || !Directory.Exists(_dir))
             {
-                MsgText.Text = "请先选择目录";
+                FormHint.Apply(MsgText, "请先选择目录");
                 return;
             }
             _cancel = true;
@@ -60,7 +60,7 @@ namespace IntraBox.Modules.DupFiles
                 try { files = Directory.GetFiles(dir, "*", opt); }
                 catch (Exception ex)
                 {
-                    Ui(() => { MsgText.Text = ex.RootMessage(); });
+                    Ui(() => { FormHint.Apply(MsgText, ex.RootMessage()); });
                     return;
                 }
                 var bySize = new Dictionary<long, List<string>>();
@@ -78,7 +78,7 @@ namespace IntraBox.Modules.DupFiles
                     if (i % 50 == 0)
                     {
                         int p = i;
-                        Ui(() => { Bar.Value = files.Length == 0 ? 0 : (double)p * 50.0 / files.Length; MsgText.Text = "扫描 " + p + "/" + files.Length; });
+                        Ui(() => { Bar.Value = files.Length == 0 ? 0 : (double)p * 50.0 / files.Length; FormHint.Apply(MsgText, "扫描 " + p + "/" + files.Length); });
                     }
                 }
                 var dups = new List<DupRow>();
@@ -122,12 +122,12 @@ namespace IntraBox.Modules.DupFiles
                 {
                     ResultList.ItemsSource = dups;
                     Bar.Value = 100;
-                    MsgText.Text = "完成，重复组 " + (g - 1) + "，文件 " + dups.Count;
+                    FormHint.Apply(MsgText, "完成，重复组 " + (g - 1) + "，文件 " + dups.Count);
                 });
             }
             catch (Exception ex)
             {
-                Ui(() => { MsgText.Text = "失败：" + ex.RootMessage(); });
+                Ui(() => { FormHint.Apply(MsgText, "失败：" + ex.RootMessage()); });
             }
         }
 
@@ -151,7 +151,7 @@ namespace IntraBox.Modules.DupFiles
             var row = ResultList.SelectedItem as DupRow;
             if (row == null) return;
             try { Process.Start("explorer.exe", "/select,\"" + row.Path + "\""); }
-            catch (Exception ex) { MsgText.Text = ex.RootMessage(); }
+            catch (Exception ex) { FormHint.Apply(MsgText, ex.RootMessage()); }
         }
 
         private void Delete_Click(object sender, RoutedEventArgs e)
@@ -162,9 +162,9 @@ namespace IntraBox.Modules.DupFiles
             try
             {
                 File.Delete(row.Path);
-                MsgText.Text = "已删除";
+                FormHint.Apply(MsgText, "已删除");
             }
-            catch (Exception ex) { MsgText.Text = "删除失败：" + ex.RootMessage(); }
+            catch (Exception ex) { FormHint.Apply(MsgText, "删除失败：" + ex.RootMessage()); }
         }
 
         private sealed class DupRow

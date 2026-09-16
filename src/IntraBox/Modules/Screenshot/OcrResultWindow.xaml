@@ -15,6 +15,6 @@
         </StackPanel>
         <TextBox x:Name="ResultBox" AcceptsReturn="True" TextWrapping="Wrap"
                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                 FontFamily="Consolas, Microsoft YaHei UI" FontSize="13"/>
+                 FontFamily="Consolas, Microsoft YaHei UI, Microsoft YaHei" FontSize="13"/>
     </DockPanel>
 </Window>

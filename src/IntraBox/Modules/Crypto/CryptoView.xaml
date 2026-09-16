@@ -37,7 +37,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="KeyCaption" Text="密钥" VerticalAlignment="Top" Margin="0,4,8,0"
+            <controls:RequiredLabel x:Name="KeyCaption" Text="密钥" VerticalAlignment="Top" Margin="0,4,8,0"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
             <TextBox x:Name="KeyBox" Grid.Column="1" MinHeight="48" TextWrapping="Wrap"
                      AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/>
@@ -55,7 +55,7 @@
                      FontFamily="Consolas"/>
         </Grid>
 
-        <TextBlock x:Name="InputCaption" Grid.Row="3" Text="输入（明文或密文）" Margin="0,0,0,4"
+        <controls:RequiredLabel x:Name="InputCaption" Grid.Row="3" Text="输入（明文或密文）" Margin="0,0,0,4"
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
         <controls:CodeEditor x:Name="InputBox" Grid.Row="4"/>
 

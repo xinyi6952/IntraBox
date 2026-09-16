@@ -94,8 +94,7 @@ namespace IntraBox.Modules.JsonToClass
 
         private void SetMsg(string text, bool error)
         {
-            MsgText.Foreground = FindResource(error ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
-            MsgText.Text = text;
+             FormHint.Apply(MsgText, text, error);
             LoadingOverlay.Hide(this);
         }
 

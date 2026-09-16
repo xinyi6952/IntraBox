@@ -39,5 +39,11 @@ namespace IntraBox.Tests
             Assert.IsFalse(LoadingOverlay.IsCallbackCurrent(true, showB, showA));
             Assert.IsTrue(LoadingOverlay.IsCallbackCurrent(true, showB, showB));
         }
+
+        [TestMethod]
+        public void IsShowing_null为假()
+        {
+            Assert.IsFalse(LoadingOverlay.IsShowing(null));
+        }
     }
 }

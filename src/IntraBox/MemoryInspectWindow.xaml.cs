@@ -17,7 +17,7 @@ namespace IntraBox
         {
             _toolName = toolName;
             Apply(MemoryUsage.Capture());
-            MsgText.Text = "";
+            FormHint.Apply(MsgText, "");
         }
 
         private void Apply(MemoryUsage u)
@@ -38,11 +38,11 @@ namespace IntraBox
             MemoryUsage after;
             if (!GcHelper.TryCollectAndTrim(out after, "manual"))
             {
-                MsgText.Text = "刚回收过，请稍后再试";
+                FormHint.Apply(MsgText, "刚回收过，请稍后再试");
                 return;
             }
             Apply(after);
-            MsgText.Text = "已回收，工作集 " + after.WorkingSetText;
+            FormHint.Apply(MsgText, "已回收，工作集 " + after.WorkingSetText);
             var main = Owner as MainWindow;
             if (main != null) main.RefreshMemoryText();
         }

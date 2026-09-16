@@ -99,7 +99,7 @@ namespace IntraBox.Modules.Todo
             doc.Blocks.Add(desc);
             doc.Blocks.Add(Numbers(
                 "标题写清交付物和截止；优先级选「高」，计划完成设到本周五 18:00。",
-                "提醒选「仅工作日」15:00，IntraBox 在托盘时也会弹窗。",
+                "提醒选「仅工作日」15:00（法定假不弹、调休上班会弹），IntraBox 在托盘时也会弹窗。",
                 "描述里写步骤和验收；需要截图时点工具栏插图，或把 png/jpg 拖进来。",
                 "做完后列表右键「标记为已办」。已办只能查看，改回待办后才能再改。"));
             var extra = new Paragraph();

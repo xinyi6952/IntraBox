@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Rendering;
+using IntraBox.Core;
 
 namespace IntraBox.Controls
 {
@@ -197,7 +198,7 @@ namespace IntraBox.Controls
                         typeface,
                         MiniFontSize,
                         fgWeak,
-                        VisualTreeHelper.GetDpi(this).PixelsPerDip)
+                        WinCompatHelper.PixelsPerDip(this))
                     {
                         MaxTextWidth = MarginWidth
                     };

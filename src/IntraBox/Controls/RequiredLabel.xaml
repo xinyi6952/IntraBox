@@ -1,0 +1,11 @@
+<UserControl x:Class="IntraBox.Controls.RequiredLabel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <TextBlock Text="*" Foreground="{DynamicResource DangerBrush}" FontWeight="Bold" Margin="0,0,4,0"
+                   VerticalAlignment="Center"/>
+        <TextBlock x:Name="CaptionBlock" VerticalAlignment="Center"
+                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                   FontWeight="{Binding FontWeight, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+    </StackPanel>
+</UserControl>

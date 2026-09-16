@@ -19,6 +19,8 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <!-- 与主项目对齐 64 位，消除 MSB3270 处理器架构不匹配警告 -->
     <PlatformTarget>x64</PlatformTarget>
+    <!-- Intranet / TLS to nuget.org often fails; audit then retries with NU1900. Match IntraBox.csproj. -->
+    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">

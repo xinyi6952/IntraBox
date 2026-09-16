@@ -110,14 +110,6 @@
                 </ListView.ContextMenu>
                 <ListView.View>
                     <GridView AllowsColumnReorder="False">
-                        <GridViewColumn Header="置顶" Width="52">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding PinText}" Style="{StaticResource NoteCellText}"
-                                               Foreground="{DynamicResource AccentBrush}"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
                         <GridViewColumn Header="标题" Width="200">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
@@ -157,6 +149,14 @@
                                 <DataTemplate>
                                     <TextBlock Text="{Binding KindText}" Style="{StaticResource NoteCellText}"
                                                ToolTip="{Binding KindText}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="置顶" Width="52">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding PinText}" Style="{StaticResource NoteCellText}"
+                                               Foreground="{DynamicResource AccentBrush}"/>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>

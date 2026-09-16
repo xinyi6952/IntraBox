@@ -14,6 +14,8 @@ namespace IntraBox.Tests
             Assert.IsTrue(MemoryTrimPolicy.IsHeavyModule("diff"));
             Assert.IsTrue(MemoryTrimPolicy.IsHeavyModule("mdpreview"));
             Assert.IsTrue(MemoryTrimPolicy.IsHeavyModule("notes"));
+            Assert.IsTrue(MemoryTrimPolicy.IsHeavyModule("filesearch"));
+            Assert.IsTrue(MemoryTrimPolicy.IsHeavyModule("dirsize"));
             Assert.IsFalse(MemoryTrimPolicy.IsHeavyModule("timestamp"));
             Assert.IsFalse(MemoryTrimPolicy.IsHeavyModule("namecase"));
             Assert.IsFalse(MemoryTrimPolicy.IsHeavyModule(""));

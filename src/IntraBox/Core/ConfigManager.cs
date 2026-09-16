@@ -155,12 +155,12 @@ namespace IntraBox.Core
         /// <summary>
         /// 老用户已保存显隐白名单时，把新工具 key 追加进去（去重）。
         /// null 或空列表表示「全部可见」，原样返回，不改动。
-        /// 追加顺序与 NavOrder.DefaultToolKeys 里效率工具一致：launcher、todo、notes、vault。
+        /// 追加顺序与 NavOrder.DefaultToolKeys 一致：launcher、todo、notes、vault、workcal、envvars、jobflow、dirsize。
         /// </summary>
         public static string[] AppendNewVisibleToolKeys(string[] current)
         {
             if (current == null || current.Length == 0) return current;
-            string[] extras = { "launcher", "todo", "notes", "vault" };
+            string[] extras = { "launcher", "todo", "notes", "vault", "workcal", "envvars", "jobflow", "dirsize" };
             var list = new System.Collections.Generic.List<string>(current);
             bool changed = false;
             for (int i = 0; i < extras.Length; i++)

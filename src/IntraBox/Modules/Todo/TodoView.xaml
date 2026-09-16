@@ -67,6 +67,16 @@
                                     <Path Style="{StaticResource MenuIconPath}" Data="M8,3 A5,5 0 1 0 8,13 A5,5 0 1 0 8,3"/>
                                 </MenuItem.Icon>
                             </MenuItem>
+                            <MenuItem x:Name="MenuPinItem" Header="置顶" Click="MenuPin_Click" Style="{StaticResource ContextMenuItemStyle}">
+                                <MenuItem.Icon>
+                                    <Path Style="{StaticResource MenuIconPath}" Data="M8,2 L8,10 M5,6 L8,2 11,6"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem x:Name="MenuUnpinItem" Header="取消置顶" Click="MenuUnpin_Click" Style="{StaticResource ContextMenuItemStyle}">
+                                <MenuItem.Icon>
+                                    <Path Style="{StaticResource MenuIconPath}" Data="M8,2 L8,10 M5,6 L8,10 11,6"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem x:Name="MenuDeleteItem" Header="删除" Click="MenuDelete_Click" Style="{StaticResource ContextMenuItemStyle}">
                                 <MenuItem.Icon>
                                     <Path Style="{StaticResource MenuIconPath}" Data="M4,4 L12,12 M12,4 L4,12"/>
@@ -148,6 +158,14 @@
                                     <DataTemplate>
                                         <TextBlock Text="{Binding RemindText}" Style="{StaticResource TodoCellText}"
                                                    ToolTip="{Binding RemindText}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="置顶" Width="52">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding PinText}" Style="{StaticResource TodoCellText}"
+                                                   Foreground="{DynamicResource AccentBrush}"/>
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>

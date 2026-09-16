@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using IntraBox.Core;
 
 namespace IntraBox.Modules.Notes
 {
@@ -90,7 +91,7 @@ namespace IntraBox.Modules.Notes
             var item = CatTree.SelectedItem as TreeViewItem;
             if (item == null)
             {
-                ErrorText.Text = "请选择一个目录。";
+                FormHint.Apply(ErrorText, "请选择一个目录。");
                 return;
             }
             SelectedParentUid = item.Tag as string ?? "";

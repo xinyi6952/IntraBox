@@ -123,7 +123,7 @@ namespace IntraBox.Modules.ClipboardHistory
                 string err;
                 if (!ClipboardStore.TryDecodeOriginal(item, out src, out err))
                 {
-                    MsgText.Text = err;
+                    FormHint.Apply(MsgText, err);
                     return;
                 }
                 ViewerTitle.Text = (item.Preview ?? "[图片]")
@@ -198,7 +198,7 @@ namespace IntraBox.Modules.ClipboardHistory
                     string decodeErr;
                     if (!ClipboardStore.TryDecodeOriginal(item, out toWrite, out decodeErr))
                     {
-                        MsgText.Text = decodeErr;
+                        FormHint.Apply(MsgText, decodeErr);
                         return;
                     }
                     ClipboardStore.SuppressImageCapture = true;
@@ -209,7 +209,7 @@ namespace IntraBox.Modules.ClipboardHistory
                             ClipboardMonitor.MarkPasted(item);
                         else
                         {
-                            MsgText.Text = "写回失败：" + err;
+                            FormHint.Apply(MsgText, "写回失败：" + err);
                             return;
                         }
                     }
@@ -217,7 +217,7 @@ namespace IntraBox.Modules.ClipboardHistory
                     {
                         ClipboardStore.SuppressImageCapture = false;
                     }
-                    MsgText.Text = "已写回剪贴板";
+                    FormHint.Apply(MsgText, "已写回剪贴板");
                     return;
                 }
                 else if (!item.IsImage)
@@ -227,15 +227,15 @@ namespace IntraBox.Modules.ClipboardHistory
                         ClipboardMonitor.MarkPasted(item);
                     else
                     {
-                        MsgText.Text = "写回失败：" + err;
+                        FormHint.Apply(MsgText, "写回失败：" + err);
                         return;
                     }
                 }
-                MsgText.Text = "已写回剪贴板";
+                FormHint.Apply(MsgText, "已写回剪贴板");
             }
             catch (Exception ex)
             {
-                MsgText.Text = "写回失败：" + ex.RootMessage();
+                FormHint.Apply(MsgText, "写回失败：" + ex.RootMessage());
             }
         }
 

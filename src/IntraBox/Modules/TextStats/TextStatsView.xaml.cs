@@ -122,15 +122,13 @@ namespace IntraBox.Modules.TextStats
 
         private void SetMsg(string t, bool err)
         {
-            MsgText.Foreground = FindResource(err ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
-            MsgText.Text = t;
+             FormHint.Apply(MsgText, t, err);
             LoadingOverlay.Hide(this);
         }
 
         private void SetBusy(string text)
         {
-            MsgText.Foreground = FindResource("TextSecondaryBrush") as System.Windows.Media.Brush;
-            MsgText.Text = text;
+            FormHint.Apply(MsgText, text);
             LoadingOverlay.Show(this, text);
         }
 

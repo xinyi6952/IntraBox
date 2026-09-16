@@ -41,7 +41,7 @@ namespace IntraBox.Modules.NameCase
             if (string.IsNullOrWhiteSpace(input))
             {
                 OutputBox.Text = "";
-                MsgText.Text = "";
+                FormHint.Apply(MsgText, "");
                 return;
             }
 
@@ -51,7 +51,7 @@ namespace IntraBox.Modules.NameCase
             }
             catch (Exception ex)
             {
-                MsgText.Text = ex.RootMessage();
+                FormHint.Apply(MsgText, ex.RootMessage());
             }
         }
 
@@ -61,13 +61,11 @@ namespace IntraBox.Modules.NameCase
             string err;
             if (ClipboardHelper.TrySetText(OutputBox.Text, out err))
             {
-                MsgText.Foreground = FindResource("OkBrush") as System.Windows.Media.Brush;
-                MsgText.Text = "已复制";
+                FormHint.Apply(MsgText, "已复制");
             }
             else
             {
-                MsgText.Foreground = FindResource("DangerBrush") as System.Windows.Media.Brush;
-                MsgText.Text = err;
+                FormHint.Apply(MsgText, err);
             }
         }
 

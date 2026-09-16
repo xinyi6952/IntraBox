@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
 using IntraBox.Controls;
 using IntraBox.Core;
@@ -54,7 +55,7 @@ namespace IntraBox.Modules.MachineInfo
             var cts = new CancellationTokenSource();
             _gate.Current = cts;
             var token = cts.Token;
-            MsgText.Text = "正在读取本机信息…";
+            FormHint.Apply(MsgText, "正在读取本机信息…");
             try
             {
                 await Dispatcher.InvokeAsync(new Action(() => { }), DispatcherPriority.Loaded);
@@ -67,13 +68,13 @@ namespace IntraBox.Modules.MachineInfo
                 }, token);
                 if (version != _gate.Version) return;
                 OutputBox.Text = report;
-                MsgText.Text = "已刷新";
+                FormHint.Apply(MsgText, "已刷新");
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 if (version == _gate.Version)
-                    MsgText.Text = "读取失败：" + ex.RootMessage();
+                    FormHint.Apply(MsgText, "读取失败：" + ex.RootMessage());
             }
             finally
             {
@@ -82,14 +83,41 @@ namespace IntraBox.Modules.MachineInfo
             }
         }
 
-        private void Copy_Click(object sender, RoutedEventArgs e)
+        private void CopyBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrEmpty(OutputBox.Text)) return;
+            if (CopyBtn == null || CopyBtn.ContextMenu == null) return;
+            CopyBtn.ContextMenu.PlacementTarget = CopyBtn;
+            CopyBtn.ContextMenu.Placement = PlacementMode.Bottom;
+            CopyBtn.ContextMenu.IsOpen = true;
+        }
+
+        private void CopyAll_Click(object sender, RoutedEventArgs e)
+        {
+            CopyText(OutputBox != null ? OutputBox.Text : null, "已复制全部", "没有可复制的本机信息");
+        }
+
+        private void CopyIpv4_Click(object sender, RoutedEventArgs e)
+        {
+            CopyText(MachineInfoHelper.CollectUnicastIps(true, false), "已复制 ipv4", "没有可复制的 ipv4 地址");
+        }
+
+        private void CopyIpv6_Click(object sender, RoutedEventArgs e)
+        {
+            CopyText(MachineInfoHelper.CollectUnicastIps(false, true), "已复制 ipv6", "没有可复制的 ipv6 地址");
+        }
+
+        private void CopyText(string text, string okMsg, string emptyMsg)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                FormHint.Apply(MsgText, emptyMsg);
+                return;
+            }
             string err;
-            if (ClipboardHelper.TrySetText(OutputBox.Text, out err))
-                MsgText.Text = "已复制";
+            if (ClipboardHelper.TrySetText(text, out err))
+                FormHint.Apply(MsgText, okMsg);
             else
-                MsgText.Text = err;
+                FormHint.Apply(MsgText, err);
         }
 
         private static string BuildReport()
@@ -125,8 +153,7 @@ namespace IntraBox.Modules.MachineInfo
             sb.AppendLine("【网络】");
             foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
             {
-                if (nic.OperationalStatus != OperationalStatus.Up) continue;
-                if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                if (!MachineInfoHelper.IsActiveCopyNic(nic)) continue;
                 sb.AppendLine(nic.Name + " (" + nic.NetworkInterfaceType + ")");
                 sb.AppendLine("  MAC\t" + FormatMac(nic.GetPhysicalAddress()));
                 var props = nic.GetIPProperties();

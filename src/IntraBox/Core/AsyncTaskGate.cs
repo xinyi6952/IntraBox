@@ -55,7 +55,16 @@ namespace IntraBox.Core
             _version++;
             if (_cts != null)
             {
-                _cts.Cancel();
+                try { _cts.Cancel(); } catch { }
+                DisposeCurrent();
+            }
+        }
+
+        /// <summary>任务正常结束后释放 CTS，不递增版本（下次 Cancel 也会释放）。</summary>
+        public void DisposeCurrent()
+        {
+            if (_cts != null)
+            {
                 _cts.Dispose();
                 _cts = null;
             }

@@ -19,7 +19,7 @@
                        Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
         </WrapPanel>
 
-        <TextBlock Grid.Row="1" Text="文本" Margin="0,0,0,4"
+        <controls:RequiredLabel Grid.Row="1" Text="文本" Margin="0,0,0,4"
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
         <controls:CodeEditor x:Name="InputBox" Grid.Row="2" MinHeight="80"/>
 

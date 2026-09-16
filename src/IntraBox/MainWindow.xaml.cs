@@ -20,6 +20,8 @@ namespace IntraBox
         private readonly DispatcherTimer _memoryTimer = new DispatcherTimer();
         private bool _navSyncing;
         private bool _settingsSelected;
+        private ICollectionView _navView;
+        private string _navFilter = "";
 
         public MainWindow()
         {
@@ -33,13 +35,83 @@ namespace IntraBox
             _memoryTimer.Start();
             UpdateMemoryText();
             MemoryIdleGuard.Attach(this);
+            AppLog.Info("主窗口已打开");
         }
 
         private void LoadNav()
         {
+            string keepFilter = _navFilter;
             var view = new CollectionViewSource { Source = ToolVisibility.NavTools() }.View;
             view.GroupDescriptions.Add(new PropertyGroupDescription("Category"));
+            view.Filter = NavFilter;
+            _navView = view;
             NavList.ItemsSource = view;
+            if (!string.IsNullOrEmpty(keepFilter) && NavSearchBox != null)
+            {
+                _navFilter = keepFilter;
+                if (NavSearchBox.Text != keepFilter)
+                    NavSearchBox.Text = keepFilter;
+                else
+                    view.Refresh();
+            }
+        }
+
+        private bool NavFilter(object obj)
+        {
+            var m = obj as ModuleInfo;
+            if (m == null) return false;
+            if (string.IsNullOrWhiteSpace(_navFilter)) return true;
+            return SearchTextHelper.Score(_navFilter, m.DisplayName, m.Category) > 0
+                || SearchTextHelper.Score(_navFilter, m.Key) > 0;
+        }
+
+        private void ApplyNavFilter()
+        {
+            _navFilter = NavSearchBox != null ? (NavSearchBox.Text ?? "").Trim() : "";
+            if (_navView != null)
+                _navView.Refresh();
+            else if (NavList.ItemsSource is ICollectionView v)
+                v.Refresh();
+        }
+
+        private void NavSearchClear_Click(object sender, RoutedEventArgs e)
+        {
+            if (NavSearchBox == null) return;
+            NavSearchBox.Text = "";
+            NavSearchBox.Focus();
+            ApplyNavFilter();
+            StatusText.Text = "已清除导航筛选";
+        }
+
+        private void NavSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (NavSearchClearBtn != null)
+                NavSearchClearBtn.Visibility = string.IsNullOrEmpty(NavSearchBox.Text)
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+            ApplyNavFilter();
+        }
+
+        private void NavSearchBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                ApplyNavFilter();
+                StatusText.Text = string.IsNullOrEmpty(_navFilter)
+                    ? "已显示全部工具"
+                    : ("导航筛选：" + _navFilter);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                if (NavSearchBox != null && !string.IsNullOrEmpty(NavSearchBox.Text))
+                {
+                    NavSearchBox.Text = "";
+                    ApplyNavFilter();
+                    StatusText.Text = "已清除导航筛选";
+                    e.Handled = true;
+                }
+            }
         }
 
         /// <summary>设置页保存工具显隐后刷新导航。若当前模块被隐藏则切到第一个可见工具或设置。</summary>
@@ -88,15 +160,32 @@ namespace IntraBox
                 SetSettingsSelected(false);
                 if (!_loader.Activate(info, WorkspaceHost))
                 {
-                    _navSyncing = true;
-                    NavList.SelectedItem = _loader.CurrentInfo;
-                    _navSyncing = false;
+                    RestoreNavSelectionAfterLeaveCancel();
                     return;
                 }
                 ModuleTitle.Text = info.DisplayName;
                 StatusText.Text = "当前工具：" + info.DisplayName;
                 PersistLastModule(info.Key);
+                AppLog.Info("打开工具：" + info.DisplayName + " (" + info.Key + ")");
             }
+        }
+
+        /// <summary>离开确认取消后恢复侧栏选中（设置不在列表里，需单独点亮底部设置项）。</summary>
+        private void RestoreNavSelectionAfterLeaveCancel()
+        {
+            _navSyncing = true;
+            var cur = _loader.CurrentInfo;
+            if (cur != null && cur.Key == ToolVisibility.SettingsKey)
+            {
+                NavList.SelectedItem = null;
+                SetSettingsSelected(true);
+            }
+            else
+            {
+                NavList.SelectedItem = cur;
+                SetSettingsSelected(false);
+            }
+            _navSyncing = false;
         }
 
         private void SettingsNav_Click(object sender, MouseButtonEventArgs e)
@@ -117,6 +206,7 @@ namespace IntraBox
             ModuleTitle.Text = info.DisplayName;
             StatusText.Text = "当前工具：" + info.DisplayName;
             PersistLastModule(info.Key);
+            AppLog.Info("打开工具：设置");
         }
 
         /// <summary>提醒弹窗「打开任务」或启动器：切到任务计划并选中指定 uid。</summary>
@@ -128,6 +218,19 @@ namespace IntraBox
                 var view = _loader.CurrentView as IntraBox.Modules.Todo.TodoView;
                 if (view != null) view.OpenPending();
             });
+            ClearTodoPendingIfNotCurrent();
+        }
+
+        /// <summary>工作日历：按当天计划完成时间新建待办。</summary>
+        public void OpenTodoOnDate(DateTime day)
+        {
+            IntraBox.Modules.Todo.TodoView.PendingDueDate = day.Date;
+            OpenModule("todo", delegate
+            {
+                var view = _loader.CurrentView as IntraBox.Modules.Todo.TodoView;
+                if (view != null) view.OpenPending();
+            });
+            ClearTodoPendingIfNotCurrent();
         }
 
         /// <summary>启动器：切到笔记并打开指定篇。</summary>
@@ -139,6 +242,8 @@ namespace IntraBox
                 var view = _loader.CurrentView as IntraBox.Modules.Notes.NotesView;
                 if (view != null) view.OpenPending();
             });
+            if (_loader.CurrentInfo == null || _loader.CurrentInfo.Key != "notes")
+                IntraBox.Modules.Notes.NotesView.PendingOpenUid = null;
         }
 
         /// <summary>启动器：切到账号备忘并打开指定分类。</summary>
@@ -150,6 +255,8 @@ namespace IntraBox
                 var view = _loader.CurrentView as IntraBox.Modules.Vault.VaultView;
                 if (view != null) view.OpenPending();
             });
+            if (_loader.CurrentInfo == null || _loader.CurrentInfo.Key != "vault")
+                IntraBox.Modules.Vault.VaultView.PendingOpenUid = null;
         }
 
         /// <summary>启动器：切到指定工具（含设置）。</summary>
@@ -162,6 +269,13 @@ namespace IntraBox
                 return;
             }
             OpenModule(key, null);
+        }
+
+        private void ClearTodoPendingIfNotCurrent()
+        {
+            if (_loader.CurrentInfo != null && _loader.CurrentInfo.Key == "todo") return;
+            IntraBox.Modules.Todo.TodoView.PendingOpenUid = null;
+            IntraBox.Modules.Todo.TodoView.PendingDueDate = null;
         }
 
         private void OpenModule(string key, Action ifAlreadyCurrent)
@@ -184,6 +298,7 @@ namespace IntraBox
                 ModuleTitle.Text = info.DisplayName;
                 StatusText.Text = "当前工具：" + info.DisplayName;
                 PersistLastModule(info.Key);
+                AppLog.Info("打开工具：" + info.DisplayName + " (" + info.Key + ")");
                 return;
             }
             foreach (ModuleInfo m in NavList.Items)
@@ -329,6 +444,7 @@ namespace IntraBox
             {
                 NavCol.Width = new GridLength(44);
                 NavTitle.Visibility = Visibility.Collapsed;
+                NavSearchPanel.Visibility = Visibility.Collapsed;
                 NavList.Visibility = Visibility.Collapsed;
                 SettingsNavWrap.Visibility = Visibility.Collapsed;
                 NavHeader.Margin = new Thickness(4, 12, 4, 8);
@@ -340,6 +456,7 @@ namespace IntraBox
             {
                 NavCol.Width = new GridLength(224);
                 NavTitle.Visibility = Visibility.Visible;
+                NavSearchPanel.Visibility = Visibility.Visible;
                 NavList.Visibility = Visibility.Visible;
                 SettingsNavWrap.Visibility = Visibility.Visible;
                 NavHeader.Margin = new Thickness(8, 14, 8, 8);

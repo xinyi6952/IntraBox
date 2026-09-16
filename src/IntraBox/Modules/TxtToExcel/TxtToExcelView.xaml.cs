@@ -389,17 +389,13 @@ namespace IntraBox.Modules.TxtToExcel
 
         private void SetMsg(string text, bool isError)
         {
-            MsgText.Foreground = isError
-                ? (Brush)FindResource("DangerBrush")
-                : (Brush)FindResource("OkBrush");
-            MsgText.Text = text;
+            FormHint.Apply(MsgText, text, isError);
             LoadingOverlay.Hide(this);
         }
 
         private void SetBusy(string text)
         {
-            MsgText.Foreground = (Brush)FindResource("TextSecondaryBrush");
-            MsgText.Text = text;
+            FormHint.Apply(MsgText, text);
             LoadingOverlay.Show(this, text);
         }
 

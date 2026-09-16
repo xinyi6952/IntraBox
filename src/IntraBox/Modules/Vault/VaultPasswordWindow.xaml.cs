@@ -88,20 +88,20 @@ namespace IntraBox.Modules.Vault
 
         private void Ok_Click(object sender, RoutedEventArgs e)
         {
-            ErrorText.Text = "";
+            FormHint.Apply(ErrorText, "");
             if (_mode == Mode.Unlock)
             {
                 string pwd = NewBox.Password ?? "";
                 if (pwd.Length == 0)
                 {
-                    ErrorText.Text = "请填写查看密码";
+                    FormHint.Apply(ErrorText, "请填写查看密码");
                     return;
                 }
                 byte[] key;
                 string err = DeriveAndCheck(_salt, _verifier, pwd, out key);
                 if (err != null)
                 {
-                    ErrorText.Text = err;
+                    FormHint.Apply(ErrorText, err);
                     return;
                 }
                 Key = key;
@@ -116,7 +116,7 @@ namespace IntraBox.Modules.Vault
                 string err = DeriveAndCheck(_salt, _verifier, oldPwd, out oldKey);
                 if (err != null)
                 {
-                    ErrorText.Text = err;
+                    FormHint.Apply(ErrorText, err);
                     return;
                 }
                 OldKey = oldKey;
@@ -126,12 +126,12 @@ namespace IntraBox.Modules.Vault
             string b = ConfirmBox.Password ?? "";
             if (a.Length < 4)
             {
-                ErrorText.Text = "查看密码至少 4 个字符";
+                FormHint.Apply(ErrorText, "查看密码至少 4 个字符");
                 return;
             }
             if (a != b)
             {
-                ErrorText.Text = "两次输入不一致";
+                FormHint.Apply(ErrorText, "两次输入不一致");
                 return;
             }
             byte[] salt = VaultCrypto.NewSalt();

@@ -73,14 +73,6 @@
                 </ListView.ContextMenu>
                 <ListView.View>
                     <GridView AllowsColumnReorder="False">
-                        <GridViewColumn Header="置顶" Width="56">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding PinText}" Style="{StaticResource VaultCellText}"
-                                               Foreground="{DynamicResource AccentBrush}"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
                         <GridViewColumn Header="分类" Width="220">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
@@ -107,6 +99,14 @@
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding UpdatedText}" Style="{StaticResource VaultCellText}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="置顶" Width="56">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding PinText}" Style="{StaticResource VaultCellText}"
+                                               Foreground="{DynamicResource AccentBrush}"/>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>

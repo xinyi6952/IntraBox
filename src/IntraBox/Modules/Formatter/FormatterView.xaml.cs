@@ -296,12 +296,12 @@ namespace IntraBox.Modules.Formatter
         {
             if (string.IsNullOrEmpty(msg))
             {
-                ErrorText.Text = "";
+                FormHint.Apply(ErrorText, "");
                 ErrorText.Visibility = Visibility.Collapsed;
             }
             else
             {
-                ErrorText.Text = msg;
+                FormHint.Apply(ErrorText, msg);
                 ErrorText.Visibility = Visibility.Visible;
             }
         }

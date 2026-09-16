@@ -1,0 +1,42 @@
+﻿<UserControl x:Class="IntraBox.Controls.SearchCombo"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid x:Name="Root">
+        <Border Background="{DynamicResource PanelBgBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1" CornerRadius="4" MinHeight="32">
+            <DockPanel>
+                <Button x:Name="ToggleBtn" DockPanel.Dock="Right" Width="28" MinWidth="28" MinHeight="30"
+                        Padding="0" BorderThickness="0" Focusable="False" Click="Toggle_Click"
+                        Background="Transparent" ToolTip="打开列表">
+                    <Path Data="M0,0 L7,0 3.5,5 Z" Fill="{DynamicResource TextSecondaryBrush}"
+                          HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="None"/>
+                </Button>
+                <TextBox x:Name="Edit" BorderThickness="0" Background="Transparent"
+                         VerticalContentAlignment="Center" MinHeight="30"
+                         TextChanged="Edit_TextChanged"
+                         PreviewKeyDown="Edit_PreviewKeyDown"
+                         GotKeyboardFocus="Edit_GotKeyboardFocus"
+                         LostKeyboardFocus="Edit_LostKeyboardFocus"/>
+            </DockPanel>
+        </Border>
+        <Popup x:Name="DropPopup" PlacementTarget="{Binding ElementName=Root}" Placement="Bottom"
+               StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade">
+            <Border MinWidth="{Binding ActualWidth, ElementName=Root}" MaxHeight="280"
+                    Background="{DynamicResource PanelBgBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="4" Margin="0,2,0,0">
+                <ListBox x:Name="List" BorderThickness="0" MaxHeight="276"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         PreviewMouseLeftButtonUp="List_PreviewMouseLeftButtonUp">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Text}"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

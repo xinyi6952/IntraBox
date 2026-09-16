@@ -755,7 +755,7 @@ namespace IntraBox.Modules.Vault
         private void SetStatus(string text)
         {
             if (StatusText != null)
-                StatusText.Text = text;
+                FormHint.Apply(StatusText, text);
         }
 
         private Window OwnerWin()

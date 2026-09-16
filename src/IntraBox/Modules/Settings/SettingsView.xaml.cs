@@ -103,7 +103,7 @@ namespace IntraBox.Modules.Settings
             HistoryDelaySlider.Value = delay;
             UpdateHistoryDelayLabel(delay);
             RefreshDataDirBox();
-            MsgText.Text = "";
+            FormHint.Apply(MsgText, "");
             _loading = false;
             RememberClean();
         }
@@ -333,7 +333,7 @@ namespace IntraBox.Modules.Settings
         {
             LoadNavSort(true);
             ShowSortUi(true);
-            MsgText.Text = "已恢复默认排序，保存设置后生效。";
+            FormHint.Apply(MsgText, "已恢复默认排序，保存设置后生效。");
         }
 
         private void NavTreeTop_Click(object sender, RoutedEventArgs e)
@@ -464,7 +464,7 @@ namespace IntraBox.Modules.Settings
             }
             catch (Exception ex)
             {
-                MsgText.Text = "无法打开：" + ex.Message;
+                FormHint.Apply(MsgText, "无法打开：" + ex.Message);
             }
         }
 
@@ -484,7 +484,7 @@ namespace IntraBox.Modules.Settings
         {
             if (DataPaths.IsDefaultRoot)
             {
-                MsgText.Text = "已经是默认数据目录。";
+                FormHint.Apply(MsgText, "已经是默认数据目录。");
                 return;
             }
             BeginCopyDataRoot(DataPaths.DefaultRoot, true);
@@ -495,13 +495,13 @@ namespace IntraBox.Modules.Settings
             string err;
             if (!DataPaths.TryValidateNewRoot(dest, out err))
             {
-                MsgText.Text = err;
+                FormHint.Apply(MsgText, err);
                 MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             if (DataPaths.SamePath(dest, DataPaths.Root))
             {
-                MsgText.Text = "已经是当前数据目录。";
+                FormHint.Apply(MsgText, "已经是当前数据目录。");
                 return;
             }
             LoadingOverlay.Show(this, "正在复制数据文件…");
@@ -537,7 +537,7 @@ namespace IntraBox.Modules.Settings
             LoadingOverlay.Hide(this);
             if (!string.IsNullOrEmpty(error) || string.IsNullOrEmpty(dest))
             {
-                MsgText.Text = "复制失败，仍使用原目录。" + (error ?? "");
+                FormHint.Apply(MsgText, "复制失败，仍使用原目录。" + (error ?? ""));
                 MessageBox.Show("复制失败：" + (error ?? "未知错误"), "IntraBox",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -551,9 +551,9 @@ namespace IntraBox.Modules.Settings
             ThemeManager.Apply(ConfigManager.Instance.Settings.Theme);
             RefreshDataDirBox();
             OnActivated();
-            MsgText.Text = restoreDefault
+            FormHint.Apply(MsgText, restoreDefault
                 ? "已恢复默认数据目录（文件已复制，原目录未删除）。"
-                : "数据目录已更换（文件已复制，原目录未删除）。";
+                : "数据目录已更换（文件已复制，原目录未删除）。");
         }
 
         private void RefreshHotkeyBox()
@@ -578,18 +578,18 @@ namespace IntraBox.Modules.Settings
             bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
             if (!ctrl && !alt)
             {
-                MsgText.Text = "请至少加上 Ctrl 或 Alt，以免占用普通按键。";
+                FormHint.Apply(MsgText, "请至少加上 Ctrl 或 Alt，以免占用普通按键。");
                 return;
             }
             int vk = KeyInterop.VirtualKeyFromKey(key);
             if (vk <= 0)
             {
-                MsgText.Text = "无法识别该按键。";
+                FormHint.Apply(MsgText, "无法识别该按键。");
                 return;
             }
             if (HotkeyService.Instance != null && !HotkeyService.Instance.Rebind(ctrl, alt, shift, vk))
             {
-                MsgText.Text = "热键注册失败，可能已被其他程序占用。";
+                FormHint.Apply(MsgText, "热键注册失败，可能已被其他程序占用。");
                 return;
             }
             _hkCtrl = ctrl;
@@ -598,14 +598,14 @@ namespace IntraBox.Modules.Settings
             _hkVk = vk;
             PersistHotkey();
             RefreshHotkeyBox();
-            MsgText.Text = "截屏热键已改为 " + HotkeyBox.Text + "。";
+            FormHint.Apply(MsgText, "截屏热键已改为 " + HotkeyBox.Text + "。");
         }
 
         private void HotkeyReset_Click(object sender, RoutedEventArgs e)
         {
             if (HotkeyService.Instance != null && !HotkeyService.Instance.Rebind(true, true, false, 0x41))
             {
-                MsgText.Text = "无法恢复默认热键（可能被占用）。";
+                FormHint.Apply(MsgText, "无法恢复默认热键（可能被占用）。");
                 return;
             }
             _hkCtrl = true;
@@ -614,7 +614,7 @@ namespace IntraBox.Modules.Settings
             _hkVk = 0x41;
             PersistHotkey();
             RefreshHotkeyBox();
-            MsgText.Text = "已恢复默认 Ctrl+Alt+A。";
+            FormHint.Apply(MsgText, "已恢复默认 Ctrl+Alt+A。");
         }
 
         private void PersistHotkey()
@@ -649,18 +649,18 @@ namespace IntraBox.Modules.Settings
             bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
             if (!ctrl && !alt)
             {
-                MsgText.Text = "请至少加上 Ctrl 或 Alt，以免占用普通按键。";
+                FormHint.Apply(MsgText, "请至少加上 Ctrl 或 Alt，以免占用普通按键。");
                 return;
             }
             int vk = KeyInterop.VirtualKeyFromKey(key);
             if (vk <= 0)
             {
-                MsgText.Text = "无法识别该按键。";
+                FormHint.Apply(MsgText, "无法识别该按键。");
                 return;
             }
             if (HotkeyService.Instance != null && !HotkeyService.Instance.RebindLauncher(ctrl, alt, shift, vk))
             {
-                MsgText.Text = "启动器热键注册失败，可能与截屏热键冲突或已被占用。";
+                FormHint.Apply(MsgText, "启动器热键注册失败，可能与截屏热键冲突或已被占用。");
                 return;
             }
             _hkLCtrl = ctrl;
@@ -669,14 +669,14 @@ namespace IntraBox.Modules.Settings
             _hkLVk = vk;
             PersistLauncherHotkey();
             RefreshLauncherHotkeyBox();
-            MsgText.Text = "启动器热键已改为 " + LauncherHotkeyBox.Text + "。";
+            FormHint.Apply(MsgText, "启动器热键已改为 " + LauncherHotkeyBox.Text + "。");
         }
 
         private void LauncherHotkeyReset_Click(object sender, RoutedEventArgs e)
         {
             if (HotkeyService.Instance != null && !HotkeyService.Instance.RebindLauncher(true, true, false, 0x4C))
             {
-                MsgText.Text = "无法恢复启动器默认热键（可能被占用）。";
+                FormHint.Apply(MsgText, "无法恢复启动器默认热键（可能被占用）。");
                 return;
             }
             _hkLCtrl = true;
@@ -685,7 +685,7 @@ namespace IntraBox.Modules.Settings
             _hkLVk = 0x4C;
             PersistLauncherHotkey();
             RefreshLauncherHotkeyBox();
-            MsgText.Text = "已恢复启动器默认 Ctrl+Alt+L。";
+            FormHint.Apply(MsgText, "已恢复启动器默认 Ctrl+Alt+L。");
         }
 
         private void PersistLauncherHotkey()
@@ -716,7 +716,7 @@ namespace IntraBox.Modules.Settings
         {
             if (_loading || ThemeCombo == null) return;
             ThemeManager.Apply(ThemeName(ThemeCombo.SelectedIndex));
-            MsgText.Text = "主题已切换并保存。";
+            FormHint.Apply(MsgText, "主题已切换并保存。");
         }
 
         private void SizeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -831,11 +831,11 @@ namespace IntraBox.Modules.Settings
             try
             {
                 Clipboard.SetText(AppVersion.Display);
-                MsgText.Text = "已复制 " + AppVersion.Display;
+                FormHint.Apply(MsgText, "已复制 " + AppVersion.Display);
             }
             catch
             {
-                MsgText.Text = "复制版本号失败";
+                FormHint.Apply(MsgText, "复制版本号失败");
             }
         }
 
@@ -852,8 +852,7 @@ namespace IntraBox.Modules.Settings
             s.ClosePromptSkip = false;
             ConfigManager.Instance.Save();
             RememberClean();
-            MsgText.Text = "已恢复关闭提示，下次点关闭会再询问";
-            MsgText.Foreground = (Brush)FindResource("TextSecondaryBrush");
+            FormHint.Apply(MsgText, "已恢复关闭提示，下次点关闭会再询问");
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
@@ -874,7 +873,7 @@ namespace IntraBox.Modules.Settings
             }
             if (visible.Count == 0)
             {
-                MsgText.Text = "至少选择一个工具";
+                FormHint.Apply(MsgText, "至少选择一个工具");
                 MessageBox.Show("至少选择一个工具", "IntraBox", MessageBoxButton.OK, MessageBoxImage.Information);
                 return false;
             }
@@ -922,9 +921,9 @@ namespace IntraBox.Modules.Settings
             var main = Application.Current != null ? Application.Current.MainWindow as MainWindow : null;
             if (main != null) main.ReloadNav();
 
-            MsgText.Text = "已保存。状态记忆写入延迟 " + delay + " 毫秒，文件上限 " + mb + " MB，剪贴板 " + clip + " 条（图片最多 "
+            FormHint.Apply(MsgText, "已保存。状态记忆写入延迟 " + delay + " 毫秒，文件上限 " + mb + " MB，剪贴板 " + clip + " 条（图片最多 "
                 + ClipboardStore.EffectiveMaxImageItems(clip, clipImg) + " 张），托盘空闲 " + idle + " 秒，工作集水位 "
-                + low + "–" + high + " MB，主题、显隐与导航排序已记住。";
+                + low + "–" + high + " MB，主题、显隐与导航排序已记住。");
             return true;
         }
 

@@ -56,7 +56,7 @@ namespace IntraBox.Modules.Codec
             {
                 OutputBox.Text = "";
                 if (fromButton) SetMsg("输入不能为空", true);
-                else MsgText.Text = "";
+                else FormHint.Apply(MsgText, "");
                 return;
             }
 
@@ -85,8 +85,7 @@ namespace IntraBox.Modules.Codec
 
         private void SetMsg(string text, bool error)
         {
-            MsgText.Foreground = FindResource(error ? "DangerBrush" : "OkBrush") as System.Windows.Media.Brush;
-            MsgText.Text = text;
+             FormHint.Apply(MsgText, text, error);
         }
 
         public void OnActivated()

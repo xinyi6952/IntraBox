@@ -13,38 +13,30 @@ namespace IntraBox.Core
         {
             "效率工具",
             "系统工具",
-            "格式化",
             "截图",
             "文本工具",
             "编码转换",
-            "转换工具",
             "文件管理",
             "网络工具",
             "安全工具",
             "生成器",
-            "数据转换",
-            "图片工具",
-            "设计工具",
+            "图片与设计",
             "开发工具",
             "其他工具"
         };
 
         public static readonly string[] DefaultToolKeys =
         {
-            "clipboard", "launcher", "todo", "notes", "vault",
-            "machineinfo", "hostseditor", "filelock", "wintopmost", "keepawake", "regbrowse",
-            "formatter",
+            "clipboard", "launcher", "todo", "notes", "vault", "workcal",
+            "machineinfo", "envvars", "jobflow", "hostseditor", "filelock", "wintopmost", "keepawake", "regbrowse",
             "screenshot", "screenruler",
-            "diff", "regextest", "lineprocess", "namecase", "mdpreview", "textstats", "regexviz",
-            "base64", "codec", "urlparse", "unicodeinspect",
-            "timestamp",
-            "filesearch", "fileorganize", "batchrename", "dupfiles",
+            "formatter", "diff", "regextest", "lineprocess", "namecase", "mdpreview", "textstats", "regexviz", "txt2excel",
+            "base64", "codec", "urlparse", "unicodeinspect", "timestamp",
+            "filesearch", "dirsize", "fileorganize", "batchrename", "dupfiles",
             "portlist", "porttest",
             "hash", "crypto", "certdecode",
             "idgenerator", "qrcode", "jsontoclass",
-            "txt2excel",
-            "imageconvert",
-            "colorpicker", "colorblind",
+            "imageconvert", "colorpicker", "colorblind",
             "jsonschema", "semver",
             "demo"
         };

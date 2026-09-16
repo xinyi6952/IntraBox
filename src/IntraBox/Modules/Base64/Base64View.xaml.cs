@@ -187,23 +187,19 @@ namespace IntraBox.Modules.Base64
 
         private void SetMsg(string text, bool isError = false)
         {
-            MsgText.Foreground = isError
-                ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xC0, 0x39, 0x2B))
-                : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x2E, 0x7D, 0x32));
-            MsgText.Text = text;
+            FormHint.Apply(MsgText, text, isError);
             LoadingOverlay.Hide(this);
         }
 
         private void SetBusy(string text)
         {
-            MsgText.Foreground = FindResource("TextSecondaryBrush") as System.Windows.Media.Brush;
-            MsgText.Text = text;
+            FormHint.Apply(MsgText, text);
             LoadingOverlay.Show(this, text);
         }
 
         private void ClearMsg()
         {
-            MsgText.Text = "";
+            FormHint.Apply(MsgText, "");
             LoadingOverlay.Hide(this);
         }
 

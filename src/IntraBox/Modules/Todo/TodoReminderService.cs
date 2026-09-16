@@ -257,7 +257,7 @@ namespace IntraBox.Modules.Todo
             switch (it.RemindKind)
             {
                 case TodoRemindKind.Weekdays:
-                    return now.DayOfWeek != DayOfWeek.Saturday && now.DayOfWeek != DayOfWeek.Sunday;
+                    return WorkdayHelper.IsWorkday(now.Date);
                 case TodoRemindKind.Weekly:
                     return (int)now.DayOfWeek == it.RemindWeekday;
                 case TodoRemindKind.EveryNDays:

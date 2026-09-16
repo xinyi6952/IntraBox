@@ -120,7 +120,7 @@ namespace IntraBox.Modules.ColorBlind
             string sizeErr;
             if (!SizeLimits.TryCheckFile(dlg.FileName, out sizeErr))
             {
-                MsgText.Text = sizeErr;
+                FormHint.Apply(MsgText, sizeErr);
                 return;
             }
             try
@@ -130,14 +130,14 @@ namespace IntraBox.Modules.ColorBlind
                 _isDemo = false;
                 ApplyAll();
             }
-            catch (Exception ex) { MsgText.Text = ex.RootMessage(); }
+            catch (Exception ex) { FormHint.Apply(MsgText, ex.RootMessage()); }
         }
 
         private void Clear_Click(object sender, RoutedEventArgs e)
         {
             LoadDemo();
             ApplyAll();
-            MsgText.Text = "已回到示例图";
+            FormHint.Apply(MsgText, "已回到示例图");
         }
 
         private void ModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -171,7 +171,7 @@ namespace IntraBox.Modules.ColorBlind
             OrigImageCaption.Text = "左边：视力正常的人看到的";
             SimImageCaption.Text = "右边：" + ColorBlindHelper.SimulatedCaption(mode);
             ImageKindText.Text = _isDemo ? "当前是内置示例图" : "当前是你打开的图";
-            if (hexOk) MsgText.Text = "";
+            if (hexOk) FormHint.Apply(MsgText, "");
         }
 
         private bool ApplySwatches()
@@ -191,7 +191,7 @@ namespace IntraBox.Modules.ColorBlind
             byte r, g, b;
             if (!ColorBlindHelper.TryParseHex(ColorBox.Text, out r, out g, out b))
             {
-                MsgText.Text = "颜色格式应为 #RRGGBB";
+                FormHint.Apply(MsgText, "颜色格式应为 #RRGGBB");
                 return false;
             }
             var mapped = ColorBlindHelper.Map(r, g, b, mode);
@@ -199,17 +199,17 @@ namespace IntraBox.Modules.ColorBlind
             SimPreview.Background = new SolidColorBrush(MediaColor.FromRgb(mapped[0], mapped[1], mapped[2]));
             OrigHex.Text = ColorBlindHelper.ToHex(r, g, b);
             SimHex.Text = ColorBlindHelper.ToHex(mapped[0], mapped[1], mapped[2]);
-            if (MsgText.Text == "颜色格式应为 #RRGGBB") MsgText.Text = "";
+            if (MsgText.Text == "颜色格式应为 #RRGGBB") FormHint.Apply(MsgText, "");
             return true;
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {
-            if (_out == null) { MsgText.Text = "没有可导出的图"; return; }
+            if (_out == null) { FormHint.Apply(MsgText, "没有可导出的图"); return; }
             var dlg = new SaveFileDialog { Filter = "PNG|*.png", FileName = "colorblind.png" };
             if (dlg.ShowDialog() != true) return;
-            try { _out.Save(dlg.FileName, ImageFormat.Png); MsgText.Text = "已保存右边这张模拟图"; }
-            catch (Exception ex) { MsgText.Text = ex.RootMessage(); }
+            try { _out.Save(dlg.FileName, ImageFormat.Png); FormHint.Apply(MsgText, "已保存右边这张模拟图"); }
+            catch (Exception ex) { FormHint.Apply(MsgText, ex.RootMessage()); }
         }
 
         private static BitmapSource ToSource(Bitmap bmp)

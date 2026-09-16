@@ -50,18 +50,17 @@ namespace IntraBox.Modules.RegexViz
             var p = PatternBox.Text ?? "";
             if (string.IsNullOrWhiteSpace(p))
             {
-                MsgText.Text = "";
+                FormHint.Apply(MsgText, "");
                 return;
             }
             try
             {
                 new Regex(p);
-                MsgText.Text = "";
+                FormHint.Apply(MsgText, "");
             }
             catch (Exception ex)
             {
-                MsgText.Foreground = FindResource("DangerBrush") as System.Windows.Media.Brush;
-                MsgText.Text = "正则错误：" + ex.RootMessage();
+                FormHint.Apply(MsgText, "正则错误：" + ex.RootMessage());
             }
         }
 
@@ -74,8 +73,7 @@ namespace IntraBox.Modules.RegexViz
                 ExplainBox.Text = RegexExplainer.Explain(p);
                 RegexHighlighting.Ensure();
                 PatternBox.SetHighlightingByName(RegexHighlighting.Name);
-                MsgText.Foreground = FindResource("OkBrush") as System.Windows.Media.Brush;
-                MsgText.Text = "已解释";
+                FormHint.Apply(MsgText, "已解释");
 
                 var sb = new StringBuilder();
                 foreach (var s in SampleTexts)
@@ -88,8 +86,7 @@ namespace IntraBox.Modules.RegexViz
             {
                 ExplainBox.Text = "";
                 SampleBox.Text = "";
-                MsgText.Foreground = FindResource("DangerBrush") as System.Windows.Media.Brush;
-                MsgText.Text = "非法正则：" + ex.RootMessage();
+                FormHint.Apply(MsgText, "非法正则：" + ex.RootMessage());
             }
         }
     }

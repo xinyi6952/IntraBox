@@ -26,8 +26,11 @@ namespace IntraBox.Modules.Todo
             _item = item;
             _preview = preview;
             _snoozeMin = TodoRemindRepeat.ClampIntervalMin(item != null ? item.RemindIntervalMin : 0);
+            string snoozeTip = "稍后 " + _snoozeMin + " 分钟";
             if (SnoozeBtn != null)
-                SnoozeBtn.Content = "稍后 " + _snoozeMin + " 分钟";
+                SnoozeBtn.Content = snoozeTip;
+            if (CaptionCloseBtn != null)
+                CaptionCloseBtn.ToolTip = snoozeTip;
             IdText.Text = item != null ? "任务 ID  " + item.Id : "";
             string title = titleOverride;
             if (string.IsNullOrEmpty(title)) title = LoadTitle(item);
@@ -70,13 +73,14 @@ namespace IntraBox.Modules.Todo
             if (preview)
                 MoreText.Text = "这是提醒预览，不会记入已提醒记录。";
             else if (_lastFire)
-                MoreText.Text = "这是今天最后一次提醒，关闭后今天不再弹出。";
+                MoreText.Text = "这是今天最后一次提醒，点右上角关闭后今天不再弹出。";
             else
                 MoreText.Text = remain > 0 ? "还有 " + remain + " 条待提醒" : "";
             if (_lastFire)
             {
                 if (StopBtn != null) StopBtn.Visibility = Visibility.Collapsed;
                 if (SnoozeBtn != null) SnoozeBtn.Visibility = Visibility.Collapsed;
+                if (CaptionCloseBtn != null) CaptionCloseBtn.ToolTip = "关闭";
             }
         }
 
@@ -166,11 +170,6 @@ namespace IntraBox.Modules.Todo
                 return;
             if (!_preview)
                 TodoReminderService.MuteToday(_item.Uid);
-            Close();
-        }
-
-        private void Close_Click(object sender, RoutedEventArgs e)
-        {
             Close();
         }
 

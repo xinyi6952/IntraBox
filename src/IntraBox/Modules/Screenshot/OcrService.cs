@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.IO;
+using IntraBox.Core;
 using Tesseract;
 using DrawingImageFormat = System.Drawing.Imaging.ImageFormat;
 
@@ -26,17 +27,26 @@ namespace IntraBox.Modules.Screenshot
 
             string lang = chi && eng ? "chi_sim+eng" : (chi ? "chi_sim" : "eng");
 
-            using (var engine = new TesseractEngine(dir, lang, EngineMode.LstmOnly))
-            using (var ms = new MemoryStream())
+            try
             {
-                bmp.Save(ms, DrawingImageFormat.Png);
-                byte[] bytes = ms.ToArray();
-                using (var pix = Pix.LoadFromMemory(bytes))
-                using (var page = engine.Process(pix))
+                using (var engine = new TesseractEngine(dir, lang, EngineMode.LstmOnly))
+                using (var ms = new MemoryStream())
                 {
-                    string text = page.GetText();
-                    return text == null ? "" : text.Trim();
+                    bmp.Save(ms, DrawingImageFormat.Png);
+                    byte[] bytes = ms.ToArray();
+                    using (var pix = Pix.LoadFromMemory(bytes))
+                    using (var page = engine.Process(pix))
+                    {
+                        string text = page.GetText();
+                        return text == null ? "" : text.Trim();
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                if (WinCompatHelper.LooksLikeMissingVcRuntime(ex))
+                    throw new InvalidOperationException(WinCompatHelper.OcrVcRuntimeHint, ex);
+                throw;
             }
         }
     }

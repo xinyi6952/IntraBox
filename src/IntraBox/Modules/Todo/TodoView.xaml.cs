@@ -16,6 +16,7 @@ namespace IntraBox.Modules.Todo
     public partial class TodoView : UserControl, IModuleView, ILeaveGuard
     {
         public static string PendingOpenUid;
+        public static DateTime? PendingDueDate;
 
         private readonly List<TodoRow> _rows = new List<TodoRow>();
         private bool _loading;
@@ -75,7 +76,18 @@ namespace IntraBox.Modules.Todo
         {
             string uid = PendingOpenUid;
             PendingOpenUid = null;
-            if (string.IsNullOrEmpty(uid)) return;
+            DateTime? due = PendingDueDate;
+            PendingDueDate = null;
+            if (string.IsNullOrEmpty(uid))
+            {
+                if (!due.HasValue) return;
+                if (!CloseDrawer()) return;
+                TabTodo.IsChecked = true;
+                var created = TodoItem.CreateNew(TodoStore.NextAutoId());
+                created.DueAt = due.Value.Date.AddHours(15);
+                OpenDrawerItem(created, true);
+                return;
+            }
             var item = TodoStore.GetByUid(uid);
             if (item == null) return;
             if (item.Completed) TabDone.IsChecked = true;
@@ -358,6 +370,8 @@ namespace IntraBox.Modules.Todo
             if (a == null && b == null) return 0;
             if (a == null) return 1;
             if (b == null) return -1;
+            int pin = b.Pinned.CompareTo(a.Pinned);
+            if (pin != 0) return pin;
             int c;
             if (_sortKey == "priority")
                 c = a.Priority.CompareTo(b.Priority);
@@ -388,12 +402,13 @@ namespace IntraBox.Modules.Todo
         private void UpdateSortHeaders()
         {
             var view = TaskList != null ? TaskList.View as GridView : null;
-            if (view == null || view.Columns.Count < 7) return;
+            if (view == null || view.Columns.Count < 10) return;
             view.Columns[1].Header = SortTitle("优先级", "priority");
             view.Columns[3].Header = SortTitle("标题", "title");
             view.Columns[4].Header = SortTitle("创建时间", "created");
             view.Columns[5].Header = SortTitle("修改时间", "updated");
             view.Columns[6].Header = SortTitle("计划完成", "due");
+            view.Columns[9].Header = "置顶";
         }
 
         private static string SortKeyFromHeader(string content)
@@ -422,18 +437,18 @@ namespace IntraBox.Modules.Todo
         {
             if (TaskList == null) return;
             var gv = TaskList.View as GridView;
-            if (gv == null || gv.Columns.Count < 9) return;
+            if (gv == null || gv.Columns.Count < 10) return;
             bool doneTab = CurrentTab() == 1;
             double w = TaskList.ActualWidth - SystemParameters.VerticalScrollBarWidth - 8;
             if (w < 200) return;
-            double[] min = { 52, 72, 96, 120, 118, 118, 118, doneTab ? 118 : 0, 84 };
+            double[] min = { 52, 72, 96, 120, 118, 118, 118, doneTab ? 118 : 0, 84, 52 };
             double need = 0;
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < 10; i++)
                 need += min[i];
             if (w < need)
             {
                 double scale = w / need;
-                for (int i = 0; i < 9; i++)
+                for (int i = 0; i < 10; i++)
                     gv.Columns[i].Width = min[i] <= 0 ? 0 : Math.Max(40, Math.Floor(min[i] * scale));
                 return;
             }
@@ -447,6 +462,7 @@ namespace IntraBox.Modules.Todo
             gv.Columns[6].Width = min[6];
             gv.Columns[7].Width = min[7];
             gv.Columns[8].Width = min[8] + extra * 0.40;
+            gv.Columns[9].Width = min[9];
         }
 
         private void TaskList_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -472,6 +488,7 @@ namespace IntraBox.Modules.Todo
             bool has = row != null;
             bool done = has && row.Completed;
             bool locked = has && row.Locked;
+            bool pin = has && row.Pinned;
             if (MenuEditItem != null)
             {
                 MenuEditItem.Header = (done || locked) ? "查看" : "编辑";
@@ -479,6 +496,16 @@ namespace IntraBox.Modules.Todo
             }
             if (MenuDoneItem != null) MenuDoneItem.IsEnabled = has && !done && !locked;
             if (MenuTodoItem != null) MenuTodoItem.IsEnabled = has && done && !locked;
+            if (MenuPinItem != null)
+            {
+                MenuPinItem.Visibility = has && !pin ? Visibility.Visible : Visibility.Collapsed;
+                MenuPinItem.IsEnabled = has && !locked;
+            }
+            if (MenuUnpinItem != null)
+            {
+                MenuUnpinItem.Visibility = has && pin ? Visibility.Visible : Visibility.Collapsed;
+                MenuUnpinItem.IsEnabled = has && !locked;
+            }
             if (MenuDeleteItem != null) MenuDeleteItem.IsEnabled = has && !locked;
         }
 
@@ -525,13 +552,39 @@ namespace IntraBox.Modules.Todo
             RefreshList();
         }
 
+        private void MenuPin_Click(object sender, RoutedEventArgs e)
+        {
+            TogglePin(true);
+        }
+
+        private void MenuUnpin_Click(object sender, RoutedEventArgs e)
+        {
+            TogglePin(false);
+        }
+
+        private void TogglePin(bool pinned)
+        {
+            var row = TaskList.SelectedItem as TodoRow;
+            if (row == null) return;
+            if (row.Locked)
+            {
+                FormHint.Apply(MsgText, "已锁定，只能查看。取消勾选「锁定」后才能置顶。");
+                return;
+            }
+            SkipNextListClick();
+            TodoStore.SetPinned(row.Uid, pinned);
+            RefreshList();
+            SelectUid(row.Uid);
+            FormHint.Apply(MsgText, pinned ? "已置顶" : "已取消置顶");
+        }
+
         private void MenuDelete_Click(object sender, RoutedEventArgs e)
         {
             var row = TaskList.SelectedItem as TodoRow;
             if (row == null) return;
             if (row.Locked)
             {
-                MsgText.Text = "已锁定，只能查看。取消勾选「锁定」后才能删除。";
+                FormHint.Apply(MsgText, "已锁定，只能查看。取消勾选「锁定」后才能删除。");
                 return;
             }
             if (!ConfirmHelper.Delete("任务 " + row.Id + (string.IsNullOrEmpty(row.Title) ? "" : " / " + row.Title)))
@@ -542,7 +595,7 @@ namespace IntraBox.Modules.Todo
                 return;
             TodoStore.Delete(row.Uid);
             RefreshList();
-            MsgText.Text = "已删除";
+            FormHint.Apply(MsgText, "已删除");
         }
 
         private void OpenDrawer(string uid)
@@ -592,11 +645,11 @@ namespace IntraBox.Modules.Todo
             }
             ApplyDrawerButtons(DrawerEditor.IsReadOnly);
             if (completed)
-                DrawerMsg.Text = "已办任务只能查看，改回待办后才能编辑";
+                FormHint.Apply(DrawerMsg, "已办任务只能查看，改回待办后才能编辑");
             else if (DrawerEditor.IsReadOnly)
-                DrawerMsg.Text = "已锁定，取消勾选后可编辑";
+                FormHint.Apply(DrawerMsg, "已锁定，取消勾选后可编辑");
             else
-                DrawerMsg.Text = "";
+                FormHint.Apply(DrawerMsg, "");
             DrawerHost.Visibility = Visibility.Visible;
             SetDrawerMaximized(_drawerMax);
         }
@@ -621,7 +674,7 @@ namespace IntraBox.Modules.Todo
                 {
                     if (!string.IsNullOrEmpty(err))
                     {
-                        DrawerMsg.Text = err;
+                        FormHint.Apply(DrawerMsg, err);
                         MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     return false;
@@ -646,7 +699,7 @@ namespace IntraBox.Modules.Todo
                 {
                     if (!string.IsNullOrEmpty(err))
                     {
-                        DrawerMsg.Text = err;
+                        FormHint.Apply(DrawerMsg, err);
                         MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     return false;
@@ -726,13 +779,13 @@ namespace IntraBox.Modules.Todo
             {
                 if (!string.IsNullOrEmpty(err))
                 {
-                    DrawerMsg.Text = err;
+                    FormHint.Apply(DrawerMsg, err);
                     MessageBox.Show(err, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 return;
             }
             DrawerTitle.Text = "任务详情";
-            DrawerMsg.Text = "已保存";
+            FormHint.Apply(DrawerMsg, "已保存");
             if (wasNew)
                 TabTodo.IsChecked = true;
             RefreshList();
@@ -740,7 +793,7 @@ namespace IntraBox.Modules.Todo
             if (wasNew)
             {
                 var saved = TodoStore.GetByUid(DrawerEditor.CurrentUid);
-                MsgText.Text = "已新建 " + (saved != null ? saved.Id : "");
+                FormHint.Apply(MsgText, "已新建 " + (saved != null ? saved.Id : ""));
                 if (ReadOnlyCheck != null) ReadOnlyCheck.IsEnabled = true;
             }
             if (closeAfter)
@@ -760,11 +813,11 @@ namespace IntraBox.Modules.Todo
                     DrawerTitle.Text = DrawerEditor.IsReadOnly ? "任务详情（锁定）" : "任务详情";
             }
             if (DrawerEditor.IsCompletedLocked)
-                DrawerMsg.Text = "已办任务只能查看，改回待办后才能编辑";
+                FormHint.Apply(DrawerMsg, "已办任务只能查看，改回待办后才能编辑");
             else if (DrawerEditor.IsReadOnly)
-                DrawerMsg.Text = "已锁定，取消勾选后可编辑";
+                FormHint.Apply(DrawerMsg, "已锁定，取消勾选后可编辑");
             else
-                DrawerMsg.Text = "";
+                FormHint.Apply(DrawerMsg, "");
             RefreshList();
             SelectUid(DrawerEditor.CurrentUid);
         }
@@ -787,7 +840,7 @@ namespace IntraBox.Modules.Todo
             var item = DrawerEditor.PeekForPreview();
             if (item == null)
             {
-                DrawerMsg.Text = "请先填写任务 ID";
+                FormHint.Apply(DrawerMsg, "请先填写任务 ID");
                 return;
             }
             var w = new TodoReminderWindow(item, 0, true, DrawerEditor.PeekTitle());
@@ -814,7 +867,7 @@ namespace IntraBox.Modules.Todo
             };
             if (dlg.ShowDialog() != true) return;
             string err = TodoStore.ExportXlsx(dlg.FileName, items);
-            MsgText.Text = err == null ? "已导出 " + items.Count + " 条" : "导出失败：" + err;
+            FormHint.Apply(MsgText, err == null ? "已导出 " + items.Count + " 条" : "导出失败：" + err);
         }
 
         private static List<TodoItem> ItemsForExport(int scope)
@@ -851,6 +904,8 @@ namespace IntraBox.Modules.Todo
             public string RemindText { get; set; }
             public bool Completed { get; set; }
             public bool Locked { get; set; }
+            public bool Pinned { get; set; }
+            public string PinText { get; set; }
 
             public static TodoRow From(TodoItem it)
             {
@@ -888,7 +943,9 @@ namespace IntraBox.Modules.Todo
                     CompletedText = it.CompletedAt.HasValue ? it.CompletedAt.Value.ToString("yyyy-MM-dd HH:mm") : "",
                     RemindText = it.Completed ? "" : TodoStore.RemindSummary(it),
                     Completed = it.Completed,
-                    Locked = it.ReadOnly
+                    Locked = it.ReadOnly,
+                    Pinned = it.Pinned,
+                    PinText = it.Pinned ? "置顶" : ""
                 };
             }
 

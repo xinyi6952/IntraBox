@@ -176,6 +176,8 @@ namespace IntraBox.Modules.Todo
         public DateTime? CompletedAt { get; set; }
         /// <summary>锁定后只能查看，不能编辑或删除；即使勾选自动保存也不写入。已办本身只读。</summary>
         public bool ReadOnly { get; set; }
+        /// <summary>置顶后在列表中排在同组前面。</summary>
+        public bool Pinned { get; set; }
 
         public static TodoItem CreateNew(string id)
         {

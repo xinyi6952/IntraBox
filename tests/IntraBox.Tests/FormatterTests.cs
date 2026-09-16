@@ -84,5 +84,81 @@ namespace IntraBox.Tests
                 StringAssert.Contains(r, "\n    AND b = 2");
             }
         }
+
+        // ==================== XML ====================
+
+        [TestClass]
+        public class Xml
+        {
+            private readonly XmlFormatter _f = new XmlFormatter();
+
+            [TestMethod]
+            public void 美化_含声明_输出保留声明与编码()
+            {
+                string err;
+                var input = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><root a=\"1\"><b/></root>";
+                var r = _f.Beautify(input, "    ", out err);
+                Assert.IsNull(err);
+                StringAssert.StartsWith(r, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+                StringAssert.Contains(r, "\n<root");
+                StringAssert.Contains(r, "    <b");
+            }
+
+            [TestMethod]
+            public void 压缩_含声明_输出仍含声明()
+            {
+                string err;
+                var input = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root>\n  <a/>\n</root>";
+                var r = _f.Minify(input, out err);
+                Assert.IsNull(err);
+                StringAssert.StartsWith(r, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+                Assert.IsFalse(r.Contains("\n    "), "压缩后不应保留美化缩进");
+                StringAssert.Contains(r, "<root>");
+            }
+
+            [TestMethod]
+            public void 美化_无声明_不额外生成声明()
+            {
+                string err;
+                var r = _f.Beautify("<root><a/></root>", "  ", out err);
+                Assert.IsNull(err);
+                Assert.IsFalse(r.StartsWith("<?xml"), "无声明输入不应发明声明");
+                StringAssert.StartsWith(r, "<root>");
+            }
+
+            [TestMethod]
+            public void 美化_典型片段往返_声明与根仍在()
+            {
+                string err;
+                var input = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><msg><id>1</id><text>你好</text></msg>";
+                var once = _f.Beautify(input, "  ", out err);
+                Assert.IsNull(err);
+                var again = _f.Beautify(once, "  ", out err);
+                Assert.IsNull(err);
+                StringAssert.Contains(again, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+                StringAssert.Contains(again, "<text>你好</text>");
+                Assert.AreEqual(once, again);
+            }
+
+            [TestMethod]
+            public void 美化_声明utf16_回写UTF8()
+            {
+                string err;
+                var input = "<?xml version=\"1.0\" encoding=\"utf-16\"?><root/>";
+                var r = _f.Beautify(input, "  ", out err);
+                Assert.IsNull(err);
+                StringAssert.Contains(r, "encoding=\"UTF-8\"");
+                Assert.IsFalse(r.IndexOf("utf-16", System.StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+
+            [TestMethod]
+            public void 非法XML_返回错误且不崩溃()
+            {
+                string err;
+                var r = _f.Beautify("<root><unclosed>", "  ", out err);
+                Assert.IsNull(r);
+                Assert.IsNotNull(err);
+            }
+        }
     }
 }

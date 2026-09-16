@@ -229,6 +229,28 @@ namespace IntraBox.Tests
             Assert.AreEqual(3, items[0].RemindTimes);
             Assert.AreEqual(10, items[0].RemindIntervalMin);
             Assert.IsNull(items[0].MuteRemindOn);
+            Assert.IsFalse(items[0].Pinned);
+        }
+
+        [TestMethod]
+        public void ParseIndexJson_Pinned为true_读出置顶()
+        {
+            string json = "{"
+                + "\"Version\":1,\"SampleSeeded\":true,\"SampleRev\":2,"
+                + "\"Items\":[{"
+                + "\"Uid\":\"pinjson000000000000000000000001\","
+                + "\"Id\":\"T-PIN-001\","
+                + "\"Priority\":1,"
+                + "\"Completed\":false,"
+                + "\"Pinned\":true,"
+                + "\"RemindKind\":0,"
+                + "\"RemindHour\":15,"
+                + "\"RemindMinute\":0,"
+                + "\"CreatedAt\":\"2026-01-01T00:00:00\""
+                + "}]}";
+            var items = TodoStore.ParseIndexJson(json);
+            Assert.AreEqual(1, items.Count);
+            Assert.IsTrue(items[0].Pinned);
         }
 
         [TestMethod]

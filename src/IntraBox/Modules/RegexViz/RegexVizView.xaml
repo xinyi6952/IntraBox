@@ -14,7 +14,7 @@
             <Button Content="解释" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Run_Click"/>
             <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
         </WrapPanel>
-        <TextBlock x:Name="InputCaption" Grid.Row="1" Text="正则" Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <controls:RequiredLabel x:Name="InputCaption" Grid.Row="1" Text="正则" Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
         <controls:CodeEditor x:Name="PatternBox" Grid.Row="2"/>
         <controls:CodeEditor x:Name="ExplainBox" Grid.Row="3" Margin="0,8,0,0" IsReadOnly="True" CanMaximize="True" ShowCopyButton="True"/>
         <StackPanel x:Name="SampleWrap" Grid.Row="4" Margin="0,8,0,0">

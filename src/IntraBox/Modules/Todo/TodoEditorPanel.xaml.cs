@@ -486,7 +486,8 @@ namespace IntraBox.Modules.Todo
                 RemindFiredCount = s.RemindFiredCount,
                 MuteRemindOn = s.MuteRemindOn,
                 CompletedAt = s.CompletedAt,
-                ReadOnly = s.ReadOnly
+                ReadOnly = s.ReadOnly,
+                Pinned = s.Pinned
             };
         }
 

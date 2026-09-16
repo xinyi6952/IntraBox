@@ -47,6 +47,10 @@ using IntraBox.Modules.Todo;
 using IntraBox.Modules.Notes;
 using IntraBox.Modules.Vault;
 using IntraBox.Modules.TxtToExcel;
+using IntraBox.Modules.WorkCal;
+using IntraBox.Modules.DirSize;
+using IntraBox.Modules.EnvVars;
+using IntraBox.Modules.JobFlow;
 
 namespace IntraBox.Core
 {
@@ -72,24 +76,27 @@ namespace IntraBox.Core
         private static void RegisterDefault()
         {
             // 顺序与 NavOrder 默认一致（按日常使用频率）；真正展示顺序以 NavOrder 为准。
+            // 分类按场景聚合，避免「转换工具」等过窄分组；顺序与 NavOrder 默认一致。
             Register("clipboard", "剪贴板历史", "效率工具", () => new ClipboardView());
             Register("launcher", "启动器", "效率工具", () => new LauncherView());
             Register("todo", "任务计划", "效率工具", () => new TodoView());
             Register("notes", "笔记", "效率工具", () => new NotesView());
             Register("vault", "账号备忘", "效率工具", () => new VaultView());
+            Register("workcal", "工作日历", "效率工具", () => new WorkCalView());
 
             Register("machineinfo", "本机信息", "系统工具", () => new MachineInfoView());
+            Register("envvars", "环境变量", "系统工具", () => new EnvVarsView());
+            Register("jobflow", "任务编排", "系统工具", () => new JobFlowView());
             Register("hostseditor", "Hosts 编辑器", "系统工具", () => new HostsEditorView());
             Register("filelock", "文件占用查看", "系统工具", () => new FileLockView());
             Register("wintopmost", "窗口置顶", "系统工具", () => new WinTopmostView());
             Register("keepawake", "防止睡眠", "系统工具", () => new KeepAwakeView());
             Register("regbrowse", "注册表只读浏览", "系统工具", () => new RegBrowseView());
 
-            Register("formatter", "格式化", "格式化", () => new FormatterView());
-
             Register("screenshot", "屏幕截图", "截图", () => new ScreenshotView());
             Register("screenruler", "屏幕标尺", "截图", () => new ScreenRulerView());
 
+            Register("formatter", "格式化", "文本工具", () => new FormatterView());
             Register("diff", "文本比对", "文本工具", () => new DiffView());
             Register("regextest", "正则表达式测试", "文本工具", () => new RegexTestView());
             Register("lineprocess", "行处理", "文本工具", () => new LineProcessView());
@@ -97,15 +104,16 @@ namespace IntraBox.Core
             Register("mdpreview", "Markdown 预览", "文本工具", () => new MdPreviewView());
             Register("textstats", "文本统计", "文本工具", () => new TextStatsView());
             Register("regexviz", "正则可视化", "文本工具", () => new RegexVizView());
+            Register("txt2excel", "文本转 Excel", "文本工具", () => new TxtToExcelView());
 
             Register("base64", "Base64 编解码", "编码转换", () => new Base64View());
             Register("codec", "URL/HTML/Unicode 编解码", "编码转换", () => new CodecView());
             Register("urlparse", "URL 解析", "编码转换", () => new UrlParseView());
             Register("unicodeinspect", "Unicode 字符检查", "编码转换", () => new UnicodeInspectView());
-
-            Register("timestamp", "时间戳转换", "转换工具", () => new TimestampView());
+            Register("timestamp", "时间转换", "编码转换", () => new TimestampView());
 
             Register("filesearch", "文件查找", "文件管理", () => new FileSearchView());
+            Register("dirsize", "目录大小", "文件管理", () => new DirSizeView());
             Register("fileorganize", "文件整理", "文件管理", () => new FileOrganizeView());
             Register("batchrename", "批量重命名", "文件管理", () => new BatchRenameView());
             Register("dupfiles", "重复文件查找", "文件管理", () => new DupFilesView());
@@ -121,12 +129,9 @@ namespace IntraBox.Core
             Register("qrcode", "二维码生成", "生成器", () => new QrCodeView());
             Register("jsontoclass", "JSON 转实体类", "生成器", () => new JsonToClassView());
 
-            Register("txt2excel", "文本转 Excel", "数据转换", () => new TxtToExcelView());
-
-            Register("imageconvert", "图片压缩缩放转换", "图片工具", () => new ImageConvertView());
-
-            Register("colorpicker", "屏幕取色", "设计工具", () => new ColorPickerView());
-            Register("colorblind", "色盲模拟", "设计工具", () => new ColorBlindView());
+            Register("imageconvert", "图片压缩缩放转换", "图片与设计", () => new ImageConvertView());
+            Register("colorpicker", "屏幕取色", "图片与设计", () => new ColorPickerView());
+            Register("colorblind", "色盲模拟", "图片与设计", () => new ColorBlindView());
 
             Register("jsonschema", "JSON Schema 验证", "开发工具", () => new JsonSchemaView());
             Register("semver", "SemVer 版本比较", "开发工具", () => new SemverView());

@@ -63,7 +63,7 @@ namespace IntraBox.Modules.FileOrganize
             PersistNow();
             RefreshDateBar();
             RefreshUndoButton();
-            MsgText.Text = "先预览并勾选要移动的文件。默认全部不勾选，只有勾选的才会整理；未勾选的保持原位。占用或无权限的文件会跳过。";
+            FormHint.Apply(MsgText, "先预览并勾选要移动的文件。默认全部不勾选，只有勾选的才会整理；未勾选的保持原位。占用或无权限的文件会跳过。");
         }
 
         public void OnDeactivated()
@@ -153,7 +153,7 @@ namespace IntraBox.Modules.FileOrganize
             {
                 row.Enabled = true;
                 if (box != null) box.IsChecked = true;
-                MsgText.Text = "至少勾选一条规则。";
+                FormHint.Apply(MsgText, "至少勾选一条规则。");
                 return;
             }
             PersistNow();
@@ -218,20 +218,20 @@ namespace IntraBox.Modules.FileOrganize
             PersistNow();
             if (EnabledCount() == 0)
             {
-                MsgText.Text = "至少勾选一条规则后再预览。";
+                FormHint.Apply(MsgText, "至少勾选一条规则后再预览。");
                 return;
             }
             string dir = (DirBox.Text ?? "").Trim();
             if (!Directory.Exists(dir))
             {
-                MsgText.Text = "目录不存在。";
+                FormHint.Apply(MsgText, "目录不存在。");
                 return;
             }
             var rules = ToRules();
             var plan = OrganizeEngine.BuildPlan(dir, SubDirCheck.IsChecked == true, rules);
             if (plan.Count == 0)
             {
-                MsgText.Text = "没有匹配到可移动的文件。";
+                FormHint.Apply(MsgText, "没有匹配到可移动的文件。");
                 return;
             }
 
@@ -242,7 +242,7 @@ namespace IntraBox.Modules.FileOrganize
             var chosen = preview.Chosen;
             if (chosen == null || chosen.Count == 0)
             {
-                MsgText.Text = "没有勾选任何文件，未改动磁盘。默认全部不勾选，只有选中的才会整理。";
+                FormHint.Apply(MsgText, "没有勾选任何文件，未改动磁盘。默认全部不勾选，只有选中的才会整理。");
                 return;
             }
 
@@ -278,9 +278,9 @@ namespace IntraBox.Modules.FileOrganize
             PersistNow();
             FileOrganizeStore.Flush();
             RefreshUndoButton();
-            MsgText.Text = "完成：成功 " + ok + "，跳过 " + skip + "。"
+            FormHint.Apply(MsgText, "完成：成功 " + ok + "，跳过 " + skip + "。"
                 + (ok > 0 ? " 可用「撤销上次整理」把刚移动的文件移回原处。" : "")
-                + (errors.Count == 0 ? "" : "\n" + string.Join("\n", errors));
+                + (errors.Count == 0 ? "" : "\n" + string.Join("\n", errors)));
         }
 
         private void Undo_Click(object sender, RoutedEventArgs e)
@@ -346,7 +346,7 @@ namespace IntraBox.Modules.FileOrganize
                 string msg = "已撤销 " + ok + " 个文件" + (skip > 0 ? "，跳过 " + skip : "") + "。";
                 if (skipReasons.Count > 0)
                     msg += "\n" + string.Join("\n", skipReasons);
-                MsgText.Text = msg;
+                FormHint.Apply(MsgText, msg);
                 MessageBox.Show(msg, "撤销上次整理", MessageBoxButton.OK,
                     skip > 0 && ok == 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
             }

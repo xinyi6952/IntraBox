@@ -627,7 +627,7 @@ namespace IntraBox.Modules.Diff
             ClearHighlights();
             ArrowCanvas.Children.Clear();
             UpdatePathLabels();
-            StatText.Text = "";
+            FormHint.Apply(StatText, "");
         }
 
         private void PrevDiff_Click(object sender, RoutedEventArgs e)
@@ -914,8 +914,7 @@ namespace IntraBox.Modules.Diff
 
         private void SetStat(string text, bool isError)
         {
-            StatText.Foreground = isError ? FindBrush("DangerBrush") : FindBrush("TextSecondaryBrush");
-            StatText.Text = text;
+             FormHint.Apply(StatText, text, isError);
         }
 
         private void AppendEncodingWarn()

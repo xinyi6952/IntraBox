@@ -1,0 +1,71 @@
+﻿using System;
+using System.Net;
+using System.Reflection;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using IntraBox.Core;
+
+namespace IntraBox.Tests
+{
+    [TestClass]
+    public class WinCompatTests
+    {
+        [TestMethod]
+        public void BrowserEmulation_IE11优先svcVersion()
+        {
+            Assert.AreEqual(11001, WinCompatHelper.BrowserEmulationDword("11.0.9600.16428", "9.11.9600.16428"));
+        }
+
+        [TestMethod]
+        public void BrowserEmulation_仅Version的IE8()
+        {
+            Assert.AreEqual(8000, WinCompatHelper.BrowserEmulationDword(null, "8.0.7601.17514"));
+        }
+
+        [TestMethod]
+        public void BrowserEmulation_IE9与IE10()
+        {
+            Assert.AreEqual(9000, WinCompatHelper.BrowserEmulationDword("9.0.8112.16421", null));
+            Assert.AreEqual(10000, WinCompatHelper.BrowserEmulationDword("10.0.9200.16384", null));
+        }
+
+        [TestMethod]
+        public void BrowserEmulation_空版本按IE8()
+        {
+            Assert.AreEqual(8000, WinCompatHelper.BrowserEmulationDword(null, null));
+            Assert.AreEqual(8000, WinCompatHelper.BrowserEmulationDword(" ", ""));
+        }
+
+        [TestMethod]
+        public void EnableModernTls_尽量带上Tls12标志()
+        {
+            SecurityProtocolType before = ServicePointManager.SecurityProtocol;
+            try
+            {
+                WinCompatHelper.EnableModernTls();
+                int v = (int)ServicePointManager.SecurityProtocol;
+                Assert.IsTrue((v & (int)SecurityProtocolType.Tls) != 0 || (v & WinCompatHelper.Tls12Flag) != 0);
+            }
+            finally
+            {
+                ServicePointManager.SecurityProtocol = before;
+            }
+        }
+
+        [TestMethod]
+        public void PixelsPerDip_空可视化对象为1()
+        {
+            Assert.AreEqual(1.0, WinCompatHelper.PixelsPerDip(null));
+        }
+
+        [TestMethod]
+        public void LooksLikeMissingVc_DllNotFound()
+        {
+            Assert.IsTrue(WinCompatHelper.LooksLikeMissingVcRuntime(new DllNotFoundException("tesseract41.dll")));
+            Assert.IsTrue(WinCompatHelper.LooksLikeMissingVcRuntime(
+                new TargetInvocationException("调用的目标发生了异常", new DllNotFoundException("tesseract41.dll"))));
+            Assert.IsFalse(WinCompatHelper.LooksLikeMissingVcRuntime(
+                new TargetInvocationException("调用的目标发生了异常", new InvalidOperationException("pix"))));
+            Assert.IsFalse(WinCompatHelper.LooksLikeMissingVcRuntime(new InvalidOperationException("缺少 tessdata 目录")));
+        }
+    }
+}

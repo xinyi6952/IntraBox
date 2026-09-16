@@ -53,6 +53,13 @@
                 </Setter>
             </Style>
 
+            <!-- 表格旁下拉：沿用主题按钮底/字色，避免系统 Menu 在深色下看不清 -->
+            <Style x:Key="BarMenuButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="Padding" Value="10,4"/>
+                <Setter Property="MinHeight" Value="28"/>
+                <Setter Property="MinWidth" Value="0"/>
+            </Style>
+
             <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                 <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
                 <Setter Property="Foreground" Value="{DynamicResource PrimaryButtonFgBrush}"/>
@@ -201,7 +208,14 @@
                 <Setter Property="Padding" Value="8,5"/>
                 <Setter Property="MinHeight" Value="30"/>
                 <Setter Property="FontSize" Value="13"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Style.Triggers>
+                    <!-- 单行工具栏输入保持垂直居中；多行文本域（AcceptsReturn）顶对齐，避免大框里字悬在中间 -->
+                    <Trigger Property="AcceptsReturn" Value="True">
+                        <Setter Property="VerticalContentAlignment" Value="Top"/>
+                    </Trigger>
+                </Style.Triggers>
             </Style>
 
             <Style TargetType="ComboBox">
@@ -496,6 +510,15 @@
             </Style>
 
             <Style TargetType="primitives:DataGridColumnHeader" BasedOn="{StaticResource IntraBoxDataGridHeader}"/>
+
+            <!-- 表格单元格省略号 + 悬停显示全文 -->
+            <Style x:Key="DataGridEllipsisText" TargetType="TextBlock">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                <Setter Property="TextWrapping" Value="NoWrap"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                <Setter Property="ToolTipService.ShowDuration" Value="60000"/>
+            </Style>
 
             <Style TargetType="DataGridCell">
                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>

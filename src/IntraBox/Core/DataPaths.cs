@@ -60,6 +60,10 @@ namespace IntraBox.Core
         public static string VaultDir { get { return Path.Combine(Root, "vault"); } }
         public static string VaultIndexJson { get { return Path.Combine(VaultDir, "index.json"); } }
         public static string LauncherJson { get { return Path.Combine(Root, "launcher.json"); } }
+        public static string WorkCalJson { get { return Path.Combine(Root, "workcal.json"); } }
+        public static string JobsDir { get { return Path.Combine(Root, "jobs"); } }
+        public static string JobsIndexJson { get { return Path.Combine(JobsDir, "index.json"); } }
+        public static string JobsLibraryJson { get { return Path.Combine(JobsDir, "library.json"); } }
 
         public static bool IsDefaultRoot
         {
@@ -159,12 +163,16 @@ namespace IntraBox.Core
             CopyFileIfExists(ErrorLog, Path.Combine(dest, "error.log"));
             CopyFileIfExists(GcLog, Path.Combine(dest, "gc.log"));
             CopyFileIfExists(LauncherJson, Path.Combine(dest, "launcher.json"));
+            CopyFileIfExists(WorkCalJson, Path.Combine(dest, "workcal.json"));
             if (Directory.Exists(src))
             {
-                string[] baks = Directory.GetFiles(src, "launcher.json*.bak");
-                for (int i = 0; i < baks.Length; i++)
-                    CopyFileIfExists(baks[i], Path.Combine(dest, Path.GetFileName(baks[i])));
+                CopyBakFiles(src, dest, "launcher.json*.bak");
+                CopyBakFiles(src, dest, "workcal.json*.bak");
             }
+            string jobsSrc = JobsDir;
+            string jobsDest = Path.Combine(dest, "jobs");
+            if (Directory.Exists(jobsSrc))
+                CopyDirectory(jobsSrc, jobsDest); // 含子目录、index/library 及其 .bak、secrets.bin
             string todosSrc = TodosDir;
             string todosDest = Path.Combine(dest, "todos");
             if (Directory.Exists(todosSrc))
@@ -251,6 +259,7 @@ namespace IntraBox.Core
             Directory.CreateDirectory(Path.Combine(chosen, "todos"));
             Directory.CreateDirectory(Path.Combine(chosen, "notes"));
             Directory.CreateDirectory(Path.Combine(chosen, "vault"));
+            Directory.CreateDirectory(Path.Combine(chosen, "jobs"));
             _root = chosen;
         }
 
@@ -272,6 +281,13 @@ namespace IntraBox.Core
         private static string Normalize(string path)
         {
             return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
+        private static void CopyBakFiles(string srcDir, string destDir, string pattern)
+        {
+            string[] baks = Directory.GetFiles(srcDir, pattern);
+            for (int i = 0; i < baks.Length; i++)
+                CopyFileIfExists(baks[i], Path.Combine(destDir, Path.GetFileName(baks[i])));
         }
 
         private static void CopyFileIfExists(string src, string dest)

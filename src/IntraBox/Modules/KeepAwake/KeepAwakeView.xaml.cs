@@ -55,8 +55,7 @@ namespace IntraBox.Modules.KeepAwake
             string error;
             if (!KeepAwakeService.TryParseDuration(AmountBox.Text, SelectedUnit(), out span, out error))
             {
-                StateText.Text = error;
-                StateText.Foreground = FindResource("DangerBrush") as System.Windows.Media.Brush;
+                FormHint.Apply(StateText, error);
                 return;
             }
             KeepAwakeService.Start(span);
@@ -74,8 +73,7 @@ namespace IntraBox.Modules.KeepAwake
 
             if (!on)
             {
-                StateText.Text = "当前：未阻止";
-                StateText.Foreground = FindResource("TextSecondaryBrush") as System.Windows.Media.Brush;
+                FormHint.Apply(StateText, "当前：未阻止");
                 return;
             }
 
@@ -84,8 +82,7 @@ namespace IntraBox.Modules.KeepAwake
             DateTime? t = KeepAwakeService.UntilLocal;
             if (t.HasValue)
                 until = "，将于 " + t.Value.ToString("HH:mm") + " 自动关闭";
-            StateText.Text = "当前：已阻止睡眠，" + FormatRemaining(left) + until;
-            StateText.Foreground = FindResource("OkBrush") as System.Windows.Media.Brush;
+            FormHint.Apply(StateText, "当前：已阻止睡眠，" + FormatRemaining(left) + until);
         }
 
         private static string FormatRemaining(TimeSpan left)

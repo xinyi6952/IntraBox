@@ -58,8 +58,9 @@ namespace IntraBox
 
             base.OnStartup(e);
 
-            // WPF WebBrowser 默认 IE7 文档模式，表格/CSS 几乎不生效。写本进程的 IE11 仿真。
-            EnableIe11ForWebBrowser();
+            // HTTPS：Win7 默认可能没有 TLS1.2 标志。WebBrowser：按本机 IE 写文档模式，勿写死 IE11。
+            WinCompatHelper.EnableModernTls();
+            EnableWebBrowserEmulation();
 
             _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSignalName);
 
@@ -97,6 +98,8 @@ namespace IntraBox
             window.RestoreLastModule();
             ClipboardMonitor.Start();
             IntraBox.Modules.Todo.TodoReminderService.Start();
+            IntraBox.Core.JobFlowScheduler.Start();
+            AppLog.Info("IntraBox 启动 " + AppVersion.Display);
 
             StartShowWindowListener();
         }
@@ -117,6 +120,7 @@ namespace IntraBox
             // 仅首个实例拥有完整状态，才做保存与释放；二次实例只释放自身句柄
             if (_ownsMutex)
             {
+                AppLog.Info("IntraBox 退出");
                 ClipboardMonitor.Stop();
                 KeepAwakeService.SetEnabled(false);
                 HistoryManager.Flush();
@@ -126,6 +130,7 @@ namespace IntraBox
                 IntraBox.Modules.Vault.VaultStore.Flush();
                 IntraBox.Modules.Launcher.LauncherStore.Flush();
                 IntraBox.Modules.Todo.TodoReminderService.Stop();
+                IntraBox.Core.JobFlowScheduler.Stop();
                 MemoryIdleGuard.Stop();
                 ConfigManager.Instance.Save();
                 HotkeyService.Uninstall();
@@ -213,14 +218,14 @@ namespace IntraBox
                 e = e.InnerException;
             }
             LogFileHelper.Append(DataPaths.ErrorLog, sb.ToString());
+            AppLog.Exception(ex);
         }
 
         /// <summary>
-        /// WPF WebBrowser 默认按 IE7 渲染，表格边框和较新 CSS 几乎无效。
-        /// 给本进程 exe 写入当前用户的 FEATURE_BROWSER_EMULATION = IE11。
-        /// 必须在创建任何 WebBrowser 之前调用。
+        /// WPF WebBrowser 默认按 IE7 渲染。按本机已装 IE 写入 FEATURE_BROWSER_EMULATION。
+        /// Win7 只有 IE8/9/10 时不要写 11001。必须在创建任何 WebBrowser 之前调用。
         /// </summary>
-        private static void EnableIe11ForWebBrowser()
+        private static void EnableWebBrowserEmulation()
         {
             try
             {
@@ -230,7 +235,7 @@ namespace IntraBox
                     @"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION"))
                 {
                     if (key == null) return;
-                    key.SetValue(exe, 11001, RegistryValueKind.DWord);
+                    key.SetValue(exe, WinCompatHelper.ReadBrowserEmulationDword(), RegistryValueKind.DWord);
                 }
             }
             catch { /* 写注册表失败时仍可预览，只是表格样式可能较差 */ }

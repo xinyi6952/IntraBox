@@ -98,21 +98,35 @@ namespace IntraBox.Modules.Screenshot
 
         private void RunOcr()
         {
-            Bitmap bmp = BuildBitmap();
-            if (bmp == null) return;
+            if (!OcrService.TryBegin()) return;
+            Bitmap bmp = null;
+            try
+            {
+                bmp = BuildBitmap();
+            }
+            catch (Exception ex)
+            {
+                OcrService.End();
+                OcrService.LogFailure(ex, bmp);
+                MessageBox.Show("OCR 失败：" + ExceptionHelper.FormatOcrFailure(ex), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (bmp == null)
+            {
+                OcrService.End();
+                return;
+            }
             RunOcrAsync(bmp);
         }
 
         // 识别放后台线程：Tesseract 单次识别耗时数秒，同步会冻结钉图窗口。
-        // TesseractEngine 非线程安全，在后台线程内 using 新建，不跨线程复用。
+        // TesseractEngine 非线程安全：TryBegin 互斥后，后台 using 新建，不跨线程复用。
         private async void RunOcrAsync(Bitmap bmp)
         {
             Mouse.OverrideCursor = Cursors.Wait;
             try
             {
-                var scheduler = TaskScheduler.FromCurrentSynchronizationContext();
-                string text = await Task.Run(() => OcrService.Recognize(bmp))
-                    .ContinueWith(t => t.Result, scheduler);
+                string text = await Task.Run(() => OcrService.Recognize(bmp));
                 Mouse.OverrideCursor = null;
                 var w = new OcrResultWindow(text);
                 w.Owner = this;
@@ -121,12 +135,14 @@ namespace IntraBox.Modules.Screenshot
             catch (Exception ex)
             {
                 Mouse.OverrideCursor = null;
-                MessageBox.Show("OCR 失败：" + ex.RootMessage(), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                OcrService.LogFailure(ex, bmp);
+                MessageBox.Show("OCR 失败：" + ExceptionHelper.FormatOcrFailure(ex), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally
             {
                 Mouse.OverrideCursor = null;
                 if (bmp != null) bmp.Dispose();
+                OcrService.End();
                 GcHelper.CollectSafely("pin-ocr");
             }
         }

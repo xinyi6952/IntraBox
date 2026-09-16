@@ -50,6 +50,7 @@ using IntraBox.Modules.TxtToExcel;
 using IntraBox.Modules.WorkCal;
 using IntraBox.Modules.DirSize;
 using IntraBox.Modules.EnvVars;
+using IntraBox.Modules.EyeCare;
 using IntraBox.Modules.JobFlow;
 
 namespace IntraBox.Core
@@ -91,6 +92,7 @@ namespace IntraBox.Core
             Register("filelock", "文件占用查看", "系统工具", () => new FileLockView());
             Register("wintopmost", "窗口置顶", "系统工具", () => new WinTopmostView());
             Register("keepawake", "防止睡眠", "系统工具", () => new KeepAwakeView());
+            Register("eyecare", "护眼模式", "系统工具", () => new EyeCareView());
             Register("regbrowse", "注册表只读浏览", "系统工具", () => new RegBrowseView());
 
             Register("screenshot", "屏幕截图", "截图", () => new ScreenshotView());

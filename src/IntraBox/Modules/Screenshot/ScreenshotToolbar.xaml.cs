@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using IntraBox.Core;
 
 namespace IntraBox.Modules.Screenshot
 {
@@ -51,13 +52,37 @@ namespace IntraBox.Modules.Screenshot
             StrokeColor = (Color)ColorConverter.ConvertFromString("#E53935");
             StrokeWidth = 2;
             InitializeComponent();
-            Loaded += (s, e) => HighlightTool();
+            Loaded += (s, e) =>
+            {
+                HighlightTool();
+                OcrBusyHelper.BusyChanged -= OnOcrBusy;
+                OcrBusyHelper.BusyChanged += OnOcrBusy;
+                SetOcrBusy(OcrBusyHelper.IsBusy);
+            };
+            Unloaded += (s, e) => OcrBusyHelper.BusyChanged -= OnOcrBusy;
+        }
+
+        private void OnOcrBusy(object sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => SetOcrBusy(OcrBusyHelper.IsBusy)));
+                return;
+            }
+            SetOcrBusy(OcrBusyHelper.IsBusy);
         }
 
         public void SetPinnedMode(bool pinned)
         {
             BtnPin.Visibility = pinned ? Visibility.Collapsed : Visibility.Visible;
             BtnUnpin.Visibility = pinned ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public void SetOcrBusy(bool busy)
+        {
+            if (BtnOcr == null) return;
+            BtnOcr.IsEnabled = !busy;
+            BtnOcr.ToolTip = busy ? "正在识别…" : "OCR 识别文字";
         }
 
         private void Grip_MouseDown(object sender, MouseButtonEventArgs e)
@@ -152,6 +177,7 @@ namespace IntraBox.Modules.Screenshot
 
         private void Ocr_Click(object sender, RoutedEventArgs e)
         {
+            if (BtnOcr != null && !BtnOcr.IsEnabled) return;
             if (OcrClicked != null) OcrClicked(this, e);
         }
 

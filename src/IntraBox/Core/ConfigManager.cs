@@ -29,7 +29,11 @@ namespace IntraBox.Core
             try
             {
                 DataPaths.Initialize();
-                if (!File.Exists(ConfigPath)) return;
+                if (!File.Exists(ConfigPath))
+                {
+                    EyeCareHelper.EnsureSegments(Settings, false);
+                    return;
+                }
 
                 bool memChanged;
                 using (var fs = File.OpenRead(ConfigPath))
@@ -42,7 +46,12 @@ namespace IntraBox.Core
                     Settings.ClipboardMaxItems = AppSettings.ClampClipboardMax(Settings.ClipboardMaxItems);
                     Settings.ClipboardMaxImageItems = AppSettings.ClampClipboardMaxImages(Settings.ClipboardMaxImageItems);
                     Settings.HistoryPersistDelayMs = AppSettings.ClampHistoryPersistDelayMs(Settings.HistoryPersistDelayMs);
+                    Settings.EyeCareKelvin = EyeCareHelper.NormalizeKelvin(Settings.EyeCareKelvin);
+                    Settings.EyeCareBrightness = EyeCareHelper.NormalizeBrightness(Settings.EyeCareBrightness);
+                    if (string.IsNullOrWhiteSpace(Settings.EyeCareStartHm)) Settings.EyeCareStartHm = EyeCareHelper.DefaultStart;
+                    if (string.IsNullOrWhiteSpace(Settings.EyeCareEndHm)) Settings.EyeCareEndHm = EyeCareHelper.DefaultEnd;
                     memChanged = EnsureMemorySettingsLocked();
+                    if (EyeCareHelper.EnsureSegments(Settings, true)) memChanged = true;
                 }
                 if (memChanged) Save();
             }
@@ -50,6 +59,7 @@ namespace IntraBox.Core
             {
                 // 配置损坏或读取失败时回退到默认值，不影响启动
                 Settings = new AppSettings();
+                EyeCareHelper.EnsureSegments(Settings, false);
             }
         }
 
@@ -155,12 +165,12 @@ namespace IntraBox.Core
         /// <summary>
         /// 老用户已保存显隐白名单时，把新工具 key 追加进去（去重）。
         /// null 或空列表表示「全部可见」，原样返回，不改动。
-        /// 追加顺序与 NavOrder.DefaultToolKeys 一致：launcher、todo、notes、vault、workcal、envvars、jobflow、dirsize。
+        /// 追加顺序与 NavOrder.DefaultToolKeys 一致：launcher、todo、notes、vault、workcal、envvars、jobflow、dirsize、eyecare。
         /// </summary>
         public static string[] AppendNewVisibleToolKeys(string[] current)
         {
             if (current == null || current.Length == 0) return current;
-            string[] extras = { "launcher", "todo", "notes", "vault", "workcal", "envvars", "jobflow", "dirsize" };
+            string[] extras = { "launcher", "todo", "notes", "vault", "workcal", "envvars", "jobflow", "dirsize", "eyecare" };
             var list = new System.Collections.Generic.List<string>(current);
             bool changed = false;
             for (int i = 0; i < extras.Length; i++)

@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using IntraBox.Controls;
 using IntraBox.Core;
@@ -19,10 +20,6 @@ namespace IntraBox.Modules.JobFlow
         private readonly ObservableCollection<LibRow> _libRows = new ObservableCollection<LibRow>();
         private readonly ObservableCollection<ParamRow> _params = new ObservableCollection<ParamRow>();
         private readonly ObservableCollection<StepRow> _steps = new ObservableCollection<StepRow>();
-        private ContextMenu _newMenu;
-        private ContextMenu _libNewMenu;
-        private ContextMenu _rowMenu;
-        private ContextMenu _libRowMenu;
         private JobItem _current;
         private JobStep _libStep;
         private string _savedJson = "";
@@ -58,10 +55,6 @@ namespace IntraBox.Modules.JobFlow
             LibFilterBar.Attach(LibGrid);
             TriggerCombo.SelectedIndex = 0;
             StatusCombo.SelectedIndex = 0;
-            _newMenu = TryFindResource("JobNewMenu") as ContextMenu;
-            _libNewMenu = TryFindResource("LibNewMenu") as ContextMenu;
-            _rowMenu = TryFindResource("JobRowMenu") as ContextMenu;
-            _libRowMenu = TryFindResource("LibRowMenu") as ContextMenu;
             WireAutoGrow(RemarksBox);
             WireAutoGrow(LogBox);
             ParamGrid.BeginningEdit += ParamGrid_BeginningEdit;
@@ -150,16 +143,20 @@ namespace IntraBox.Modules.JobFlow
 
         private void JobNewBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_newMenu == null) return;
-            _newMenu.PlacementTarget = JobNewBtn;
-            _newMenu.IsOpen = true;
+            OpenButtonMenu(JobNewBtn);
         }
 
         private void LibNewBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_libNewMenu == null) return;
-            _libNewMenu.PlacementTarget = LibNewBtn;
-            _libNewMenu.IsOpen = true;
+            OpenButtonMenu(LibNewBtn);
+        }
+
+        private static void OpenButtonMenu(Button btn)
+        {
+            if (btn == null || btn.ContextMenu == null) return;
+            btn.ContextMenu.PlacementTarget = btn;
+            btn.ContextMenu.Placement = PlacementMode.Bottom;
+            btn.ContextMenu.IsOpen = true;
         }
 
         private void Reload_Click(object sender, RoutedEventArgs e)
@@ -250,11 +247,11 @@ namespace IntraBox.Modules.JobFlow
         {
             var btn = sender as Button;
             _menuRow = btn != null ? (btn.Tag as JobRow) : null;
-            if (_menuRow == null || _rowMenu == null) return;
+            if (_menuRow == null || btn == null || btn.ContextMenu == null) return;
             bool overflow = false;
             var job = JobFlowStore.Find(_menuRow.Uid);
             if (job != null) overflow = JobLimits.IsStepOverflow(job);
-            foreach (var obj in _rowMenu.Items)
+            foreach (var obj in btn.ContextMenu.Items)
             {
                 var mi = obj as MenuItem;
                 if (mi == null) continue;
@@ -264,17 +261,16 @@ namespace IntraBox.Modules.JobFlow
                 if (overflow && (h == "设为草稿" || h == "设为启用" || h == "设为停用"))
                     mi.Visibility = Visibility.Collapsed;
             }
-            _rowMenu.PlacementTarget = btn;
-            _rowMenu.IsOpen = true;
+            OpenButtonMenu(btn);
         }
 
         private void LibOp_Click(object sender, RoutedEventArgs e)
         {
             var btn = sender as Button;
             _libMenuRow = btn != null ? (btn.Tag as LibRow) : null;
-            if (_libMenuRow == null || _libRowMenu == null) return;
+            if (_libMenuRow == null || btn == null || btn.ContextMenu == null) return;
             bool sample = JobSamples.IsFixedStepUid(_libMenuRow.Uid);
-            foreach (var obj in _libRowMenu.Items)
+            foreach (var obj in btn.ContextMenu.Items)
             {
                 var mi = obj as MenuItem;
                 if (mi == null) continue;
@@ -283,8 +279,7 @@ namespace IntraBox.Modules.JobFlow
                 else if (h == "查看") mi.Header = sample ? "查看" : "编辑";
                 else if (h == "删除") mi.Visibility = sample ? Visibility.Collapsed : Visibility.Visible;
             }
-            _libRowMenu.PlacementTarget = btn;
-            _libRowMenu.IsOpen = true;
+            OpenButtonMenu(btn);
         }
 
         private void RowEdit_Click(object sender, RoutedEventArgs e)

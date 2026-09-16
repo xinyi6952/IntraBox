@@ -15,8 +15,8 @@
 
 ## 构建与测试
 
-- 双击 `build.bat`：若 IntraBox 在跑会询问是否结束进程（默认否），确认后升产品版本再编译并同步到 `dist/IntraBox/`
-- 双击 `rebuild.bat`：先确认清空本机数据，若 IntraBox 在跑会再确认结束进程；取消任一则中止（不升版本）
+- 双击 `build.bat`：英文菜单选保留数据（默认，升号，同步 `dist/IntraBox/`，保留用户数据与 `datapath.txt`）或纯净测试包（`dist/IntraBox.test/`，不升号，隔离 `Data.test`）
+- `build.bat test` / `build.bat 2`：直接打纯净测试包；`build.bat norun`：默认模式但不启动新包
 - 双击 `test.bat`：构建测试项目并运行全部 MSTest 用例（不升版本）
 - 命令行等价：
 

@@ -10,9 +10,22 @@ namespace IntraBox.Modules.Screenshot
     /// <summary>
     /// 本地 OCR：Tesseract 4.1（自带 tessdata_fast 的 chi_sim+eng）。
     /// 绿色目录运行，无网络。Win7 需已安装 Visual C++ 2015-2019 运行库。
+    /// TesseractEngine 非线程安全：进程内同时只允许一次识别（OcrBusyHelper + EngineLock）。
     /// </summary>
     internal static class OcrService
     {
+        private static readonly object EngineLock = new object();
+
+        internal static bool TryBegin()
+        {
+            return OcrBusyHelper.TryBegin();
+        }
+
+        internal static void End()
+        {
+            OcrBusyHelper.End();
+        }
+
         public static string Recognize(Bitmap bmp)
         {
             if (bmp == null) throw new ArgumentNullException("bmp");
@@ -27,27 +40,47 @@ namespace IntraBox.Modules.Screenshot
 
             string lang = chi && eng ? "chi_sim+eng" : (chi ? "chi_sim" : "eng");
 
-            try
+            lock (EngineLock)
             {
-                using (var engine = new TesseractEngine(dir, lang, EngineMode.LstmOnly))
-                using (var ms = new MemoryStream())
+                try
                 {
-                    bmp.Save(ms, DrawingImageFormat.Png);
-                    byte[] bytes = ms.ToArray();
-                    using (var pix = Pix.LoadFromMemory(bytes))
-                    using (var page = engine.Process(pix))
+                    using (var engine = new TesseractEngine(dir, lang, EngineMode.LstmOnly))
+                    using (var ms = new MemoryStream())
                     {
-                        string text = page.GetText();
-                        return text == null ? "" : text.Trim();
+                        bmp.Save(ms, DrawingImageFormat.Png);
+                        byte[] bytes = ms.ToArray();
+                        using (var pix = Pix.LoadFromMemory(bytes))
+                        using (var page = engine.Process(pix))
+                        {
+                            string text = page.GetText();
+                            return text == null ? "" : text.Trim();
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    if (WinCompatHelper.LooksLikeMissingVcRuntime(ex))
+                        throw new InvalidOperationException(WinCompatHelper.OcrVcRuntimeHint, ex);
+                    throw;
+                }
             }
-            catch (Exception ex)
-            {
-                if (WinCompatHelper.LooksLikeMissingVcRuntime(ex))
-                    throw new InvalidOperationException(WinCompatHelper.OcrVcRuntimeHint, ex);
-                throw;
-            }
+        }
+
+        internal static void LogFailure(Exception ex, Bitmap bmp)
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory ?? "";
+            string tess = Path.Combine(baseDir, "tessdata");
+            int w = bmp != null ? bmp.Width : 0;
+            int h = bmp != null ? bmp.Height : 0;
+            AppLog.Error(
+                "OCR 失败 base=" + baseDir
+                + " tessdata=" + Directory.Exists(tess)
+                + " chi_sim=" + File.Exists(Path.Combine(tess, "chi_sim.traineddata"))
+                + " eng=" + File.Exists(Path.Combine(tess, "eng.traineddata"))
+                + " tesseract41=" + File.Exists(Path.Combine(baseDir, "x64", "tesseract41.dll"))
+                + " leptonica=" + File.Exists(Path.Combine(baseDir, "x64", "leptonica-1.80.0.dll"))
+                + " size=" + w + "x" + h,
+                ex);
         }
     }
 }

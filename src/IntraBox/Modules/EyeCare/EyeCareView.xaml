@@ -1,0 +1,46 @@
+﻿<UserControl x:Class="IntraBox.Modules.EyeCare.EyeCareView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="按舒适度调节即可。过暖或过暗可能不好辨色，取色、校色前请先暂停。"/>
+            <WrapPanel Margin="0,0,0,8">
+                <Button x:Name="ToggleBtn" Content="开启护眼" Style="{StaticResource PrimaryButton}"
+                        MinWidth="140" Margin="0,4,8,4" Click="Toggle_Click"/>
+                <Button x:Name="PauseBtn" Content="暂停 1 小时" MinWidth="120" Margin="0,4,8,4" Click="Pause_Click"/>
+                <Button Content="恢复默认设置" MinWidth="120" Margin="0,4,8,4" Click="Restore_Click"/>
+            </WrapPanel>
+            <TextBlock x:Name="StateText" TextWrapping="Wrap" Margin="0,0,0,12"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <CheckBox x:Name="RestCheck" Content="用眼提醒：滤镜生效时每 20 分钟提示看远处 20 秒（默认关）"
+                      Margin="0,0,0,12" Click="Rest_Click"/>
+            <Expander x:Name="CustomExpander" IsExpanded="False" Margin="0,0,0,10">
+                <Expander.Header>
+                    <TextBlock Text="自定义时段" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </Expander.Header>
+                <StackPanel Margin="20,8,0,0">
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Text="默认含白天 / 晚间 / 深夜三段。每行可勾选启用（默认开），关掉则该段不改色。可改时刻与色温亮度；未覆盖的时间会恢复原色。开始等于结束表示全天（仅允许一段）。"/>
+                    <WrapPanel Margin="0,0,0,8">
+                        <Button Content="添加时段" MinWidth="88" Margin="0,4,8,4" Click="AddSeg_Click"/>
+                    </WrapPanel>
+                    <StackPanel x:Name="SegmentHost"/>
+                    <TextBlock x:Name="SegmentHint" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Expander>
+            <Expander IsExpanded="False" Margin="0,0,0,8">
+                <Expander.Header>
+                    <TextBlock Text="说明" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </Expander.Header>
+                <TextBlock Margin="20,8,0,0" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="本工具用软件调节屏幕色温与亮度，不能替代休息或医疗建议，使用请自行判断。优先写显卡伽马表（类似 f.lux），不是半透明黄膜；伽马可用时截图和取色不受黄罩干扰。笔记本驱动若拒绝伽马，Win8 及以上会改用系统全屏校色，此时截图/取色也可能发黄。切走本页滤镜仍在；退出程序会恢复。开启时若检测到 f.lux、系统夜间模式等会先询问。约 20 秒刷新；解锁或唤醒后会重写。本工具不阻止系统睡眠。"/>
+            </Expander>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

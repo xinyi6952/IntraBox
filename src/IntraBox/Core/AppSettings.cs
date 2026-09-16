@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace IntraBox.Core
@@ -214,5 +215,30 @@ namespace IntraBox.Core
         /// </summary>
         [DataMember]
         public bool ClosePreferExit { get; set; } = true;
+
+        [DataMember]
+        public bool EyeCareEnabled { get; set; }
+
+        [DataMember]
+        public int EyeCareKelvin { get; set; } = EyeCareHelper.DefaultKelvin;
+
+        [DataMember]
+        public int EyeCareBrightness { get; set; } = EyeCareHelper.DefaultBrightness;
+
+        [DataMember]
+        public bool EyeCareSchedule { get; set; }
+
+        [DataMember]
+        public string EyeCareStartHm { get; set; } = EyeCareHelper.DefaultStart;
+
+        [DataMember]
+        public string EyeCareEndHm { get; set; } = EyeCareHelper.DefaultEnd;
+
+        [DataMember]
+        public bool EyeCareRestRemind { get; set; }
+
+        /// <summary>按时刻切换的时段列表。空则启动时从旧字段迁移或写入默认三段。</summary>
+        [DataMember]
+        public List<EyeCareSegment> EyeCareSegments { get; set; }
     }
 }

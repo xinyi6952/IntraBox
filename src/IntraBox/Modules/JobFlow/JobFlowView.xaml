@@ -64,31 +64,6 @@
             <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
             <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
         </Style>
-        <ContextMenu x:Key="JobNewMenu">
-            <MenuItem Header="空白编排" Click="NewBlank_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-        </ContextMenu>
-        <ContextMenu x:Key="LibNewMenu">
-            <MenuItem Header="REST" Click="LibNewRest_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="从 curl 新建 REST" Click="LibNewCurl_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="SOAP" Click="LibNewSoap_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="打开链接" Click="LibNewUrl_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="程序" Click="LibNewProgram_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="批处理" Click="LibNewBat_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="Python" Click="LibNewPython_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-        </ContextMenu>
-        <ContextMenu x:Key="JobRowMenu">
-            <MenuItem Header="编辑" Click="RowEdit_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="立即运行" Click="RowRun_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="设为草稿" Click="RowDraft_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="设为启用" Click="RowEnable_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="设为停用" Click="RowDisable_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="执行记录" Click="RowHistory_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="删除" Click="RowDelete_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-        </ContextMenu>
-        <ContextMenu x:Key="LibRowMenu">
-            <MenuItem Header="编辑" Click="LibEdit_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-            <MenuItem Header="删除" Click="LibDelete_Click" Style="{StaticResource ContextMenuItemStyle}"/>
-        </ContextMenu>
     </UserControl.Resources>
     <Grid x:Name="RootGrid">
         <TabControl x:Name="MainTabs" Style="{StaticResource JobTabControl}"
@@ -104,7 +79,13 @@
                                    Foreground="{DynamicResource WarningBrush}"
                                    Text="在「步骤库」编好步骤后，再回到本页挑选快照（最多 5 步）。进程在才会到点跑；须手动成功一次且状态为「启用」。超过 5 步的旧编排只读打开、不能保存。"/>
                         <WrapPanel Margin="0,0,0,8">
-                            <Button x:Name="JobNewBtn" Content="新建" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="JobNewBtn_Click"/>
+                            <Button x:Name="JobNewBtn" Content="新建" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="JobNewBtn_Click">
+                                <Button.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="空白编排" Click="NewBlank_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
                             <Button Content="刷新" Margin="0,4,8,4" Click="Reload_Click"/>
                             <controls:GridFilterBar x:Name="JobFilterBar" VerticalAlignment="Center" Margin="8,4,0,4"/>
                             <TextBlock x:Name="JobMsgText" VerticalAlignment="Center" Margin="8,4,0,4"
@@ -140,7 +121,19 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button Content="操作" Padding="8,2" MinHeight="26" MinWidth="56"
-                                                Click="RowOp_Click" Tag="{Binding}"/>
+                                                Click="RowOp_Click" Tag="{Binding}">
+                                            <Button.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="编辑" Click="RowEdit_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                                    <MenuItem Header="立即运行" Click="RowRun_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                                    <MenuItem Header="设为草稿" Click="RowDraft_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                                    <MenuItem Header="设为启用" Click="RowEnable_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                                    <MenuItem Header="设为停用" Click="RowDisable_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                                    <MenuItem Header="执行记录" Click="RowHistory_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                                    <MenuItem Header="删除" Click="RowDelete_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                                </ContextMenu>
+                                            </Button.ContextMenu>
+                                        </Button>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -159,7 +152,19 @@
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Text="在此编写步骤（REST 可从 curl 识别）。【示例】步骤只读。编好后到「编排」页挑选快照。"/>
                         <WrapPanel Margin="0,0,0,8">
-                            <Button x:Name="LibNewBtn" Content="新建" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="LibNewBtn_Click"/>
+                            <Button x:Name="LibNewBtn" Content="新建" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="LibNewBtn_Click">
+                                <Button.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="REST" Click="LibNewRest_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                        <MenuItem Header="从 curl 新建 REST" Click="LibNewCurl_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                        <MenuItem Header="SOAP" Click="LibNewSoap_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                        <MenuItem Header="打开链接" Click="LibNewUrl_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                        <MenuItem Header="程序" Click="LibNewProgram_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                        <MenuItem Header="批处理" Click="LibNewBat_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                        <MenuItem Header="Python" Click="LibNewPython_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
                             <Button Content="刷新" Margin="0,4,8,4" Click="Reload_Click"/>
                             <controls:GridFilterBar x:Name="LibFilterBar" VerticalAlignment="Center" Margin="8,4,0,4"/>
                             <TextBlock x:Name="LibMsgText" VerticalAlignment="Center" Margin="8,4,0,4"
@@ -185,7 +190,14 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button Content="操作" Padding="8,2" MinHeight="26" MinWidth="56"
-                                                Click="LibOp_Click" Tag="{Binding}"/>
+                                                Click="LibOp_Click" Tag="{Binding}">
+                                            <Button.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="编辑" Click="LibEdit_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                                    <MenuItem Header="删除" Click="LibDelete_Click" Style="{StaticResource ContextMenuItemStyle}"/>
+                                                </ContextMenu>
+                                            </Button.ContextMenu>
+                                        </Button>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>

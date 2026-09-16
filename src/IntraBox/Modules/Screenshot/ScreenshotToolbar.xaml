@@ -122,7 +122,7 @@
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                           Data="M8,8 H5 V5 M5,8 C8,3 16,3 19,8 M19,16 C16,21 8,21 5,16"/>
                 </Button>
-                <Button Style="{StaticResource IconToolButton}" ToolTip="OCR 识别文字" Click="Ocr_Click">
+                <Button x:Name="BtnOcr" Style="{StaticResource IconToolButton}" ToolTip="OCR 识别文字" Click="Ocr_Click">
                     <Path Width="16" Height="16" Stretch="Uniform"
                           Fill="{DynamicResource TextPrimaryBrush}"
                           Data="M4,4 H20 V8 H17 V20 H13 V8 H11 V20 H7 V8 H4 Z"/>

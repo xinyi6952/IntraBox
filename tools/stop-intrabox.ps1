@@ -1,9 +1,6 @@
 ﻿#Requires -Version 5.1
-# 构建/完全重建前：若 IntraBox.exe 在跑，二次确认后再结束。UTF-8 BOM。
+# 构建前：若 IntraBox.exe 在跑，二次确认后再结束。UTF-8 BOM。
 # 退出码 0 = 未在运行或已结束；1 = 用户取消；2 = 结束失败。
-param(
-    [string]$Purpose = "build"
-)
 
 Add-Type -AssemblyName System.Windows.Forms | Out-Null
 
@@ -15,7 +12,6 @@ $procs = @(Get-IntraBoxProcesses)
 if ($procs.Count -eq 0) { exit 0 }
 
 $title = "IntraBox 构建"
-if ($Purpose -eq "rebuild") { $title = "IntraBox 完全重建" }
 
 $lines = New-Object System.Collections.Generic.List[string]
 for ($i = 0; $i -lt $procs.Count; $i++) {

@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using IntraBox.Core;
 using Microsoft.Win32;
 using IntraBox.Modules.ClipboardHistory;
+using IntraBox.Modules.EyeCare;
 using IntraBox.Modules.Screenshot;
 using IntraBox.Modules.ScreenRuler;
 
@@ -99,6 +100,8 @@ namespace IntraBox
             ClipboardMonitor.Start();
             IntraBox.Modules.Todo.TodoReminderService.Start();
             IntraBox.Core.JobFlowScheduler.Start();
+            EyeCareService.RestDue += OnEyeCareRestDue;
+            EyeCareService.StartFromSettings();
             AppLog.Info("IntraBox 启动 " + AppVersion.Display);
 
             StartShowWindowListener();
@@ -123,6 +126,9 @@ namespace IntraBox
                 AppLog.Info("IntraBox 退出");
                 ClipboardMonitor.Stop();
                 KeepAwakeService.SetEnabled(false);
+                EyeCareService.RestDue -= OnEyeCareRestDue;
+                CloseEyeCareRest();
+                EyeCareService.RestoreForExit();
                 HistoryManager.Flush();
                 IntraBox.Modules.FileOrganize.FileOrganizeStore.Flush();
                 IntraBox.Modules.Todo.TodoStore.Flush();
@@ -199,8 +205,26 @@ namespace IntraBox
             e.Handled = true;
         }
 
+        private static EyeCareRestWindow _eyeRest;
+
+        private static void OnEyeCareRestDue(object sender, EventArgs e)
+        {
+            if (_eyeRest != null) return;
+            _eyeRest = new EyeCareRestWindow();
+            _eyeRest.Closed += delegate { _eyeRest = null; };
+            _eyeRest.Show();
+        }
+
+        private static void CloseEyeCareRest()
+        {
+            var w = _eyeRest;
+            if (w == null) return;
+            try { w.Close(); } catch { }
+        }
+
         private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
+            EyeCareService.RestoreForExit();
             LogException(e.ExceptionObject as Exception);
         }
 

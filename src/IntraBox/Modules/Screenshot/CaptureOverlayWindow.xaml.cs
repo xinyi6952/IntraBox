@@ -471,6 +471,7 @@ namespace IntraBox.Modules.Screenshot
                 MessageBox.Show("请先框选截图区域。", "IntraBox", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
+            if (!OcrService.TryBegin()) return;
             Bitmap crop = null;
             try
             {
@@ -478,23 +479,23 @@ namespace IntraBox.Modules.Screenshot
             }
             catch (Exception ex)
             {
+                OcrService.End();
+                OcrService.LogFailure(ex, crop);
                 if (crop != null) crop.Dispose();
-                MessageBox.Show("OCR 失败：" + ex.RootMessage(), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("OCR 失败：" + ExceptionHelper.FormatOcrFailure(ex), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             RunOcrAsync(crop);
         }
 
         // 识别放后台线程：Tesseract 单次识别耗时数秒，同步会冻结整个覆盖层窗口。
-        // TesseractEngine 非线程安全，在后台线程内 using 新建，不跨线程复用。
+        // TesseractEngine 非线程安全：TryBegin 互斥后，后台 using 新建，不跨线程复用。
         private async void RunOcrAsync(Bitmap bmp)
         {
             Mouse.OverrideCursor = Cursors.Wait;
             try
             {
-                var scheduler = TaskScheduler.FromCurrentSynchronizationContext();
-                string text = await Task.Run(() => OcrService.Recognize(bmp))
-                    .ContinueWith(t => t.Result, scheduler);
+                string text = await Task.Run(() => OcrService.Recognize(bmp));
                 Mouse.OverrideCursor = null;
                 var w = new OcrResultWindow(text);
                 w.Owner = this;
@@ -503,12 +504,14 @@ namespace IntraBox.Modules.Screenshot
             catch (Exception ex)
             {
                 Mouse.OverrideCursor = null;
-                MessageBox.Show("OCR 失败：" + ex.RootMessage(), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                OcrService.LogFailure(ex, bmp);
+                MessageBox.Show("OCR 失败：" + ExceptionHelper.FormatOcrFailure(ex), "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally
             {
                 Mouse.OverrideCursor = null;
                 if (bmp != null) bmp.Dispose();
+                OcrService.End();
                 GcHelper.CollectSafely("capture-ocr");
             }
         }

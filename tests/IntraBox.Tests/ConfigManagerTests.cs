@@ -30,9 +30,10 @@ namespace IntraBox.Tests
             Assert.AreEqual("envvars", next[7]);
             Assert.AreEqual("jobflow", next[8]);
             Assert.AreEqual("dirsize", next[9]);
-            Assert.AreEqual(10, next.Length);
+            Assert.AreEqual("eyecare", next[10]);
+            Assert.AreEqual(11, next.Length);
 
-            int notes = 0, todo = 0, vault = 0, launcher = 0, workcal = 0, envvars = 0, jobflow = 0, dirsize = 0;
+            int notes = 0, todo = 0, vault = 0, launcher = 0, workcal = 0, envvars = 0, jobflow = 0, dirsize = 0, eyecare = 0;
             for (int i = 0; i < next.Length; i++)
             {
                 if (next[i] == "notes") notes++;
@@ -43,6 +44,7 @@ namespace IntraBox.Tests
                 if (next[i] == "envvars") envvars++;
                 if (next[i] == "jobflow") jobflow++;
                 if (next[i] == "dirsize") dirsize++;
+                if (next[i] == "eyecare") eyecare++;
             }
             Assert.AreEqual(1, notes);
             Assert.AreEqual(1, todo);
@@ -52,12 +54,13 @@ namespace IntraBox.Tests
             Assert.AreEqual(1, envvars);
             Assert.AreEqual(1, jobflow);
             Assert.AreEqual(1, dirsize);
+            Assert.AreEqual(1, eyecare);
         }
 
         [TestMethod]
         public void AppendNewVisibleToolKeys_已含全部新key_原样返回()
         {
-            var current = new[] { "clipboard", "launcher", "todo", "notes", "vault", "workcal", "envvars", "jobflow", "dirsize", "screenshot" };
+            var current = new[] { "clipboard", "launcher", "todo", "notes", "vault", "workcal", "envvars", "jobflow", "dirsize", "eyecare", "screenshot" };
             Assert.AreSame(current, ConfigManager.AppendNewVisibleToolKeys(current));
         }
 
@@ -87,6 +90,7 @@ namespace IntraBox.Tests
             Assert.AreEqual("envvars", next[6]);
             Assert.AreEqual("jobflow", next[7]);
             Assert.AreEqual("dirsize", next[8]);
+            Assert.AreEqual("eyecare", next[9]);
         }
 
         [TestMethod]

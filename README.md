@@ -17,12 +17,12 @@
 - **绿色免安装**：解压即用，单文件夹部署
 - **纯本地**：无网络、无遥测、无自动更新，数据不出本机
 - **低资源**：按需加载、用完销毁；工具输入靠历史落盘，不缓存控件
-- **48 个实用工具**，覆盖截图 / 文件 / 格式化 / 文本 / 编码 / 安全 / 网络 / 系统等
+- **49 个实用工具**，覆盖截图 / 文件 / 格式化 / 文本 / 编码 / 安全 / 网络 / 系统等
 
-## 功能清单（48 个，详见[产品设计文档](docs/产品设计文档.md)）
+## 功能清单（49 个，详见[产品设计文档](docs/产品设计文档.md)）
 
 效率工具（6）：剪贴板历史、启动器、任务计划、笔记、账号备忘、工作日历
-系统工具（8）：本机信息、环境变量、任务编排、Hosts 编辑器、文件占用查看、窗口置顶、防止睡眠、注册表只读浏览
+系统工具（9）：本机信息、环境变量、任务编排、Hosts 编辑器、文件占用查看、窗口置顶、防止睡眠、护眼模式、注册表只读浏览
 截图（2）：屏幕截图（含 OCR）、屏幕标尺
 文本工具（9）：格式化（JSON/YAML/XML/SQL/HTML/CSS/Markdown/Nginx）、文本比对、正则表达式测试、行处理、命名转换、Markdown 预览、文本统计、正则可视化、文本转 Excel
 编码转换（5）：Base64 编解码、URL/HTML/Unicode 编解码、URL 解析、Unicode 字符检查、时间转换
@@ -38,7 +38,7 @@
 ```
 IntraBox/
 ├── IntraBox.sln                 解决方案
-├── build.bat                    构建脚本（升版本号 + 编译 + 同步到 dist）
+├── build.bat                    构建脚本（默认保留数据并升号；`test` 打纯净测试包）
 ├── version.txt                  产品版本（四段，每次打包最后一段 +1）
 ├── test.bat                     测试脚本（跑 MSTest 单元测试）
 ├── src/IntraBox/                主项目（net48 WPF）
@@ -49,6 +49,7 @@ IntraBox/
 │   └── Modules/                 功能模块（每个工具一个子目录）
 ├── tests/IntraBox.Tests/        单元测试项目（MSTest）
 ├── dist/IntraBox/               绿色发布目录（主程序 + 依赖 + 文档）
+├── dist/IntraBox.test/          纯净测试包（build.bat test 生成，不入库）
 ├── redist/                      运行时离线安装包（.NET Framework 4.8 + VC++ 运行库）
 ├── docs/                        产品设计、测试用例、评审/提交规范、开源仓库说明
 └── tools/                       开发辅助脚本（图标生成、BOM 检查）
@@ -56,8 +57,11 @@ IntraBox/
 
 ## 构建
 
-- **增量构建**：双击 `build.bat`。若托盘里 IntraBox 仍在运行，会弹出确认（默认「否」）；确认后结束进程，**产品版本最后一段 +1**，再编译并同步到 `dist/IntraBox/`。
-- **完全重建**：双击 `rebuild.bat` —— 执行前会弹出确认（默认「否」）。确认后若 IntraBox 仍在运行会再询问是否结束进程（默认「否」）。都确认后才升版本号、删除编译缓存、`dist/IntraBox/`，并清空运行时数据（`%LOCALAPPDATA%\IntraBox\Data`：配置/历史/待办/笔记/账号备忘/启动器等），下次启动回到首次默认（欢迎引导、示例待办）。任一确认取消则不升版本、不删文件、不结束进程。
+双击 `build.bat` 弹出英文菜单（回车或 `1` 为默认）：
+
+- **[1] Keep user data**：若托盘里 IntraBox 仍在运行会确认结束进程（默认「否」）；确认后**产品版本最后一段 +1**，清 obj/bin 后全量编译，同步到 `dist/IntraBox/`。保留 `datapath.txt` 与 `%LOCALAPPDATA%\IntraBox\Data`（或自定义数据目录），不改用户配置。成功后启动新包。
+- **[2] Clean test package**（或 `build.bat test` / `build.bat 2`）：**不升号**。产出 `dist/IntraBox.test/`，数据写到 `%LOCALAPPDATA%\IntraBox\Data.test`（会清空该测试目录）。不碰用户真实数据，也不读/删 `dist/IntraBox/datapath.txt`。用于测首次引导。成功后启动测试包。
+- `build.bat norun`：上述默认模式，构建后不启动。
 
 > 运行环境：Win10 1903+ 已预装 .NET Framework 4.8；Win7 SP1 需先装 [.NET Framework 4.8](https://dotnet.microsoft.com/download/dotnet-framework/net48) 与 VC++ 运行库。
 

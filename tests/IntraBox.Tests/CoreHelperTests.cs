@@ -294,6 +294,7 @@ namespace IntraBox.Tests
                 bool hasDirsize = false;
                 bool hasEnvvars = false;
                 bool hasJobflow = false;
+                bool hasEyecare = false;
                 for (int i = 0; i < ModuleRegistry.All.Count; i++)
                 {
                     string key = ModuleRegistry.All[i].Key;
@@ -307,6 +308,7 @@ namespace IntraBox.Tests
                     if (key == "dirsize") hasDirsize = true;
                     if (key == "envvars") hasEnvvars = true;
                     if (key == "jobflow") hasJobflow = true;
+                    if (key == "eyecare") hasEyecare = true;
                 }
                 Assert.IsTrue(hasGenerator);
                 Assert.IsTrue(hasCodec);
@@ -315,6 +317,7 @@ namespace IntraBox.Tests
                 Assert.IsTrue(hasDirsize, "目录大小应注册");
                 Assert.IsTrue(hasEnvvars, "环境变量应注册");
                 Assert.IsTrue(hasJobflow, "任务编排应注册");
+                Assert.IsTrue(hasEyecare, "护眼模式应注册");
             }
 
             [TestMethod]
@@ -338,6 +341,9 @@ namespace IntraBox.Tests
                 Assert.AreEqual("machineinfo", list[6].Key);
                 Assert.AreEqual("envvars", list[7].Key);
                 Assert.AreEqual("jobflow", list[8].Key);
+                int ka = System.Array.IndexOf(NavOrder.DefaultToolKeys, "keepawake");
+                Assert.IsTrue(ka >= 0);
+                Assert.AreEqual("eyecare", NavOrder.DefaultToolKeys[ka + 1]);
                 Assert.AreEqual("settings", ToolVisibility.SettingsKey);
                 int fs = System.Array.IndexOf(NavOrder.DefaultToolKeys, "filesearch");
                 Assert.IsTrue(fs >= 0);

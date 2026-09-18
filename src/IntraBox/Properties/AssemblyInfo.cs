@@ -7,9 +7,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescription("内网效率聚合工具 —— 绿色免安装、纯本地运行")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyCopyright("")]
-[assembly: AssemblyVersion("1.0.0.16")]
-[assembly: AssemblyFileVersion("1.0.0.16")]
-[assembly: AssemblyInformationalVersion("1.0.0.16")]
+[assembly: AssemblyVersion("1.0.0.32")]
+[assembly: AssemblyFileVersion("1.0.0.32")]
+[assembly: AssemblyInformationalVersion("1.0.0.32")]
 
 // 不向 COM 暴露
 [assembly: ComVisible(false)]

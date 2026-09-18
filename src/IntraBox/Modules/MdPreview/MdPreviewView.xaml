@@ -56,7 +56,7 @@
                     </Grid>
                 </Button>
             </Grid>
-            <WebBrowser x:Name="Preview" Grid.Row="1"/>
+            <controls:HtmlPreviewHost x:Name="Preview" Grid.Row="1"/>
         </Grid>
     </Grid>
 </UserControl>

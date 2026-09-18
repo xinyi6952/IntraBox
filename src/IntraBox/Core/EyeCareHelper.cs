@@ -33,6 +33,8 @@ namespace IntraBox.Core
         public const string PresetEveningName = "晚间";
         public const string PresetNightName = "深夜";
         public const string PresetCustomName = "自定义";
+        public const int RestIntervalMinutes = 20;
+        public const int RestPopupSeconds = 22;
 
         public static int ClampKelvin(int k)
         {
@@ -321,6 +323,37 @@ namespace IntraBox.Core
             int ss = sec % 60;
             return mm.ToString("00", CultureInfo.InvariantCulture) + ":"
                 + ss.ToString("00", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>用眼提醒只在勾选且滤镜正在改色时走表；关闭、暂停、未改色都不计时。</summary>
+        public static bool ShouldRunRestClock(bool remindOn, bool enabled, bool paused, bool filterApplied)
+        {
+            return remindOn && enabled && !paused && filterApplied;
+        }
+
+        public static string FormatRestStatus(bool remindOn, bool filterApplying, TimeSpan remaining)
+        {
+            if (!remindOn)
+                return "用眼提醒未开。勾选后，护眼滤镜真正改色时开始计 "
+                    + RestIntervalMinutes.ToString(CultureInfo.InvariantCulture)
+                    + " 分钟；点「预览提醒」可立即看弹窗。";
+            string preview = "点「预览提醒」可立即看弹窗，不占用计时。";
+            if (!filterApplying)
+            {
+                bool frozen = remaining > TimeSpan.Zero
+                    && remaining < TimeSpan.FromMinutes(RestIntervalMinutes) - TimeSpan.FromSeconds(0.5);
+                if (frozen)
+                    return "用眼提醒已勾选，当前未改色（未开启、已暂停或不在时段），计时暂停，剩余 "
+                        + FormatPauseClock(remaining) + "。" + preview;
+                return "用眼提醒已勾选，当前未改色（未开启、已暂停或不在时段）。滤镜改色后开始计 "
+                    + RestIntervalMinutes.ToString(CultureInfo.InvariantCulture) + " 分钟。" + preview;
+            }
+            DateTime due = DateTime.Now.Add(remaining < TimeSpan.Zero ? TimeSpan.Zero : remaining);
+            return "用眼提醒计时中：下次约 " + due.ToString("HH:mm", CultureInfo.CurrentCulture)
+                + "（剩余 " + FormatPauseClock(remaining)
+                + "）。到时屏幕右下角弹出小窗，请看向约 6 米外约 20 秒；约 "
+                + RestPopupSeconds.ToString(CultureInfo.InvariantCulture)
+                + " 秒后自动关，或点「知道了」。" + preview;
         }
 
         public static bool HasCoverageGap(IList<EyeCareSegment> list)

@@ -7,7 +7,7 @@ namespace IntraBox.Core
 {
     /// <summary>
     /// 让带系统边框的 Window 标题栏跟随浅色/深色主题。
-    /// Win10 1809+ 有效；Win7 无 immersive dark mode，调用失败则忽略。
+    /// Win10 1809+ 有效；更早系统按能力跳过，不调用也不记「降级」。
     /// </summary>
     public static class WindowCaption
     {
@@ -40,6 +40,7 @@ namespace IntraBox.Core
         {
             if (window == null) return;
             if (window.WindowStyle == WindowStyle.None) return;
+            if (!WinCompatHelper.SupportsDarkWindowCaption()) return;
             try
             {
                 var helper = new WindowInteropHelper(window);
@@ -49,12 +50,15 @@ namespace IntraBox.Core
                 if (hwnd == IntPtr.Zero) return;
 
                 int useDark = ThemeManager.Resolve(ThemeManager.Current) == ThemeManager.Dark ? 1 : 0;
-                DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref useDark, sizeof(int));
-                DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkModeBefore20H1, ref useDark, sizeof(int));
+                int hr = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref useDark, sizeof(int));
+                if (hr != 0)
+                    hr = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkModeBefore20H1, ref useDark, sizeof(int));
+                if (hr != 0)
+                    CompatDegrade.Once("caption-dark", "系统标题栏深色模式不可用（Windows 10 1809 以下会忽略）。", null);
             }
-            catch
+            catch (Exception ex)
             {
-                // Win7 / 无 DWM：保持系统标题栏
+                CompatDegrade.Once("caption-dark-ex", "设置标题栏深色模式失败，保持系统标题栏。", ex);
             }
         }
     }

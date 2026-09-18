@@ -1,0 +1,19 @@
+<UserControl x:Class="IntraBox.Controls.HtmlPreviewHost"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="HintText" Visibility="Collapsed" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,4"/>
+        <Grid x:Name="Surface" Grid.Row="1">
+            <WebBrowser x:Name="IePreview" Visibility="Collapsed"/>
+            <TextBox x:Name="TextFallback" Visibility="Collapsed" IsReadOnly="True"
+                     TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                     BorderThickness="0" Padding="12"
+                     Background="{DynamicResource EditorBackgroundBrush}"
+                     Foreground="{DynamicResource EditorForegroundBrush}"/>
+        </Grid>
+    </Grid>
+</UserControl>

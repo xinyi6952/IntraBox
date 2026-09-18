@@ -6,6 +6,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using IntraBox.Controls;
 using IntraBox.Core;
 using Microsoft.Win32;
 
@@ -631,18 +632,23 @@ namespace IntraBox.Modules.Notes
             if (_item == null || MdPreview == null) return;
             try
             {
-                MdPreview.NavigateToString(NoteMarkdown.ToPreviewHtml(MdBox.Text, _item.Uid));
+                string dir = DataPaths.NoteFilesDir(_item.Uid);
+                MdPreview.SetHtml(NoteMarkdown.ToPreviewHtml(MdBox.Text, _item.Uid), dir);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                CompatDegrade.ErrorAlways("笔记 Markdown 预览失败。", ex);
+                try { MdPreview.SetHtml("<pre>预览失败：" + ex.RootMessage() + "</pre>"); }
+                catch { }
+            }
         }
 
-        /// <summary>关掉预览或抽屉、切走模块时转到 about:blank，让 IE 释放文档。</summary>
+        /// <summary>关掉预览或抽屉、切走模块时释放 WebView2 / IE 文档。</summary>
         public void ReleaseMdPreview()
         {
             if (_previewTimer != null) _previewTimer.Stop();
             if (MdPreview == null) return;
-            try { MdPreview.Navigate(new Uri("about:blank")); }
-            catch { }
+            MdPreview.Release();
         }
 
         /// <summary>托盘回来后重新渲染 Markdown 预览。</summary>

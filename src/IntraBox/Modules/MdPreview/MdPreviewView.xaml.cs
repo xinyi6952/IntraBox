@@ -34,6 +34,12 @@ namespace IntraBox.Modules.MdPreview
         public MdPreviewView()
         {
             InitializeComponent();
+            if (Preview != null)
+                Preview.EngineChanged += (s, e) =>
+                {
+                    if (PreviewCaption != null && !string.IsNullOrEmpty(Preview.StatusText))
+                        PreviewCaption.Text = Preview.StatusText;
+                };
             _timer.Interval = TimeSpan.FromMilliseconds(350);
             _timer.Tick += (s, e) => { _timer.Stop(); Render(); };
             InputBox.TextChangedByUser += (s, e) =>
@@ -164,14 +170,13 @@ namespace IntraBox.Modules.MdPreview
             });
         }
 
-        /// <summary>切走时转到 about:blank，让 IE/Trident 释放当前文档；再次进入由 Render 重新 NavigateToString。</summary>
+        /// <summary>切走时转到 about:blank，释放 WebView2 / IE 文档；再次进入由 Render 重新加载。</summary>
         private void ReleasePreview()
         {
             _pendingSearch = "";
             if (Preview == null) return;
-            Preview.LoadCompleted -= Preview_LoadCompleted;
-            try { Preview.Navigate(new Uri("about:blank")); }
-            catch { }
+            Preview.DocumentReady -= Preview_DocumentReady;
+            Preview.Release();
         }
 
         public bool CanLeave()
@@ -239,10 +244,12 @@ namespace IntraBox.Modules.MdPreview
             {
                 string md = InputBox.Text ?? "";
                 string html = Markdown.ToHtml(md, MdPipeline);
-                Preview.NavigateToString(BuildPage(html));
+                Preview.SetHtml(BuildPage(html));
                 _pendingSearch = SearchBox != null ? SearchBox.Text : "";
-                Preview.LoadCompleted -= Preview_LoadCompleted;
-                Preview.LoadCompleted += Preview_LoadCompleted;
+                Preview.DocumentReady -= Preview_DocumentReady;
+                Preview.DocumentReady += Preview_DocumentReady;
+                if (PreviewCaption != null && !string.IsNullOrEmpty(Preview.StatusText))
+                    PreviewCaption.Text = Preview.StatusText;
             }
             catch (Exception ex)
             {
@@ -252,11 +259,8 @@ namespace IntraBox.Modules.MdPreview
 
         private string _pendingSearch = "";
 
-        private void Preview_LoadCompleted(object sender, System.Windows.Navigation.NavigationEventArgs e)
+        private void Preview_DocumentReady(object sender, EventArgs e)
         {
-            if (e != null && e.Uri != null
-                && string.Equals(e.Uri.ToString(), "about:blank", StringComparison.OrdinalIgnoreCase))
-                return;
             if (!string.IsNullOrEmpty(_pendingSearch))
                 InvokeSearch(_pendingSearch, 0);
         }
@@ -299,7 +303,7 @@ namespace IntraBox.Modules.MdPreview
         private void ShowError(string message)
         {
             string msg = (message ?? "").Replace("<", "&lt;").Replace(">", "&gt;");
-            Preview.NavigateToString("<pre>" + msg + "</pre>");
+            Preview.SetHtml("<pre>" + msg + "</pre>");
         }
 
         // ---------- 预览内搜索 ----------
@@ -325,25 +329,25 @@ namespace IntraBox.Modules.MdPreview
         }
 
         // dir: 0=重新计数并跳到第一个, 1=下一个, -1=上一个
-        private void InvokeSearch(string query, int dir)
+        private async void InvokeSearch(string query, int dir)
         {
             if (SearchCount == null) return;
             if (string.IsNullOrEmpty(query))
             {
                 SearchCount.Text = "";
                 _lastTotal = 0;
-                TryInvoke("mdClear");
+                await Preview.TryInvokeAsync("mdClear", null);
                 return;
             }
             if (dir == 0)
             {
-                int total = ToInt(TryInvoke("mdFind", new object[] { query }));
+                int total = ToInt(await Preview.TryInvokeAsync("mdFind", new object[] { query }));
                 _lastTotal = total;
                 SearchCount.Text = total > 0 ? "1/" + total : "无结果";
             }
             else
             {
-                int cur = ToInt(TryInvoke("mdNext", new object[] { dir }));
+                int cur = ToInt(await Preview.TryInvokeAsync("mdNext", new object[] { dir }));
                 SearchCount.Text = _lastTotal > 0 ? cur + "/" + _lastTotal : "";
             }
         }
@@ -354,16 +358,6 @@ namespace IntraBox.Modules.MdPreview
         {
             int v;
             return (o != null && int.TryParse(o.ToString(), out v)) ? v : 0;
-        }
-
-        private object TryInvoke(string func, object[] args = null)
-        {
-            try
-            {
-                if (Preview.Document == null) return null;
-                return Preview.InvokeScript(func, args);
-            }
-            catch { return null; }
         }
 
     }

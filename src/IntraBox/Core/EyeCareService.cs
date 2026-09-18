@@ -13,7 +13,8 @@ namespace IntraBox.Core
         private static DispatcherTimer _timer;
         private static DispatcherTimer _restTimer;
         private static DateTime? _pauseUntilUtc;
-        private static DateTime _nextRestUtc = DateTime.MinValue;
+        private static TimeSpan _restLeft = TimeSpan.FromMinutes(EyeCareHelper.RestIntervalMinutes);
+        private static DateTime _restStampUtc = DateTime.MinValue;
         private static bool _applied;
         private static bool _lastApplyOk = true;
         private static string _lastError;
@@ -21,6 +22,10 @@ namespace IntraBox.Core
 
         public static event EventHandler Changed;
         public static event EventHandler RestDue;
+        /// <summary>关闭/暂停护眼或关掉用眼提醒时收掉已弹出的提醒窗。</summary>
+        public static event EventHandler RestDismiss;
+        /// <summary>由 App 注入：任务提醒窗开着时先不弹用眼提醒，避免右下角叠在一起。</summary>
+        public static Func<bool> DeferRestPopup;
 
         public static bool Enabled { get; private set; }
         public static bool Applied { get { return _applied; } }
@@ -38,6 +43,39 @@ namespace IntraBox.Core
             {
                 if (!_pauseUntilUtc.HasValue) return TimeSpan.Zero;
                 TimeSpan left = _pauseUntilUtc.Value - DateTime.UtcNow;
+                return left > TimeSpan.Zero ? left : TimeSpan.Zero;
+            }
+        }
+
+        public static bool RestRemindOn
+        {
+            get
+            {
+                var s = ConfigManager.Instance.Settings;
+                return s != null && s.EyeCareRestRemind;
+            }
+        }
+
+        public static bool RestCounting
+        {
+            get
+            {
+                bool paused = PauseRemaining.TotalSeconds >= 1;
+                return EyeCareHelper.ShouldRunRestClock(RestRemindOn, Enabled, paused, _applied);
+            }
+        }
+
+        public static TimeSpan RestRemaining
+        {
+            get
+            {
+                if (!RestRemindOn) return TimeSpan.Zero;
+                TimeSpan left = _restLeft;
+                if (_restStampUtc != DateTime.MinValue)
+                {
+                    TimeSpan elapsed = DateTime.UtcNow - _restStampUtc;
+                    if (elapsed > TimeSpan.Zero) left -= elapsed;
+                }
                 return left > TimeSpan.Zero ? left : TimeSpan.Zero;
             }
         }
@@ -61,6 +99,7 @@ namespace IntraBox.Core
             if (!on)
             {
                 _pauseUntilUtc = null;
+                RaiseRestDismiss();
                 StopRestTimer();
                 EyeCareRamp.Restore(true);
                 _applied = false;
@@ -77,6 +116,7 @@ namespace IntraBox.Core
         {
             if (!Enabled) return;
             _pauseUntilUtc = DateTime.UtcNow.AddHours(1);
+            RaiseRestDismiss();
             EnsureTimer();
             Tick(false);
             Raise();
@@ -106,7 +146,10 @@ namespace IntraBox.Core
             EyeCareHelper.EnsureSegments(s, false);
             s.EyeCareRestRemind = rest;
             ConfigManager.Instance.Save();
+            if (!rest) RaiseRestDismiss();
+            ResetRest();
             EnsureTimer();
+            Tick(false);
             Raise();
         }
 
@@ -132,6 +175,7 @@ namespace IntraBox.Core
             s.EyeCareRestRemind = false;
             EyeCareHelper.SyncLegacyFields(s);
             _pauseUntilUtc = null;
+            RaiseRestDismiss();
             ConfigManager.Instance.Save();
             EnsureTimer();
             Tick(true);
@@ -181,11 +225,9 @@ namespace IntraBox.Core
                 if (_restTimer == null)
                 {
                     _restTimer = new DispatcherTimer();
-                    _restTimer.Interval = TimeSpan.FromSeconds(30);
+                    _restTimer.Interval = TimeSpan.FromSeconds(1);
                     _restTimer.Tick += OnRestTick;
                 }
-                if (_nextRestUtc == DateTime.MinValue)
-                    _nextRestUtc = DateTime.UtcNow.AddMinutes(20);
                 _restTimer.Start();
             }
             else
@@ -201,7 +243,13 @@ namespace IntraBox.Core
         private static void StopRestTimer()
         {
             if (_restTimer != null) _restTimer.Stop();
-            _nextRestUtc = DateTime.MinValue;
+            ResetRest();
+        }
+
+        private static void ResetRest()
+        {
+            _restLeft = TimeSpan.FromMinutes(EyeCareHelper.RestIntervalMinutes);
+            _restStampUtc = DateTime.MinValue;
         }
 
         private static void Tick(bool forceRewrite)
@@ -257,18 +305,62 @@ namespace IntraBox.Core
                 _applied = false;
                 _lastApplyOk = false;
                 _lastError = err;
+                CompatDegrade.Once("eyecare-ramp:" + (err ?? ""), "护眼滤镜未生效：" + (err ?? "未知原因"), null);
             }
             Raise();
         }
 
         private static void OnRestTick(object sender, EventArgs e)
         {
-            if (!ShouldApplyNow(DateTime.Now)) return;
-            if (_nextRestUtc == DateTime.MinValue) _nextRestUtc = DateTime.UtcNow.AddMinutes(20);
-            if (DateTime.UtcNow < _nextRestUtc) return;
+            AdvanceRest();
+            Raise();
+        }
+
+        private static void AdvanceRest()
+        {
+            var s = ConfigManager.Instance.Settings;
+            bool paused = PauseRemaining.TotalSeconds >= 1;
+            bool remind = s != null && s.EyeCareRestRemind;
+            if (!EyeCareHelper.ShouldRunRestClock(remind, Enabled, paused, _applied))
+            {
+                if (_restStampUtc != DateTime.MinValue)
+                {
+                    TimeSpan freeze = DateTime.UtcNow - _restStampUtc;
+                    if (freeze > TimeSpan.Zero) _restLeft -= freeze;
+                    if (_restLeft < TimeSpan.Zero) _restLeft = TimeSpan.Zero;
+                    _restStampUtc = DateTime.MinValue;
+                }
+                return;
+            }
+            DateTime now = DateTime.UtcNow;
+            if (_restStampUtc == DateTime.MinValue)
+            {
+                _restStampUtc = now;
+                return;
+            }
+            TimeSpan elapsed = now - _restStampUtc;
+            _restStampUtc = now;
+            if (elapsed > TimeSpan.Zero) _restLeft -= elapsed;
+            if (_restLeft > TimeSpan.Zero) return;
+            _restLeft = TimeSpan.Zero;
+            Func<bool> defer = DeferRestPopup;
+            if (defer != null)
+            {
+                try
+                {
+                    if (defer()) return;
+                }
+                catch { }
+            }
             EventHandler h = RestDue;
             if (h != null) h(null, EventArgs.Empty);
-            _nextRestUtc = DateTime.UtcNow.AddMinutes(20);
+            _restLeft = TimeSpan.FromMinutes(EyeCareHelper.RestIntervalMinutes);
+        }
+
+        private static void RaiseRestDismiss()
+        {
+            EventHandler h = RestDismiss;
+            if (h != null) h(null, EventArgs.Empty);
         }
 
         private static void HookOs()

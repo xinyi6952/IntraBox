@@ -303,5 +303,37 @@ namespace IntraBox.Tests
             Assert.AreEqual("00:59", EyeCareHelper.FormatPauseClock(TimeSpan.FromSeconds(59)));
             Assert.AreEqual("00:00", EyeCareHelper.FormatPauseClock(TimeSpan.Zero));
         }
+
+        [TestMethod]
+        public void FormatRestStatus_未开与未改色与计时中()
+        {
+            string off = EyeCareHelper.FormatRestStatus(false, false, TimeSpan.Zero);
+            Assert.IsTrue(off.IndexOf("未开", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(off.IndexOf("改色时开始", StringComparison.Ordinal) >= 0);
+
+            string wait = EyeCareHelper.FormatRestStatus(true, false, TimeSpan.FromMinutes(20));
+            Assert.IsTrue(wait.IndexOf("未改色", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(wait.IndexOf("滤镜改色后开始计", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(wait.IndexOf("预览提醒", StringComparison.Ordinal) >= 0);
+
+            string frozen = EyeCareHelper.FormatRestStatus(true, false, TimeSpan.FromMinutes(5));
+            Assert.IsTrue(frozen.IndexOf("计时暂停", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(frozen.IndexOf("05:00", StringComparison.Ordinal) >= 0);
+
+            string on = EyeCareHelper.FormatRestStatus(true, true, TimeSpan.FromMinutes(12) + TimeSpan.FromSeconds(30));
+            Assert.IsTrue(on.IndexOf("计时中", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(on.IndexOf("12:30", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(on.IndexOf("右下角", StringComparison.Ordinal) >= 0);
+        }
+
+        [TestMethod]
+        public void ShouldRunRestClock_关闭暂停未改色都不计()
+        {
+            Assert.IsFalse(EyeCareHelper.ShouldRunRestClock(true, false, false, true));
+            Assert.IsFalse(EyeCareHelper.ShouldRunRestClock(true, true, true, true));
+            Assert.IsFalse(EyeCareHelper.ShouldRunRestClock(true, true, false, false));
+            Assert.IsFalse(EyeCareHelper.ShouldRunRestClock(false, true, false, true));
+            Assert.IsTrue(EyeCareHelper.ShouldRunRestClock(true, true, false, true));
+        }
     }
 }

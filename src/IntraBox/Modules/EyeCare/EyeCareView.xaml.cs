@@ -80,6 +80,11 @@ namespace IntraBox.Modules.EyeCare
             SyncStatus();
         }
 
+        private void RestPreview_Click(object sender, RoutedEventArgs e)
+        {
+            EyeCareRestWindow.ShowOnce(true);
+        }
+
         private void AddSeg_Click(object sender, RoutedEventArgs e)
         {
             var draft = ReadRows();
@@ -406,6 +411,7 @@ namespace IntraBox.Modules.EyeCare
             bool pausing = on && pause.TotalSeconds >= 1;
             PauseBtn.IsEnabled = on;
             PauseBtn.Content = pausing ? "取消暂停" : "暂停 1 小时";
+            SyncRestText();
 
             if (!on)
             {
@@ -439,6 +445,15 @@ namespace IntraBox.Modules.EyeCare
             }
             else
                 FormHint.Apply(StateText, mode + " · 当前不在时段内，屏幕未改色。", false);
+        }
+
+        private void SyncRestText()
+        {
+            if (RestText == null) return;
+            var s = ConfigManager.Instance.Settings;
+            bool remind = s != null && s.EyeCareRestRemind;
+            RestText.Text = EyeCareHelper.FormatRestStatus(
+                remind, EyeCareService.RestCounting, EyeCareService.RestRemaining);
         }
 
         private sealed class SegRow

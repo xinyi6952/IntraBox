@@ -14,8 +14,15 @@
             </WrapPanel>
             <TextBlock x:Name="StateText" TextWrapping="Wrap" Margin="0,0,0,12"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
-            <CheckBox x:Name="RestCheck" Content="用眼提醒：滤镜生效时每 20 分钟提示看远处 20 秒（默认关）"
-                      Margin="0,0,0,12" Click="Rest_Click"/>
+            <WrapPanel Margin="0,0,0,4">
+                <CheckBox x:Name="RestCheck" Content="用眼提醒（默认关）"
+                          Margin="0,4,12,4" VerticalAlignment="Center" Click="Rest_Click"/>
+                <Button x:Name="RestPreviewBtn" Content="预览提醒" MinWidth="88" Margin="0,4,8,4"
+                        ToolTip="立即弹出与正式提醒相同的右下角小窗，不占用 20 分钟计时"
+                        Click="RestPreview_Click"/>
+            </WrapPanel>
+            <TextBlock x:Name="RestText" TextWrapping="Wrap" Margin="0,0,0,12"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
             <Expander x:Name="CustomExpander" IsExpanded="False" Margin="0,0,0,10">
                 <Expander.Header>
                     <TextBlock Text="自定义时段" FontWeight="SemiBold"

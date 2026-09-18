@@ -52,7 +52,7 @@ namespace IntraBox.Core
             WindowCaption.RefreshAll();
         }
 
-        /// <summary>把配置值解析成实际色板。Win7 无「浅色应用」注册表项时跟随系统视为深色。</summary>
+        /// <summary>把配置值解析成实际色板。Win7 无系统浅色应用设置，跟随系统视为深色。</summary>
         public static string Resolve(string name)
         {
             if (name == Light) return Light;
@@ -62,17 +62,25 @@ namespace IntraBox.Core
 
         public static bool IsSystemLight()
         {
+            if (!WinCompatHelper.IsWindows10OrNewer()) return false;
             try
             {
                 using (var key = Registry.CurrentUser.OpenSubKey(
                     @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
                 {
-                    if (key == null) return false;
+                    if (key == null)
+                    {
+                        CompatDegrade.Once("theme-sys", "读取「浅色应用」设置失败，跟随系统时使用深色。", null);
+                        return false;
+                    }
                     object v = key.GetValue("AppsUseLightTheme");
                     if (v is int) return (int)v != 0;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                CompatDegrade.Once("theme-sys-ex", "读取系统浅色/深色失败，跟随系统时使用深色。", ex);
+            }
             return false;
         }
 

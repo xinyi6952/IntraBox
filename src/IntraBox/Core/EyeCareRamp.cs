@@ -249,6 +249,7 @@ namespace IntraBox.Core
 
         private static bool HasMagFullscreen()
         {
+            if (!WinCompatHelper.IsWindows8OrNewer()) return false;
             try
             {
                 IntPtr h = LoadLibrary("Magnification.dll");

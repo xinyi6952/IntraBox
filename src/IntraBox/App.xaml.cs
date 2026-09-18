@@ -59,7 +59,7 @@ namespace IntraBox
 
             base.OnStartup(e);
 
-            // HTTPS：Win7 默认可能没有 TLS1.2 标志。WebBrowser：按本机 IE 写文档模式，勿写死 IE11。
+            // HTTPS：Win10/11 开 TLS 1.2+1.3，Win7 只开到 1.2。WebBrowser：按本机 IE 写文档模式。
             WinCompatHelper.EnableModernTls();
             EnableWebBrowserEmulation();
 
@@ -100,7 +100,9 @@ namespace IntraBox
             ClipboardMonitor.Start();
             IntraBox.Modules.Todo.TodoReminderService.Start();
             IntraBox.Core.JobFlowScheduler.Start();
+            EyeCareService.DeferRestPopup = () => IntraBox.Modules.Todo.TodoReminderService.IsPromptOpen;
             EyeCareService.RestDue += OnEyeCareRestDue;
+            EyeCareService.RestDismiss += OnEyeCareRestDismiss;
             EyeCareService.StartFromSettings();
             AppLog.Info("IntraBox 启动 " + AppVersion.Display);
 
@@ -127,6 +129,8 @@ namespace IntraBox
                 ClipboardMonitor.Stop();
                 KeepAwakeService.SetEnabled(false);
                 EyeCareService.RestDue -= OnEyeCareRestDue;
+                EyeCareService.RestDismiss -= OnEyeCareRestDismiss;
+                EyeCareService.DeferRestPopup = null;
                 CloseEyeCareRest();
                 EyeCareService.RestoreForExit();
                 HistoryManager.Flush();
@@ -205,21 +209,19 @@ namespace IntraBox
             e.Handled = true;
         }
 
-        private static EyeCareRestWindow _eyeRest;
-
         private static void OnEyeCareRestDue(object sender, EventArgs e)
         {
-            if (_eyeRest != null) return;
-            _eyeRest = new EyeCareRestWindow();
-            _eyeRest.Closed += delegate { _eyeRest = null; };
-            _eyeRest.Show();
+            EyeCareRestWindow.ShowOnce(false);
+        }
+
+        private static void OnEyeCareRestDismiss(object sender, EventArgs e)
+        {
+            EyeCareRestWindow.CloseIfOpen();
         }
 
         private static void CloseEyeCareRest()
         {
-            var w = _eyeRest;
-            if (w == null) return;
-            try { w.Close(); } catch { }
+            EyeCareRestWindow.CloseIfOpen();
         }
 
         private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)

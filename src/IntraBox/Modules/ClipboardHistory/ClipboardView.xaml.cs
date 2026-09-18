@@ -162,15 +162,9 @@ namespace IntraBox.Modules.ClipboardHistory
         private void ApplyViewerImageSize(BitmapSource src)
         {
             if (src == null || ViewerImage == null) return;
-            double dpiX = 96;
-            double dpiY = 96;
-            try
-            {
-                var dpi = VisualTreeHelper.GetDpi(this);
-                dpiX = dpi.PixelsPerInchX;
-                dpiY = dpi.PixelsPerInchY;
-            }
-            catch { }
+            double dpiX;
+            double dpiY;
+            WinCompatHelper.GetPixelsPerInch(this, out dpiX, out dpiY);
             Size dip = ClipboardImage.ScreenDipSize(src.PixelWidth, src.PixelHeight, dpiX, dpiY);
             ViewerImage.Width = dip.Width;
             ViewerImage.Height = dip.Height;

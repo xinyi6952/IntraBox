@@ -15,9 +15,10 @@
 
 ## 构建与测试
 
-- 双击 `build.bat`：英文菜单选保留数据（默认，升号，同步 `dist/IntraBox/`，保留用户数据与 `datapath.txt`）或纯净测试包（`dist/IntraBox.test/`，不升号，隔离 `Data.test`）
+- 双击 `build.bat`：英文菜单选保留数据（默认，升号，同步 `dist/IntraBox/`，保留用户数据与 `datapath.txt`）或纯净测试包（`dist/IntraBox.test/`，不升号，隔离 `Data.test`）；再问是否启动新包（回车/`Y` 启动，`N` 不启动）。成功关窗；失败窗口停住
 - `build.bat test` / `build.bat 2`：直接打纯净测试包；`build.bat norun`：默认模式但不启动新包
 - 双击 `test.bat`：构建测试项目并运行全部 MSTest 用例（不升版本）
+- Win10/11 要把 Edge 预览内核打进发布目录：先 `powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch-webview2-runtime.ps1`（约 250MB，写入已 gitignore 的 `redist\WebView2Runtime`），再 `build.bat`。Win7 走 IE，不使用 WebView2
 - 命令行等价：
 
 ```bat

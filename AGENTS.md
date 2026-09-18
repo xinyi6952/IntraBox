@@ -6,7 +6,7 @@
 
 - 目标：.NET Framework 4.8 WPF，**C# 7.3**，Win7 SP1+ x64。
 - 含中文的 `.cs` / `.xaml`：UTF-8 **带 BOM**（`tools/add-bom.ps1` / `tools/check-bom.ps1`）。
-- 不擅自加 NuGet；确定性逻辑优先 `src/IntraBox/Core/*Helper` + MSTest（`test.bat`）。
+- 不擅自加 NuGet；确定性逻辑优先 `src/IntraBox/Core/*Helper` + MSTest（`test.bat`）。Markdown/笔记预览已授权 `Microsoft.Web.WebView2`（仅加载器）；Chromium 运行库不入库，用 `tools/fetch-webview2-runtime.ps1` 解压到 `redist/WebView2Runtime`，`build.bat` 再拷进发布目录。Win10/11 只用随包内核，Win7 用 IE，不把本机 WebView2 当常规路径。
 - 新工具：`Modules/` 子目录，注册 `ModuleRegistry`，写入 `NavOrder`；按需加载、用完销毁。
 - 托盘里的 IntraBox 会锁 exe；`build.bat` 会询问，确认后才结束进程再编，取消则中止。
 - 产品版本在仓库根 `version.txt`（四段有序）。默认模式 `build.bat` 开编前把最后一段 +1 并写入 AssemblyInfo；`build.bat test`、`test.bat` 与 VS F5 不升号。升主/次版本时改 `version.txt` 前两段。与 ConfigVersion / 落盘 FormatVersion 无关。

@@ -25,6 +25,7 @@
     <LangVersion>7.3</LangVersion>
     <!-- 应用图标：嵌入 exe，作为任务栏/桌面图标 -->
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- 固定 64 位：32 位进程 ~2GB 地址空间装不下两个 AvalonEdit 编辑器各持一份大文本 + 格式化副本，
          大文本格式化/比对会 OOM。64 位下地址空间到 ~8TB。Tesseract 已随包带 x64 原生 DLL，其余依赖全托管 AnyCPU。
          代价：不再支持 32 位 Windows（已极少见）。 -->
@@ -106,6 +107,7 @@
     <PackageReference Include="ZXing.Net" Version="0.16.9" />
     <PackageReference Include="Tesseract" Version="4.1.1" />
     <PackageReference Include="Markdig" Version="0.37.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
   </ItemGroup>
 
   <ItemGroup>
@@ -138,6 +140,17 @@
     </Content>
     <Content Include="$(TesseractPkgDir)\x64\tesseract41.dll">
       <Link>x64\tesseract41.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <WebView2PkgDir Condition="Exists('$(UserProfile)\.nuget\packages\microsoft.web.webview2\1.0.2903.40\runtimes\win-x64\native\WebView2Loader.dll')">$(UserProfile)\.nuget\packages\microsoft.web.webview2\1.0.2903.40</WebView2PkgDir>
+    <WebView2PkgDir Condition="'$(WebView2PkgDir)' == '' and Exists('$(NuGetPackageRoot)microsoft.web.webview2\1.0.2903.40\runtimes\win-x64\native\WebView2Loader.dll')">$(NuGetPackageRoot)microsoft.web.webview2\1.0.2903.40</WebView2PkgDir>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(WebView2PkgDir)' != ''">
+    <Content Include="$(WebView2PkgDir)\runtimes\win-x64\native\WebView2Loader.dll">
+      <Link>WebView2Loader.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

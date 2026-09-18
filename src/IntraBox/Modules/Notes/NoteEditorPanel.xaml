@@ -274,7 +274,7 @@
             <GridSplitter x:Name="MdSplitter" Grid.Column="1" Width="8" HorizontalAlignment="Stretch" Visibility="Collapsed"/>
             <Border x:Name="MdPreviewWrap" Grid.Column="2" Visibility="Collapsed"
                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
-                <WebBrowser x:Name="MdPreview"/>
+                <controls:HtmlPreviewHost x:Name="MdPreview"/>
             </Border>
         </Grid>
         <DockPanel Grid.Row="3" Margin="0,8,0,0">

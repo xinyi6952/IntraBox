@@ -6,9 +6,10 @@ REM  robocopy /MIR into dist\IntraBox (preserves datapath.txt).
 REM  test / 2: clean test package into dist\IntraBox.test with
 REM  isolated Data.test; does not bump version; does not touch
 REM  user Data or dist\IntraBox\datapath.txt.
-REM  norun / /norun: skip launching the new exe.
-REM  Every exit path pauses AND writes build.log, so a
-REM  double-clicked window never vanishes without a trace.
+REM  norun / /norun / menu N: skip launching the new exe.
+REM  Menu Y or Enter: start the new exe from the publish folder.
+REM  Success then exits so a double-clicked window closes.
+REM  Fail/abort/launch-fail still pause and write build.log.
 REM  NOTE: keep this file ASCII-only (English); chcp 65001 makes
 REM  tool output (MSBuild/robocopy) render safely in the console.
 REM ============================================================
@@ -40,14 +41,21 @@ goto :startbuild
 :menu
 echo.
 echo Select package mode:
-echo   [1] Keep user data    (default)
-echo   [2] Clean test package (isolated data)
+echo   [1] Keep user data    - default
+echo   [2] Clean test package
 set /p CHOICE=Your choice [1/2]: 
 if "%CHOICE%"=="2" (
     set "MODE=test"
 ) else (
     set "MODE=keep"
 )
+echo.
+echo Launch the new exe after build?
+echo   [Y] Yes - default
+echo   [N] No
+set /p LAUNCH=Launch [Y/N]: 
+if /i "%LAUNCH%"=="n" set "NORUN=1"
+if /i "%LAUNCH%"=="no" set "NORUN=1"
 
 :startbuild
 if /i "%MODE%"=="test" (
@@ -148,7 +156,7 @@ REM Copy docs first so the mirror below does not treat them as extras to delete.
 copy /Y "docs\*.txt" "%DEST%\" >> "%LOG%" 2>&1
 REM /MIR mirrors; /XF *.txt keeps dest datapath.txt and the docs just copied.
 REM Do NOT rmdir the dest folder: that would drop dist\IntraBox\datapath.txt.
-robocopy "src\IntraBox\bin\Release" "%DEST%" /MIR /NFL /NDL /NJH /NP /R:2 /W:1 /XF *.pdb *.txt config.json history.json fileorganize.json fileorganize-undo.json launcher.json /XD .claude >> "%LOG%" 2>&1
+robocopy "src\IntraBox\bin\Release" "%DEST%" /MIR /NFL /NDL /NJH /NP /R:2 /W:1 /XF *.pdb *.txt config.json history.json fileorganize.json fileorganize-undo.json launcher.json /XD .claude WebView2Runtime >> "%LOG%" 2>&1
 set "RC=%ERRORLEVEL%"
 REM robocopy exit codes 0-7 = success, >=8 = failure
 if %RC% GEQ 8 (
@@ -162,6 +170,19 @@ if %RC% GEQ 8 (
 )
 echo Synced to %DEST%\ - mirrored from bin\Release.
 echo [OK] Synced to %DEST%.>> "%LOG%"
+
+if exist "redist\WebView2Runtime" (
+    echo Copying WebView2 Fixed Version from redist\WebView2Runtime...
+    if not exist "%DEST%\WebView2Runtime" mkdir "%DEST%\WebView2Runtime"
+    robocopy "redist\WebView2Runtime" "%DEST%\WebView2Runtime" /E /NFL /NDL /NJH /NP /R:1 /W:1 >> "%LOG%" 2>&1
+)
+if exist "%DEST%\WebView2Runtime\msedgewebview2.exe" (
+    echo [OK] WebView2Runtime packaged.>> "%LOG%"
+) else (
+    echo [WARNING] WebView2Runtime not in package. Win10/11 Markdown preview will use IE until you fetch and rebuild.
+    echo [WARNING] Run tools\fetch-webview2-runtime.ps1 then rebuild to embed Fixed Version.
+    echo [WARNING] WebView2Runtime missing.>> "%LOG%"
+)
 
 if /i not "%MODE%"=="test" goto :verify
 
@@ -181,12 +202,13 @@ goto :verifybody
 echo [5/5] Verifying package completeness...
 
 :verifybody
+echo [OK] Verify %DEST%>> "%LOG%"
 set "MISSING="
 if not exist "%DEST%\IntraBox.exe" set "MISSING=%MISSING% IntraBox.exe"
 if not exist "%DEST%\tessdata" set "MISSING=%MISSING% tessdata"
 if not exist "%DEST%\x86" set "MISSING=%MISSING% x86"
 if not exist "%DEST%\x64" set "MISSING=%MISSING% x64"
-if defined MISSING (
+if not "%MISSING%"=="" (
     echo.
     echo [WARNING] The following are MISSING from %DEST%:%MISSING%
     echo           OCR or native dependencies may fail at runtime.
@@ -194,14 +216,15 @@ if defined MISSING (
     goto :fail
 )
 
-if "%NORUN%"=="1" (
-    echo Skipping launch (norun).
-    echo [OK] Launch skipped.>> "%LOG%"
-    goto :success
-)
+if "%NORUN%"=="1" goto :skiplaunch
 echo Launching %DEST%\IntraBox.exe
 echo [OK] Launching %DEST%\IntraBox.exe>> "%LOG%"
-start "" "%DEST%\IntraBox.exe"
+start "" /D "%DEST%" IntraBox.exe
+goto :success
+
+:skiplaunch
+echo Skipping launch - norun
+echo [OK] Launch skipped.>> "%LOG%"
 
 :success
 echo.
@@ -214,8 +237,6 @@ echo   Publish: %DEST%\IntraBox.exe
 echo   Log    : build.log
 echo ============================================================
 echo [SUCCESS] Build completed. dest=%DEST%>> "%LOG%"
-echo.
-pause
 exit /b 0
 
 :buildfail

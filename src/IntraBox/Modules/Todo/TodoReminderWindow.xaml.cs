@@ -88,6 +88,7 @@ namespace IntraBox.Modules.Todo
         {
             PlaceAtTrayCorner();
             StartFlash();
+            IntraBox.Modules.EyeCare.EyeCareRestWindow.RepositionIfOpen();
         }
 
         private void PlaceAtTrayCorner()
@@ -176,6 +177,7 @@ namespace IntraBox.Modules.Todo
         protected override void OnClosed(EventArgs e)
         {
             StopFlash();
+            IntraBox.Modules.EyeCare.EyeCareRestWindow.RepositionIfOpen();
             base.OnClosed(e);
         }
     }

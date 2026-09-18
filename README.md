@@ -13,7 +13,7 @@
 
 ## 特性
 
-- **兼容 Windows 7 SP1+**（.NET Framework 4.8）
+- **兼容 Windows 7 SP1+ x64**（.NET Framework 4.8；`app.manifest` 声明 Win7–Win11 与 PerMonitorV2）
 - **绿色免安装**：解压即用，单文件夹部署
 - **纯本地**：无网络、无遥测、无自动更新，数据不出本机
 - **低资源**：按需加载、用完销毁；工具输入靠历史落盘，不缓存控件
@@ -50,20 +50,22 @@ IntraBox/
 ├── tests/IntraBox.Tests/        单元测试项目（MSTest）
 ├── dist/IntraBox/               绿色发布目录（主程序 + 依赖 + 文档）
 ├── dist/IntraBox.test/          纯净测试包（build.bat test 生成，不入库）
-├── redist/                      运行时离线安装包（.NET Framework 4.8 + VC++ 运行库）
+├── redist/                      离线包（.NET 4.8、VC++；WebView2Runtime 由脚本解压，不入库）
 ├── docs/                        产品设计、测试用例、评审/提交规范、开源仓库说明
-└── tools/                       开发辅助脚本（图标生成、BOM 检查）
+└── tools/                       开发辅助脚本（含 fetch-webview2-runtime.ps1、BOM 检查）
 ```
 
 ## 构建
 
 双击 `build.bat` 弹出英文菜单（回车或 `1` 为默认）：
 
-- **[1] Keep user data**：若托盘里 IntraBox 仍在运行会确认结束进程（默认「否」）；确认后**产品版本最后一段 +1**，清 obj/bin 后全量编译，同步到 `dist/IntraBox/`。保留 `datapath.txt` 与 `%LOCALAPPDATA%\IntraBox\Data`（或自定义数据目录），不改用户配置。成功后启动新包。
-- **[2] Clean test package**（或 `build.bat test` / `build.bat 2`）：**不升号**。产出 `dist/IntraBox.test/`，数据写到 `%LOCALAPPDATA%\IntraBox\Data.test`（会清空该测试目录）。不碰用户真实数据，也不读/删 `dist/IntraBox/datapath.txt`。用于测首次引导。成功后启动测试包。
-- `build.bat norun`：上述默认模式，构建后不启动。
+- **[1] Keep user data**：若托盘里 IntraBox 仍在运行会确认结束进程（默认「否」）；确认后**产品版本最后一段 +1**，清 obj/bin 后全量编译，同步到 `dist/IntraBox/`。保留 `datapath.txt` 与 `%LOCALAPPDATA%\IntraBox\Data`（或自定义数据目录），不改用户配置。
+- **[2] Clean test package**（或 `build.bat test` / `build.bat 2`）：**不升号**。产出 `dist/IntraBox.test/`，数据写到 `%LOCALAPPDATA%\IntraBox\Data.test`（会清空该测试目录）。不碰用户真实数据，也不读/删 `dist/IntraBox/datapath.txt`。用于测首次引导。
+- 选完模式后问是否启动：回车或 `Y` 启动新包（工作目录为发布目录，避免只唤醒托盘里的旧进程），`N` 不启动。成功后构建窗口关掉；失败或启动失败则窗口停住。命令行 `build.bat norun` 等价于默认模式且不启动。
 
 > 运行环境：Win10 1903+ 已预装 .NET Framework 4.8；Win7 SP1 需先装 [.NET Framework 4.8](https://dotnet.microsoft.com/download/dotnet-framework/net48) 与 VC++ 运行库。
+>
+> Win10/11 的 Markdown / 笔记预览用程序目录 `WebView2Runtime`（Edge 内核 Fixed Version）。开发机先跑 `tools\fetch-webview2-runtime.ps1` 再 `build.bat` 打进包内。Win7 用 IE，不是降级。
 
 ## 测试
 
@@ -71,7 +73,7 @@ IntraBox/
 
 ## 发布
 
-- **Win10 / Win11**：只给 `dist/IntraBox/`。
+- **Win10 / Win11**：只给 `dist/IntraBox/`（须含 `WebView2Runtime`，否则 Markdown 预览会退 IE 并提示）。
 - **Win7 内网机**：需额外安装 .NET Framework 4.8 与 VC++ 运行库（微软官方下载）：
   - [.NET Framework 4.8 离线安装包](https://dotnet.microsoft.com/download/dotnet-framework/net48)
   - [VC++ 2015-2022 运行库（x64）](https://aka.ms/vs/17/release/vc_redist.x64.exe) / [x86](https://aka.ms/vs/17/release/vc_redist.x86.exe)

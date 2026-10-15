@@ -2,11 +2,13 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using IntraBox.Controls;
 using IntraBox.Core;
 using Microsoft.Win32;
 using MediaColor = System.Windows.Media.Color;
@@ -19,6 +21,8 @@ namespace IntraBox.Modules.ColorBlind
         private Bitmap _out;
         private bool _ready;
         private bool _isDemo = true;
+        private int _paintGen;
+        private readonly object _bmpLock = new object();
         private Border[] _pairOrig;
         private Border[] _pairSim;
 
@@ -38,10 +42,15 @@ namespace IntraBox.Modules.ColorBlind
 
         public void OnDeactivated()
         {
-            DisposeBmp(ref _src);
-            DisposeBmp(ref _out);
+            _paintGen++;
+            LoadingOverlay.Hide(this);
             OrigImage.Source = null;
             SimImage.Source = null;
+            lock (_bmpLock)
+            {
+                DisposeBmp(ref _src);
+                DisposeBmp(ref _out);
+            }
         }
 
         private void ColorBlindView_Loaded(object sender, RoutedEventArgs e)
@@ -113,7 +122,7 @@ namespace IntraBox.Modules.ColorBlind
             _isDemo = true;
         }
 
-        private void Open_Click(object sender, RoutedEventArgs e)
+        private async void Open_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog { Filter = "图片|*.png;*.jpg;*.jpeg;*.bmp;*.gif|所有|*.*" };
             if (dlg.ShowDialog() != true) return;
@@ -123,14 +132,32 @@ namespace IntraBox.Modules.ColorBlind
                 FormHint.Apply(MsgText, sizeErr);
                 return;
             }
+            string path = dlg.FileName;
+            int gen = ++_paintGen;
+            LoadingOverlay.Show(this, "正在生成模拟图…");
+            Bitmap bmp = null;
+            string err = null;
             try
             {
-                DisposeBmp(ref _src);
-                _src = new Bitmap(dlg.FileName);
-                _isDemo = false;
-                ApplyAll();
+                bmp = await Task.Run(() => new Bitmap(path));
             }
-            catch (Exception ex) { FormHint.Apply(MsgText, ex.RootMessage()); }
+            catch (Exception ex) { err = ex.RootMessage(); }
+            if (gen != _paintGen)
+            {
+                if (bmp != null) bmp.Dispose();
+                return;
+            }
+            if (err != null)
+            {
+                LoadingOverlay.Hide(this);
+                if (bmp != null) bmp.Dispose();
+                FormHint.Apply(MsgText, err, true);
+                return;
+            }
+            DisposeBmp(ref _src);
+            _src = bmp;
+            _isDemo = false;
+            PaintAsync(ApplySwatches());
         }
 
         private void Clear_Click(object sender, RoutedEventArgs e)
@@ -143,7 +170,7 @@ namespace IntraBox.Modules.ColorBlind
         private void ModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!_ready) return;
-            ApplyAll();
+            ApplyAll(true);
         }
 
         private void ColorBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -155,17 +182,73 @@ namespace IntraBox.Modules.ColorBlind
         private void ColorBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key != Key.Enter) return;
-            ApplyAll();
+            ApplyAll(true);
             e.Handled = true;
         }
 
         private void ApplyAll()
         {
+            ApplyAll(false);
+        }
+
+        private void ApplyAll(bool background)
+        {
             bool hexOk = ApplySwatches();
             if (_src == null) LoadDemo();
+            if (background) PaintAsync(hexOk);
+            else PaintSync(hexOk);
+        }
+
+        private void PaintSync(bool hexOk)
+        {
             int mode = ModeCombo.SelectedIndex;
             DisposeBmp(ref _out);
             _out = ColorBlindHelper.Transform(_src, mode);
+            ShowPictures(hexOk);
+        }
+
+        private async void PaintAsync(bool hexOk)
+        {
+            int gen = ++_paintGen;
+            int mode = ModeCombo != null ? ModeCombo.SelectedIndex : 0;
+            Bitmap src = _src;
+            LoadingOverlay.Show(this, "正在生成模拟图…");
+            Bitmap result = null;
+            string err = null;
+            try
+            {
+                result = await Task.Run(() =>
+                {
+                    lock (_bmpLock)
+                    {
+                        if (src == null) return null;
+                        return ColorBlindHelper.Transform(src, mode);
+                    }
+                });
+            }
+            catch (Exception ex) { err = ex.RootMessage(); }
+            finally
+            {
+                if (gen == _paintGen) LoadingOverlay.Hide(this);
+            }
+            if (gen != _paintGen)
+            {
+                if (result != null) result.Dispose();
+                return;
+            }
+            if (err != null)
+            {
+                FormHint.Apply(MsgText, err, true);
+                return;
+            }
+            DisposeBmp(ref _out);
+            _out = result;
+            ShowPictures(hexOk);
+        }
+
+        private void ShowPictures(bool hexOk)
+        {
+            int mode = ModeCombo.SelectedIndex;
             OrigImage.Source = ToSource(_src);
             SimImage.Source = ToSource(_out);
             OrigImageCaption.Text = "左边：视力正常的人看到的";

@@ -9,7 +9,7 @@ namespace IntraBox.Core
     /// <summary>
     /// 手动 GC：轻工具切换走 CollectSafely（不压缩工作集，避免侧栏连点抖一下）。
     /// 重工具切走走 CollectAndTrimIdle；状态栏「回收内存」走 TryCollectAndTrim（2 秒闸门）；
-    /// 藏到托盘走 CollectAndTrimNow（无闸门，空闲时 GC + EmptyWorkingSet）。
+    /// 刚藏到托盘只 CollectSafely，不 EmptyWorkingSet。空闲超时才 CollectAndTrimNow。
     /// 每次强制 GC / 因闸门跳过都追加一行到数据根 gc.log，便于看频率。
     /// </summary>
     public static class GcHelper

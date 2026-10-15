@@ -128,10 +128,11 @@ namespace IntraBox.Core
                 AddDates(_userOff, file.Off);
                 AddDates(_userWork, file.Work);
             }
-            catch
+            catch (Exception ex)
             {
                 _userOff.Clear();
                 _userWork.Clear();
+                CompatDegrade.Once("workcal-corrupt", "工作日历数据损坏，已尝试备份", ex);
                 if (!DataFileGuard.TryQuarantine(path))
                     _writeBlocked = true;
             }

@@ -173,11 +173,12 @@ namespace IntraBox.Core
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
                 loadFailed = true;
                 _steps = new List<JobStep>();
                 _sampleRev = 0;
+                CompatDegrade.Once("jobstep-lib-corrupt", "步骤库数据损坏，已尝试备份", ex);
             }
             if (loadFailed)
             {

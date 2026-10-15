@@ -14,6 +14,14 @@ namespace IntraBox.Core
         /// </summary>
         public static bool TryQuarantine(string path)
         {
+            string bak;
+            return TryQuarantine(path, out bak);
+        }
+
+        /// <summary>成功时 bakPath 为备份路径；原文件不存在则 bakPath 为空并视为成功。</summary>
+        public static bool TryQuarantine(string path, out string bakPath)
+        {
+            bakPath = null;
             if (string.IsNullOrEmpty(path) || !File.Exists(path)) return true;
             try
             {
@@ -23,6 +31,7 @@ namespace IntraBox.Core
                 if (File.Exists(bak))
                     bak = path + "." + DateTime.Now.ToString("yyyyMMddHHmmss") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".bak";
                 File.Move(path, bak);
+                bakPath = bak;
                 return true;
             }
             catch

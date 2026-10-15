@@ -465,12 +465,8 @@ namespace IntraBox.Modules.JobFlow
             }
             RefreshStepCount();
             LoadTrigger(job.Trigger);
-            try
-            {
-                string logPath = JobFlowStore.RunLogPath(job.Uid);
-                LogBox.Text = File.Exists(logPath) ? Tail(File.ReadAllText(logPath), 8000) : "";
-            }
-            catch { LogBox.Text = ""; }
+            LogBox.Text = "";
+            LoadRunLogAsync(job.Uid);
             _savedJson = Newtonsoft.Json.JsonConvert.SerializeObject(job);
             AdjustAutoGrow(RemarksBox);
             AdjustAutoGrow(LogBox);
@@ -827,10 +823,42 @@ namespace IntraBox.Modules.JobFlow
                 + " · 执行 " + job.RunCount + " 次";
         }
 
-        private static string Tail(string text, int max)
+        private async void LoadRunLogAsync(string uid)
         {
-            if (string.IsNullOrEmpty(text) || text.Length <= max) return text ?? "";
-            return text.Substring(text.Length - max);
+            string logPath = JobFlowStore.RunLogPath(uid);
+            bool heavy = false;
+            try
+            {
+                heavy = File.Exists(logPath) && new FileInfo(logPath).Length > JobRunLogHelper.LogTailBytes;
+            }
+            catch (Exception ex)
+            {
+                SetDrawerMsg("读取运行日志失败：" + ex.Message);
+                return;
+            }
+            JobLogRead read;
+            if (heavy)
+            {
+                LoadingOverlay.Show(this, "正在读取运行日志…");
+                try
+                {
+                    read = await Task.Run(() => JobRunLogHelper.ReadTail(logPath));
+                }
+                finally
+                {
+                    LoadingOverlay.Hide(this);
+                }
+            }
+            else
+                read = JobRunLogHelper.ReadTail(logPath);
+            if (!IsLoaded || _current == null || _current.Uid != uid || LogBox == null) return;
+            if (!string.IsNullOrEmpty(read.Error))
+            {
+                LogBox.Text = "";
+                SetDrawerMsg("读取运行日志失败：" + read.Error);
+                return;
+            }
+            LogBox.Text = JobRunLogHelper.ClipDisplay(read.Text, JobRunLogHelper.DisplayChars);
         }
 
         private void WireAutoGrow(TextBox box)

@@ -27,6 +27,39 @@ namespace IntraBox.Modules.FileOrganize
         private static int _inflight;
         private static bool _flushing;
         private static List<OrganizePlanItem> _lastUndo;
+        private static string _notice;
+
+        public static event Action<string> Notice;
+
+        public static string TakeNotice()
+        {
+            lock (_sync)
+            {
+                string s = _notice;
+                _notice = null;
+                return s;
+            }
+        }
+
+        private static void NoteFailure(string msg, Exception ex)
+        {
+            if (string.IsNullOrEmpty(msg)) return;
+            lock (_sync) { _notice = msg; }
+            if (ex != null) AppLog.Error(msg, ex);
+            else AppLog.Error(msg);
+            var handler = Notice;
+            if (handler == null) return;
+            Action fire = () =>
+            {
+                try { handler(msg); }
+                catch (Exception notifyEx) { AppLog.Error("整理失败通知失败", notifyEx); }
+            };
+            var app = System.Windows.Application.Current;
+            if (app != null && app.Dispatcher != null)
+                app.Dispatcher.BeginInvoke(fire);
+            else
+                fire();
+        }
 
         public static string DefaultPath
         {
@@ -261,7 +294,7 @@ namespace IntraBox.Modules.FileOrganize
                 var json = JsonConvert.SerializeObject(state, Formatting.Indented);
                 File.WriteAllText(path, json);
             }
-            catch { }
+            catch (Exception ex) { NoteFailure("整理规则保存失败：" + ex.Message, ex); }
         }
 
         private static List<OrganizePlanItem> ReadUndoFile(string path)
@@ -275,8 +308,10 @@ namespace IntraBox.Modules.FileOrganize
                 var list = JsonConvert.DeserializeObject<List<OrganizePlanItem>>(json);
                 return CopyMoves(list);
             }
-            catch
+            catch (Exception ex)
             {
+                NoteFailure("上次整理的撤销记录损坏，已清空", ex);
+                try { File.Delete(path); } catch (Exception delEx) { AppLog.Error("删除损坏的撤销记录失败", delEx); }
                 return new List<OrganizePlanItem>();
             }
         }
@@ -292,7 +327,7 @@ namespace IntraBox.Modules.FileOrganize
                 var json = JsonConvert.SerializeObject(CopyMoves(moves), Formatting.Indented);
                 File.WriteAllText(path, json);
             }
-            catch { }
+            catch (Exception ex) { NoteFailure("撤销记录保存失败：" + ex.Message, ex); }
         }
     }
 }

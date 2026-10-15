@@ -105,4 +105,4 @@ if (-not $cabReady) {
 }
 
 Expand-Cab $cab $dest
-Write-Host "完成。下次 build.bat 会拷到 dist 包内。"
+Write-Host "完成。下次 build.bat 会把 CAB 放进发布目录；打开预览时再解压。"

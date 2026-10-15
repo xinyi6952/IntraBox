@@ -284,6 +284,9 @@ namespace IntraBox.Controls
             _editor.TextArea.Caret.BringCaretToView();
             string suffix = _truncated ? "+" : "";
             SetCount((index + 1) + "/" + _matches.Count + suffix, false);
+            CountText.ToolTip = _truncated
+                ? "匹配超过 " + MaxMatches + " 个，已截断，只统计前 " + MaxMatches + " 个"
+                : null;
         }
 
         // ---------- 高亮 ----------

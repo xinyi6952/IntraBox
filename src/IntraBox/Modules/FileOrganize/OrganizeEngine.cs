@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace IntraBox.Modules.FileOrganize
 {
@@ -176,17 +177,32 @@ namespace IntraBox.Modules.FileOrganize
         public static List<OrganizePlanItem> BuildPlan(string sourceDir, bool includeSub,
             IList<OrganizeRule> rules)
         {
+            return BuildPlan(sourceDir, includeSub, rules, CancellationToken.None);
+        }
+
+        public static List<OrganizePlanItem> BuildPlan(string sourceDir, bool includeSub,
+            IList<OrganizeRule> rules, CancellationToken token)
+        {
             var list = new List<OrganizePlanItem>();
             if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir) || rules == null)
                 return list;
 
             var option = includeSub ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-            string[] files;
-            try { files = Directory.GetFiles(sourceDir, "*", option); }
+            var files = new List<string>();
+            try
+            {
+                foreach (var path in Directory.EnumerateFiles(sourceDir, "*", option))
+                {
+                    token.ThrowIfCancellationRequested();
+                    files.Add(path);
+                }
+            }
+            catch (OperationCanceledException) { throw; }
             catch { return list; }
 
             foreach (var path in files)
             {
+                token.ThrowIfCancellationRequested();
                 OrganizeRule hit = null;
                 string note = "";
                 for (int i = 0; i < rules.Count; i++)

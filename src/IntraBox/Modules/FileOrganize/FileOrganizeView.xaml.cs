@@ -4,8 +4,11 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using IntraBox.Controls;
 using IntraBox.Core;
 using WinForms = System.Windows.Forms;
 
@@ -20,6 +23,7 @@ namespace IntraBox.Modules.FileOrganize
         private bool _loading;
         private bool _persisting;
         private bool _syncingDateBar;
+        private CancellationTokenSource _workCts;
 
         public FileOrganizeView()
         {
@@ -30,6 +34,8 @@ namespace IntraBox.Modules.FileOrganize
 
         public void OnActivated()
         {
+            FileOrganizeStore.Notice -= OnStoreNotice;
+            FileOrganizeStore.Notice += OnStoreNotice;
             _loading = true;
             _rules.Clear();
 
@@ -64,12 +70,26 @@ namespace IntraBox.Modules.FileOrganize
             RefreshDateBar();
             RefreshUndoButton();
             FormHint.Apply(MsgText, "先预览并勾选要移动的文件。默认全部不勾选，只有勾选的才会整理；未勾选的保持原位。占用或无权限的文件会跳过。");
+            string notice = FileOrganizeStore.TakeNotice();
+            if (!string.IsNullOrEmpty(notice)) FormHint.Apply(MsgText, notice, true);
+        }
+
+        private void OnStoreNotice(string msg)
+        {
+            if (!string.IsNullOrEmpty(msg)) FormHint.Apply(MsgText, msg, true);
         }
 
         public void OnDeactivated()
         {
+            FileOrganizeStore.Notice -= OnStoreNotice;
+            CancelWork();
             CommitGrid();
             PersistNow();
+        }
+
+        private void CancelWork()
+        {
+            if (_workCts != null) _workCts.Cancel();
         }
 
         private void Browse_Click(object sender, RoutedEventArgs e)
@@ -212,7 +232,7 @@ namespace IntraBox.Modules.FileOrganize
             }
         }
 
-        private void Run_Click(object sender, RoutedEventArgs e)
+        private async void Run_Click(object sender, RoutedEventArgs e)
         {
             CommitGrid();
             PersistNow();
@@ -228,8 +248,37 @@ namespace IntraBox.Modules.FileOrganize
                 return;
             }
             var rules = ToRules();
-            var plan = OrganizeEngine.BuildPlan(dir, SubDirCheck.IsChecked == true, rules);
-            if (plan.Count == 0)
+            bool sub = SubDirCheck.IsChecked == true;
+            CancelWork();
+            var cts = new CancellationTokenSource();
+            _workCts = cts;
+            LoadingOverlay.Show(this, "正在扫描…", CancelWork);
+            List<OrganizePlanItem> plan = null;
+            string scanErr = null;
+            bool scanCancelled = false;
+            try
+            {
+                plan = await Task.Run(() => OrganizeEngine.BuildPlan(dir, sub, rules, cts.Token), cts.Token);
+            }
+            catch (OperationCanceledException) { scanCancelled = true; }
+            catch (Exception ex) { scanErr = ex.RootMessage(); }
+            finally
+            {
+                LoadingOverlay.Hide(this);
+                if (ReferenceEquals(_workCts, cts)) _workCts = null;
+            }
+            if (!IsLoaded) return;
+            if (scanCancelled)
+            {
+                FormHint.Apply(MsgText, "已取消扫描，未改动文件。");
+                return;
+            }
+            if (scanErr != null)
+            {
+                FormHint.Apply(MsgText, "扫描失败：" + scanErr, true);
+                return;
+            }
+            if (plan == null || plan.Count == 0)
             {
                 FormHint.Apply(MsgText, "没有匹配到可移动的文件。");
                 return;
@@ -246,44 +295,85 @@ namespace IntraBox.Modules.FileOrganize
                 return;
             }
 
+            await MoveChosenAsync(chosen);
+        }
+
+        private async Task MoveChosenAsync(IList<OrganizePlanItem> chosen)
+        {
+            CancelWork();
+            var cts = new CancellationTokenSource();
+            _workCts = cts;
+            int total = chosen.Count;
+            LoadingOverlay.Show(this, "正在移动 0/" + total, CancelWork);
             var moved = new List<OrganizePlanItem>();
             int ok = 0, skip = 0;
             var errors = new List<string>();
-            for (int i = 0; i < chosen.Count; i++)
+            bool cancelled = false;
+            try
             {
-                var item = chosen[i];
-                try
+                await Task.Run(() =>
                 {
-                    var destDir = Path.GetDirectoryName(item.ToPath);
-                    if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
-                        Directory.CreateDirectory(destDir);
-                    if (File.Exists(item.ToPath))
+                    for (int i = 0; i < chosen.Count; i++)
                     {
-                        skip++;
-                        errors.Add(item.Name + "：目标已存在");
-                        continue;
+                        if (cts.Token.IsCancellationRequested)
+                        {
+                            cancelled = true;
+                            break;
+                        }
+                        var item = chosen[i];
+                        try
+                        {
+                            var destDir = Path.GetDirectoryName(item.ToPath);
+                            if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
+                                Directory.CreateDirectory(destDir);
+                            if (File.Exists(item.ToPath))
+                            {
+                                skip++;
+                                errors.Add(item.Name + "：目标已存在");
+                            }
+                            else
+                            {
+                                File.Move(item.FromPath, item.ToPath);
+                                moved.Add(item);
+                                ok++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            skip++;
+                            errors.Add(item.Name + "：" + FriendlyIo(ex));
+                        }
+                        int done = i + 1;
+                        Dispatcher.BeginInvoke(new Action(() =>
+                            LoadingOverlay.SetText(this, "正在移动 " + done + "/" + total)));
                     }
-                    File.Move(item.FromPath, item.ToPath);
-                    moved.Add(item);
-                    ok++;
-                }
-                catch (Exception ex)
-                {
-                    skip++;
-                    errors.Add(item.Name + "：" + FriendlyIo(ex));
-                }
+                });
             }
+            catch (Exception ex)
+            {
+                errors.Add(ex.RootMessage());
+            }
+            finally
+            {
+                LoadingOverlay.Hide(this);
+                if (ReferenceEquals(_workCts, cts)) _workCts = null;
+            }
+            if (!IsLoaded) return;
             if (moved.Count > 0)
                 FileOrganizeStore.SetLastUndo(moved);
             PersistNow();
             FileOrganizeStore.Flush();
             RefreshUndoButton();
-            FormHint.Apply(MsgText, "完成：成功 " + ok + "，跳过 " + skip + "。"
+            string head = cancelled
+                ? "已取消。已移动 " + ok + " 个，这些文件留在新位置。"
+                : "完成：成功 " + ok + "，跳过 " + skip + "。";
+            FormHint.Apply(MsgText, head
                 + (ok > 0 ? " 可用「撤销上次整理」把刚移动的文件移回原处。" : "")
-                + (errors.Count == 0 ? "" : "\n" + string.Join("\n", errors)));
+                + (skip > 0 && !cancelled ? "" : "")
+                + (errors.Count == 0 ? "" : "\n" + string.Join("\n", errors)), errors.Count > 0);
         }
 
-        private void Undo_Click(object sender, RoutedEventArgs e)
+        private async void Undo_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -303,58 +393,109 @@ namespace IntraBox.Modules.FileOrganize
                 if (!ConfirmHelper.Action("确定撤销上次整理？\n\n" + summary, "撤销确认"))
                     return;
 
-                int ok = 0, skip = 0;
-                var skipReasons = new List<string>();
-                for (int i = moves.Count - 1; i >= 0; i--)
-                {
-                    var item = moves[i];
-                    try
-                    {
-                        if (item == null || string.IsNullOrEmpty(item.ToPath) || string.IsNullOrEmpty(item.FromPath))
-                        {
-                            skip++;
-                            continue;
-                        }
-                        if (!File.Exists(item.ToPath))
-                        {
-                            skip++;
-                            skipReasons.Add((item.Name ?? item.ToPath) + "：整理后的文件已不在");
-                            continue;
-                        }
-                        if (File.Exists(item.FromPath))
-                        {
-                            skip++;
-                            skipReasons.Add((item.Name ?? item.FromPath) + "：原位置已有同名文件");
-                            continue;
-                        }
-                        var srcDir = Path.GetDirectoryName(item.FromPath);
-                        if (!string.IsNullOrEmpty(srcDir) && !Directory.Exists(srcDir))
-                            Directory.CreateDirectory(srcDir);
-                        File.Move(item.ToPath, item.FromPath);
-                        ok++;
-                    }
-                    catch (Exception ex)
-                    {
-                        skip++;
-                        skipReasons.Add((item != null ? item.Name : "") + "：" + FriendlyIo(ex));
-                    }
-                }
-                FileOrganizeStore.ClearLastUndo();
-                PersistNow();
-                FileOrganizeStore.Flush();
-                RefreshUndoButton();
-                string msg = "已撤销 " + ok + " 个文件" + (skip > 0 ? "，跳过 " + skip : "") + "。";
-                if (skipReasons.Count > 0)
-                    msg += "\n" + string.Join("\n", skipReasons);
-                FormHint.Apply(MsgText, msg);
-                MessageBox.Show(msg, "撤销上次整理", MessageBoxButton.OK,
-                    skip > 0 && ok == 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+                await UndoMovesAsync(moves);
             }
             catch (Exception ex)
             {
                 MessageBox.Show("撤销失败：" + ex.RootMessage(), "撤销上次整理",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        private async Task UndoMovesAsync(List<OrganizePlanItem> moves)
+        {
+            CancelWork();
+            var cts = new CancellationTokenSource();
+            _workCts = cts;
+            int total = moves.Count;
+            LoadingOverlay.Show(this, "正在撤销 0/" + total, CancelWork);
+            int ok = 0, skip = 0;
+            bool cancelled = false;
+            int stopAt = -1;
+            var skipReasons = new List<string>();
+            var failed = new List<OrganizePlanItem>();
+            try
+            {
+                await Task.Run(() =>
+                {
+                    for (int i = moves.Count - 1; i >= 0; i--)
+                    {
+                        if (cts.Token.IsCancellationRequested)
+                        {
+                            cancelled = true;
+                            stopAt = i;
+                            break;
+                        }
+                        var item = moves[i];
+                        try
+                        {
+                            if (item == null || string.IsNullOrEmpty(item.ToPath) || string.IsNullOrEmpty(item.FromPath))
+                            {
+                                skip++;
+                            }
+                            else if (!File.Exists(item.ToPath))
+                            {
+                                skip++;
+                                skipReasons.Add((item.Name ?? item.ToPath) + "：整理后的文件已不在");
+                            }
+                            else if (File.Exists(item.FromPath))
+                            {
+                                skip++;
+                                skipReasons.Add((item.Name ?? item.FromPath) + "：原位置已有同名文件");
+                            }
+                            else
+                            {
+                                var srcDir = Path.GetDirectoryName(item.FromPath);
+                                if (!string.IsNullOrEmpty(srcDir) && !Directory.Exists(srcDir))
+                                    Directory.CreateDirectory(srcDir);
+                                File.Move(item.ToPath, item.FromPath);
+                                ok++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            skip++;
+                            skipReasons.Add((item != null ? item.Name : "") + "：" + FriendlyIo(ex));
+                            if (item != null) failed.Add(item);
+                        }
+                        int done = total - i;
+                        Dispatcher.BeginInvoke(new Action(() =>
+                            LoadingOverlay.SetText(this, "正在撤销 " + done + "/" + total)));
+                    }
+                });
+            }
+            finally
+            {
+                LoadingOverlay.Hide(this);
+                if (ReferenceEquals(_workCts, cts)) _workCts = null;
+            }
+            if (!IsLoaded) return;
+            if (cancelled || failed.Count > 0)
+            {
+                var remain = new List<OrganizePlanItem>();
+                if (cancelled && stopAt >= 0)
+                {
+                    for (int j = 0; j <= stopAt; j++)
+                        if (moves[j] != null) remain.Add(moves[j]);
+                }
+                for (int j = 0; j < failed.Count; j++)
+                    remain.Add(failed[j]);
+                if (remain.Count > 0) FileOrganizeStore.SetLastUndo(remain);
+                else FileOrganizeStore.ClearLastUndo();
+            }
+            else
+                FileOrganizeStore.ClearLastUndo();
+            PersistNow();
+            FileOrganizeStore.Flush();
+            RefreshUndoButton();
+            string msg = cancelled
+                ? "已取消。已撤销 " + ok + " 个。"
+                : "已撤销 " + ok + " 个文件" + (skip > 0 ? "，跳过 " + skip : "") + "。";
+            if (!cancelled && skipReasons.Count > 0)
+                msg += "\n" + string.Join("\n", skipReasons.ToArray());
+            FormHint.Apply(MsgText, msg, skip > 0 && ok == 0);
+            MessageBox.Show(msg, "撤销上次整理", MessageBoxButton.OK,
+                skip > 0 && ok == 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
         }
 
         private void RefreshUndoButton()

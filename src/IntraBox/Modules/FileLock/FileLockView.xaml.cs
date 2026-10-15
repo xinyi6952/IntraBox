@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using IntraBox.Controls;
 using IntraBox.Core;
 using Microsoft.Win32;
 
@@ -28,46 +30,59 @@ namespace IntraBox.Modules.FileLock
             if (dlg.ShowDialog() != true) return;
             _path = dlg.FileName;
             PathText.Text = _path;
-            Refresh();
+            RefreshAsync();
         }
 
         private void Refresh_Click(object sender, RoutedEventArgs e)
         {
-            Refresh();
+            RefreshAsync();
         }
 
-        private void Refresh()
+        private async void RefreshAsync()
         {
             if (string.IsNullOrEmpty(_path) || !File.Exists(_path))
             {
                 SetMsg("请先选择文件", true);
                 return;
             }
-            List<LockingProcess> list;
-            string err;
-            if (Win32Native.TryGetLockingProcesses(_path, out list, out err))
+            string path = _path;
+            LoadingOverlay.Show(this, "正在查询哪个进程占用…");
+            List<LockingProcess> list = null;
+            string err = null;
+            bool listed = false;
+            try
             {
-                if (list.Count == 0)
-                    TryExclusive(out list);
-                ProcGrid.ItemsSource = list;
-                FilterBar.Apply();
+                await Task.Run(() =>
+                {
+                    listed = Win32Native.TryGetLockingProcesses(path, out list, out err);
+                    if (!listed || list == null || list.Count == 0)
+                        TryExclusive(path, out list);
+                });
+            }
+            catch (Exception ex)
+            {
+                err = ex.RootMessage();
+            }
+            finally
+            {
+                LoadingOverlay.Hide(this);
+            }
+            if (!IsLoaded) return;
+            if (list == null) list = new List<LockingProcess>();
+            ProcGrid.ItemsSource = list;
+            FilterBar.Apply();
+            if (listed)
                 SetMsg(list.Count == 0 ? "当前没有进程占用该文件" : "找到 " + list.Count + " 个占用进程", false);
-            }
             else
-            {
-                TryExclusive(out list);
-                ProcGrid.ItemsSource = list;
-                FilterBar.Apply();
                 SetMsg((err ?? "Restart Manager 不可用") + (list.Count == 0 ? "；独占打开成功，可能未被占用" : ""), list.Count > 0);
-            }
         }
 
-        private void TryExclusive(out List<LockingProcess> list)
+        private static void TryExclusive(string path, out List<LockingProcess> list)
         {
             list = new List<LockingProcess>();
             try
             {
-                using (File.Open(_path, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
+                using (File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
             }
             catch (IOException)
             {
@@ -97,7 +112,7 @@ namespace IntraBox.Modules.FileLock
             {
                 Process.GetProcessById(row.Pid).Kill();
                 SetMsg("已结束 PID " + row.Pid, false);
-                Refresh();
+                RefreshAsync();
             }
             catch (Exception ex)
             {

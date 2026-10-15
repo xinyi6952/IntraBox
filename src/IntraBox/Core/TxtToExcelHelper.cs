@@ -46,9 +46,26 @@ namespace IntraBox.Core
         public bool HasDate;
     }
 
+    /// <summary>分列结果。TotalRows 是非空行总数，KeptRows 是实际进入表的行数。</summary>
+    public sealed class TxtParseResult
+    {
+        public DataTable Table { get; set; }
+        public int TotalRows { get; set; }
+        public int KeptRows { get; set; }
+
+        public bool Truncated { get { return TotalRows > KeptRows; } }
+    }
+
     public static class TxtToExcelHelper
     {
-        public const int MaxPreviewRows = 5000;
+        /// <summary>默认行数上限。勾选「限制行数」且没有保存过数字时用这个值。</summary>
+        public const int DefaultRowLimit = 5000;
+        public const int MinRowLimit = 1;
+        /// <summary>用户可填写的最大行数，也是取消限制后的保护上限。</summary>
+        public const int MaxRowLimit = 100000;
+        public const int SafetyRowCap = MaxRowLimit;
+        /// <summary>旧调用仍按默认 5000 行截断。</summary>
+        public const int MaxPreviewRows = DefaultRowLimit;
 
         public static char DetectSeparator(string text)
         {
@@ -70,6 +87,28 @@ namespace IntraBox.Core
             return bestCount > 0 ? best : '\t';
         }
 
+        /// <summary>不在 1～100000 内的数字视为无效，回到默认 5000。</summary>
+        public static int NormalizeRowLimit(int value)
+        {
+            if (value < MinRowLimit || value > MaxRowLimit) return DefaultRowLimit;
+            return value;
+        }
+
+        /// <summary>勾选时用用户数字；取消勾选时用保护上限。</summary>
+        public static int EffectiveRowLimit(bool limitEnabled, int requested)
+        {
+            if (!limitEnabled) return SafetyRowCap;
+            return NormalizeRowLimit(requested);
+        }
+
+        public static string TruncationMessage(int totalRows, int keptRows, bool safetyCap)
+        {
+            if (totalRows <= keptRows) return "";
+            if (safetyCap)
+                return "共 " + totalRows + " 行，只处理前 " + keptRows + " 行。这是保护上限，避免界面卡住。";
+            return "共 " + totalRows + " 行，只处理前 " + keptRows + " 行。预览、复制和导出都不含后面的行。可调高行数或取消限制。";
+        }
+
         public static DataTable Parse(string text, char sep)
         {
             var opt = new TxtToExcelOptions();
@@ -80,28 +119,35 @@ namespace IntraBox.Core
 
         public static DataTable Parse(string text, TxtToExcelOptions options)
         {
+            return ParseLimited(text, options, MaxPreviewRows).Table;
+        }
+
+        public static TxtParseResult ParseLimited(string text, TxtToExcelOptions options, int rowLimit)
+        {
+            var result = new TxtParseResult();
             var dt = new DataTable();
+            result.Table = dt;
             if (options == null) options = new TxtToExcelOptions();
-            var nonEmpty = new List<string>();
-            foreach (var l in NormalizeLines(text))
-            {
-                if (!string.IsNullOrWhiteSpace(l)) nonEmpty.Add(l);
-            }
-            if (nonEmpty.Count == 0) return dt;
+            if (rowLimit < MinRowLimit) rowLimit = DefaultRowLimit;
+            if (rowLimit > SafetyRowCap) rowLimit = SafetyRowCap;
 
             var rows = new List<string[]>();
             int maxCols = 0;
-            foreach (var l in nonEmpty)
+            int total = 0;
+            foreach (var l in NormalizeLines(text))
             {
-                if (rows.Count >= MaxPreviewRows) break;
+                if (string.IsNullOrWhiteSpace(l)) continue;
+                total++;
+                if (rows.Count >= rowLimit) continue;
                 var cells = SplitLine(l, options);
                 rows.Add(cells);
                 if (cells.Length > maxCols) maxCols = cells.Length;
             }
-            if (maxCols == 0) return dt;
+            result.TotalRows = total;
+            result.KeptRows = rows.Count;
+            if (maxCols == 0) return result;
 
             for (int c = 0; c < maxCols; c++) dt.Columns.Add("列" + (c + 1), typeof(string));
-
             foreach (var cells in rows)
             {
                 var row = dt.NewRow();
@@ -109,7 +155,7 @@ namespace IntraBox.Core
                     row[c] = cells[c];
                 dt.Rows.Add(row);
             }
-            return dt;
+            return result;
         }
 
         public static int[] ParseFixedWidths(string text)

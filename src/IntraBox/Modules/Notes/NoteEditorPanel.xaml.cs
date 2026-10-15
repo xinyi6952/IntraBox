@@ -18,6 +18,8 @@ namespace IntraBox.Modules.Notes
         private bool _loading;
         private bool _dirty;
         private bool _readOnly;
+        private bool _bodyFault;
+        private string _bodyFaultMessage;
         private NoteItem _item;
         private DispatcherTimer _saveTimer;
         private DispatcherTimer _previewTimer;
@@ -115,6 +117,8 @@ namespace IntraBox.Modules.Notes
         {
             if (item == null) return;
             _loading = true;
+            _bodyFault = false;
+            _bodyFaultMessage = null;
             _item = item;
             TitleBox.Text = item.Title ?? "";
             bool folder = item.IsFolder;
@@ -138,25 +142,43 @@ namespace IntraBox.Modules.Notes
                     if (System.IO.File.Exists(path))
                         text = System.IO.File.ReadAllText(path, System.Text.Encoding.UTF8);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    MarkBodyFault(ex.Message);
+                    text = "";
+                }
                 MdBox.Text = text;
                 ModeEdit.IsChecked = true;
                 ApplyMdMode(0);
             }
             else
             {
-                NoteRichText.LoadInto(DetailBox, item.Uid);
+                string loadErr = NoteRichText.LoadInto(DetailBox, item.Uid);
+                if (loadErr != null)
+                {
+                    MarkBodyFault(loadErr);
+                    DetailBox.Document = NoteRichText.CreateEmptyDocument();
+                }
                 KickParaNumbers();
             }
-            _dirty = false;
+            if (!_bodyFault) _dirty = false;
             _readOnly = item.ReadOnly;
             if (ReadOnlyCheck != null) ReadOnlyCheck.IsChecked = _readOnly;
             ApplyEditorLock();
             _loading = false;
-            UpdateStatus();
-            UpdateSaveHint();
+            if (_bodyFault) ShowBodyFault();
+            else
+            {
+                UpdateStatus();
+                UpdateSaveHint();
+            }
             Dispatcher.BeginInvoke(new Action(delegate
             {
+                if (_bodyFault)
+                {
+                    ShowBodyFault();
+                    return;
+                }
                 _dirty = false;
                 UpdateSaveHint();
                 KickParaNumbers();
@@ -166,6 +188,20 @@ namespace IntraBox.Modules.Notes
         public void Persist(bool flushStore)
         {
             if (_item == null || _loading || _readOnly) return;
+            if (_bodyFault)
+            {
+                _dirty = true;
+                ShowBodyFault();
+                return;
+            }
+            string blocked = NoteStore.BlockedMessage();
+            if (!string.IsNullOrEmpty(blocked))
+            {
+                _dirty = true;
+                FormHint.Apply(StatusText, blocked, true);
+                if (SaveHint != null) FormHint.Apply(SaveHint, blocked, true);
+                return;
+            }
             string title = TitleBox.Text;
             if (string.IsNullOrWhiteSpace(title))
                 title = _item.IsFolder ? NoteKind.DefaultFolderTitle : NoteKind.DefaultTitle(_item.Kind);
@@ -182,7 +218,13 @@ namespace IntraBox.Modules.Notes
                         NoteRichText.SaveFrom(DetailBox, _item.Uid);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _dirty = true;
+                FormHint.Apply(StatusText, "保存失败：" + ex.Message, true);
+                if (SaveHint != null) FormHint.Apply(SaveHint, "保存失败：" + ex.Message, true);
+                return;
+            }
             NoteStore.UpsertMeta(_item);
             if (flushStore) NoteStore.Flush();
             if (Saved != null) Saved(this, EventArgs.Empty);
@@ -226,6 +268,7 @@ namespace IntraBox.Modules.Notes
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             if (_readOnly) return;
+            if (!ConfirmBodyOverwrite()) return;
             Persist(true);
         }
 
@@ -236,6 +279,7 @@ namespace IntraBox.Modules.Notes
                 if (CloseRequested != null) CloseRequested(this, EventArgs.Empty);
                 return;
             }
+            if (!ConfirmBodyOverwrite()) return;
             Persist(true);
             if (CloseRequested != null) CloseRequested(this, EventArgs.Empty);
         }
@@ -243,6 +287,7 @@ namespace IntraBox.Modules.Notes
         private void SaveCommand_Executed(object sender, ExecutedRoutedEventArgs e)
         {
             if (_readOnly) return;
+            if (!ConfirmBodyOverwrite()) return;
             Persist(true);
         }
 
@@ -250,7 +295,7 @@ namespace IntraBox.Modules.Notes
         {
             if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control)
             {
-                if (!_readOnly) Persist(true);
+                if (!_readOnly && ConfirmBodyOverwrite()) Persist(true);
                 e.Handled = true;
             }
         }
@@ -292,9 +337,43 @@ namespace IntraBox.Modules.Notes
             if (Saved != null) Saved(this, EventArgs.Empty);
         }
 
+        private void MarkBodyFault(string reason)
+        {
+            _bodyFault = true;
+            _bodyFaultMessage = string.IsNullOrEmpty(reason) ? "未知原因" : reason;
+            _dirty = true;
+        }
+
+        private void ShowBodyFault()
+        {
+            string msg = "正文读取失败：" + (_bodyFaultMessage ?? "未知原因");
+            if (StatusText != null) FormHint.Apply(StatusText, msg, true);
+            if (SaveHint != null) FormHint.Apply(SaveHint, msg, true);
+            ApplyEditorLock();
+        }
+
+        /// <summary>读取失败时，用户确认前不把空内容写回原文件。自动保存不弹这句。</summary>
+        private bool ConfirmBodyOverwrite()
+        {
+            if (!_bodyFault) return true;
+            var ans = MessageBox.Show(
+                "正文读取失败，保存会覆盖原来的文件。仍要保存？",
+                "笔记",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (ans != MessageBoxResult.Yes)
+            {
+                ShowBodyFault();
+                return false;
+            }
+            _bodyFault = false;
+            ApplyEditorLock();
+            return true;
+        }
+
         private void ApplyEditorLock()
         {
-            bool edit = !_readOnly;
+            bool edit = !_readOnly && !_bodyFault;
             if (TitleBox != null) TitleBox.IsReadOnly = _readOnly;
             if (RichToolbar != null) RichToolbar.IsEnabled = edit;
             if (DetailBox != null)
@@ -397,6 +476,11 @@ namespace IntraBox.Modules.Notes
 
         private void UpdateStatus()
         {
+            if (_bodyFault)
+            {
+                ShowBodyFault();
+                return;
+            }
             if (_item == null)
             {
                 StatusText.Text = "";

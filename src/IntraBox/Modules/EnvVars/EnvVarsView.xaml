@@ -23,7 +23,7 @@
                          VerticalAlignment="Center" Margin="0,4,16,4" Checked="Scope_Checked"/>
         </WrapPanel>
         <WrapPanel Grid.Row="2" Margin="0,0,0,8">
-            <Button Content="刷新" Margin="0,4,8,4" Click="Reload_Click"/>
+            <Button x:Name="ReloadBtn" Content="刷新" Margin="0,4,8,4" Click="Reload_Click"/>
             <Button x:Name="NewBtn" Content="新建" Margin="0,4,8,4" Click="New_Click"/>
             <Button x:Name="SaveBtn" Content="保存" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Save_Click"/>
             <Button x:Name="DeleteBtn" Content="删除" Margin="0,4,8,4" Click="Delete_Click"/>

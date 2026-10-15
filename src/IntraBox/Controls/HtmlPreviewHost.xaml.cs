@@ -12,8 +12,8 @@ using Microsoft.Web.WebView2.Wpf;
 namespace IntraBox.Controls
 {
     /// <summary>
-    /// 本地 HTML 预览：Win10/11 用程序目录 WebView2Runtime（Edge），Win7 用 IE。
-    /// 随包内核缺失或启动失败时才退 IE / 纯文本（故障，不是常规降级）。
+    /// 本地 HTML 预览：Win10/11 在真正显示预览时才用程序目录的 Edge；Win7 用 IE。
+    /// 用户选 IE、或随包内核缺失/启动失败时退 IE / 纯文本。选 IE 不是故障。
     /// </summary>
     public partial class HtmlPreviewHost : UserControl
     {
@@ -28,6 +28,7 @@ namespace IntraBox.Controls
         private bool _ieReady;
         private string _pendingHtml;
         private string _pendingFilesDir;
+        private string _resolveNote;
         private string _mappedDir;
         private string _engine = EngineText;
         private bool _initStarted;
@@ -45,13 +46,7 @@ namespace IntraBox.Controls
         public HtmlPreviewHost()
         {
             InitializeComponent();
-            Loaded += OnLoaded;
             Unloaded += OnUnloaded;
-        }
-
-        private void OnLoaded(object sender, RoutedEventArgs e)
-        {
-            StartInit();
         }
 
         private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -69,9 +64,10 @@ namespace IntraBox.Controls
         {
             _pendingHtml = html ?? "";
             _pendingFilesDir = localFilesDir;
-            if (_wvReady) ShowWebView2(_pendingHtml, _pendingFilesDir);
+            if (!_initStarted) StartInit();
+            else if (_wvReady) ShowWebView2(_pendingHtml, _pendingFilesDir);
             else if (_ieReady) ShowIe(_pendingHtml);
-            else if (_engine == EngineText && _initStarted && !WinCompatHelper.IsWindows10OrNewer())
+            else if (_engine == EngineText && !WinCompatHelper.IsWindows10OrNewer())
                 ShowText(_pendingHtml);
         }
 
@@ -149,12 +145,9 @@ namespace IntraBox.Controls
                 return;
             }
 
-            string fixedDir = WinCompatHelper.FindWebView2FixedFolder();
-            if (string.IsNullOrEmpty(fixedDir))
-            {
-                UseIe("未找到程序目录 WebView2Runtime，预览改用 IE。请运行 tools\\fetch-webview2-runtime.ps1 后重新打包。", null, true);
+            string fixedDir = await ResolveWebView2FolderAsync();
+            if (!_initStarted || string.IsNullOrEmpty(fixedDir))
                 return;
-            }
 
             try
             {
@@ -175,12 +168,164 @@ namespace IntraBox.Controls
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "IntraBox", "WebView2");
                 await EnsureEnv(fixedDir, userData);
-                FinishWebView2(EngineWebView2Fixed, null);
+                if (!_initStarted) return;
+                FinishWebView2(EngineWebView2Fixed, _resolveNote);
+                _resolveNote = null;
             }
             catch (Exception ex)
             {
                 UseIe("程序目录 WebView2Runtime 无法启动，预览改用 IE。", ex, true);
             }
+        }
+
+        /// <summary>
+        /// 已解压则直接用。未解压时按设置询问或解压。返回 null 表示已经改走 IE。
+        /// </summary>
+        private async Task<string> ResolveWebView2FolderAsync()
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var settings = ConfigManager.Instance.Settings;
+            int choice = WebView2Pack.NormalizeChoice(settings.WebView2PreviewChoice);
+            if (choice == WebView2Pack.ChoiceSkip)
+            {
+                UseIe("已选择使用 IE 预览，未加载 Edge。可在「设置」里改回。", null, false);
+                return null;
+            }
+
+            string folder = WinCompatHelper.FindWebView2FixedFolder(baseDir);
+            string cabVer = WebView2Pack.ReadCabVersion(baseDir);
+            if (!string.IsNullOrEmpty(folder))
+            {
+                WebView2Pack.AdoptStampIfMissing(baseDir, cabVer);
+                if (WebView2Pack.ShouldOfferUpgrade(
+                    WebView2Pack.ReadStamp(baseDir), cabVer, settings.WebView2DeclinedCabVersion))
+                {
+                    var ans = AskPreview(
+                        "随包 Edge 有新版本，是否重新解压？\n选「否」继续使用当前已解压的版本。");
+                    if (ans == MessageBoxResult.Yes)
+                    {
+                        SetHint("正在解压新版本 Edge 预览组件…", false);
+                        WebView2Pack.ArmExtract();
+                        LoadingOverlay.Show(this, "正在解压 Edge 预览组件，大约需要数分钟，只此一次", CancelEdgeExtract);
+                        string err = null;
+                        bool ok = false;
+                        try
+                        {
+                            ok = await Task.Run(() =>
+                            {
+                                string e;
+                                bool r = WebView2Pack.TryReplaceRuntime(baseDir, out e);
+                                err = e;
+                                return r;
+                            });
+                        }
+                        finally
+                        {
+                            LoadingOverlay.Hide(this);
+                        }
+                        if (!_initStarted) return null;
+                        if (WebView2Pack.IsExtractCancelled(err))
+                        {
+                            _resolveNote = "已取消解压，继续使用当前版本。";
+                        }
+                        else if (ok)
+                        {
+                            settings.WebView2DeclinedCabVersion = null;
+                            ConfigManager.Instance.Save();
+                        }
+                        else
+                        {
+                            _resolveNote = string.IsNullOrEmpty(err)
+                                ? "更新 Edge 失败，继续使用已解压的版本。"
+                                : err + " 继续使用已解压的版本。";
+                            CompatDegrade.Once("wv2-upgrade", _resolveNote, null);
+                        }
+                    }
+                    else
+                    {
+                        settings.WebView2DeclinedCabVersion = cabVer;
+                        ConfigManager.Instance.Save();
+                    }
+                }
+                folder = WinCompatHelper.FindWebView2FixedFolder(baseDir);
+                if (string.IsNullOrEmpty(folder))
+                {
+                    UseIe("Edge 目录不可用，预览改用 IE。", null, true);
+                    return null;
+                }
+                return folder;
+            }
+
+            if (string.IsNullOrEmpty(WebView2Pack.FindCab(baseDir)))
+            {
+                UseIe("未找到程序目录中的 Edge 预览组件，预览改用 IE。", null, true);
+                return null;
+            }
+
+            if (choice == WebView2Pack.ChoiceAsk)
+            {
+                var ans = AskPreview(
+                    "Markdown / 笔记预览可以使用随包 Edge，首次需要解压约 670 MB（只解压一次，压缩包仍保留）。\n选「是」解压并使用 Edge；选「否」继续用 IE。之后可在「设置」里修改。");
+                if (ans != MessageBoxResult.Yes)
+                {
+                    settings.WebView2PreviewChoice = WebView2Pack.ChoiceSkip;
+                    ConfigManager.Instance.Save();
+                    UseIe("继续使用 IE，未解压 Edge。可在「设置」里改回。", null, false);
+                    return null;
+                }
+                settings.WebView2PreviewChoice = WebView2Pack.ChoiceUse;
+                ConfigManager.Instance.Save();
+            }
+
+            SetHint("正在解压 Edge 预览组件，大约需要数分钟，只此一次", false);
+            WebView2Pack.ArmExtract();
+            LoadingOverlay.Show(this, "正在解压 Edge 预览组件，大约需要数分钟，只此一次", CancelEdgeExtract);
+            string extractErr = null;
+            bool extracted = false;
+            try
+            {
+                extracted = await Task.Run(() =>
+                {
+                    string e;
+                    bool r = WebView2Pack.TryExtract(baseDir, out e);
+                    extractErr = e;
+                    return r;
+                });
+            }
+            finally
+            {
+                LoadingOverlay.Hide(this);
+            }
+            if (!_initStarted) return null;
+            if (!extracted)
+            {
+                bool cancelled = WebView2Pack.IsExtractCancelled(extractErr);
+                string msg = cancelled
+                    ? "已取消解压，预览改用 IE。"
+                    : (string.IsNullOrEmpty(extractErr) ? "解压 Edge 失败，预览改用 IE。" : extractErr + " 预览改用 IE。");
+                UseIe(msg, null, !cancelled);
+                return null;
+            }
+            folder = WinCompatHelper.FindWebView2FixedFolder(baseDir);
+            if (string.IsNullOrEmpty(folder))
+            {
+                UseIe("解压后仍未找到 Edge，预览改用 IE。", null, true);
+                return null;
+            }
+            return folder;
+        }
+
+        private static void CancelEdgeExtract()
+        {
+            WebView2Pack.CancelExtract();
+        }
+
+        private static MessageBoxResult AskPreview(string text)
+        {
+            Window owner = Application.Current != null ? Application.Current.MainWindow : null;
+            if (owner == null)
+                return MessageBox.Show(text, "IntraBox", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            return MessageBox.Show(owner, text, "IntraBox", MessageBoxButton.YesNo, MessageBoxImage.Question);
         }
 
         private async Task EnsureEnv(string browserFolder, string userData)

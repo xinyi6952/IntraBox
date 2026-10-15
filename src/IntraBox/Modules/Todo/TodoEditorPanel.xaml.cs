@@ -268,6 +268,12 @@ namespace IntraBox.Modules.Todo
                     return true;
                 return false;
             }
+            string blocked = TodoStore.BlockedMessage();
+            if (!string.IsNullOrEmpty(blocked))
+            {
+                error = blocked;
+                return false;
+            }
             ApplyTrySaveRemind(_item, collected);
             DirectoryEnsure();
             TodoRichText.SaveFrom(DetailBox, collected.Uid);
@@ -357,7 +363,7 @@ namespace IntraBox.Modules.Todo
                 if (System.IO.Directory.Exists(dir))
                     System.IO.Directory.Delete(dir, true);
             }
-            catch { }
+            catch (Exception ex) { AppLog.Error("放弃新建待办时清理目录失败", ex); }
         }
 
         private bool TryCollect(out TodoItem collected, out string error, bool skipDueDayRequired = false)

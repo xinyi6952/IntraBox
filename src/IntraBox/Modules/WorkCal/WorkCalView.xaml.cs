@@ -434,6 +434,7 @@ namespace IntraBox.Modules.WorkCal
                 var it = _todos[i];
                 if (it == null || !it.DueAt.HasValue || it.DueAt.Value.Date != _selected) continue;
                 string plain = "";
+                bool detailFailed = false;
                 try
                 {
                     string path = DataPaths.TodoDetailsPath(it.Uid);
@@ -446,11 +447,15 @@ namespace IntraBox.Modules.WorkCal
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    AppLog.Error("工作日历读取待办详情失败：" + it.Uid, ex);
+                    detailFailed = true;
+                }
                 rows.Add(new DayTodoRow
                 {
                     Uid = it.Uid,
-                    Title = TodoRichText.ExtractTitle(plain),
+                    Title = detailFailed ? "（详情读取失败）" : TodoRichText.ExtractTitle(plain),
                     DueText = it.DueAt.Value.ToString("HH:mm") + (it.Completed ? " 已办" : "")
                 });
             }

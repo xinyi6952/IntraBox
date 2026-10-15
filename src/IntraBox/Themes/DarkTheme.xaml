@@ -36,7 +36,7 @@
     <SolidColorBrush x:Key="ButtonPressedBrush" Color="#404244"/>
     <SolidColorBrush x:Key="PrimaryButtonFgBrush" Color="#FFFFFF"/>
 
-    <SolidColorBrush x:Key="NavHoverBrush" Color="#4C5052"/>
+    <SolidColorBrush x:Key="NavHoverBrush" Color="#5E656C"/>
     <SolidColorBrush x:Key="NavSelectedBrush" Color="#4B6EAF"/>
     <SolidColorBrush x:Key="NavSelectedFgBrush" Color="#FFFFFF"/>
 

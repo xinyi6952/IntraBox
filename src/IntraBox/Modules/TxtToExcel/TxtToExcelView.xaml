@@ -42,6 +42,11 @@
                        Foreground="{DynamicResource TextSecondaryBrush}" Visibility="Collapsed"/>
             <TextBox x:Name="WidthBox" Width="120" Margin="0,4,12,4" Visibility="Collapsed"
                      ToolTip="每段字符数，逗号分隔，如身份证 6,8,3,1" TextChanged="OnOptionChanged"/>
+            <CheckBox x:Name="RowLimitCheck" Content="限制行数" IsChecked="True" VerticalAlignment="Center"
+                      Margin="0,4,8,4" Checked="RowLimit_Changed" Unchecked="RowLimit_Changed"
+                      ToolTip="默认只处理前 5000 行非空数据。取消后不再按这个数字截断，超过 10 万行仍会停下。"/>
+            <TextBox x:Name="RowLimitBox" Width="72" Margin="0,4,12,4" Text="5000"
+                     ToolTip="1 到 100000。非法数字不生效。" LostFocus="RowLimitBox_LostFocus"/>
             <Button Content="选文件" Margin="0,4,8,4" Click="LoadFile_Click"/>
             <Button Content="导出 Excel" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Export_Click"/>
             <TextBlock x:Name="MsgText" VerticalAlignment="Center" Margin="8,4,0,4"

@@ -1,8 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Windows;
-using System.Windows.Controls;
+using IntraBox.Core;
 
 namespace IntraBox.Modules.FileOrganize
 {
@@ -14,7 +15,7 @@ namespace IntraBox.Modules.FileOrganize
         {
             InitializeComponent();
             BuildRows(plan);
-            FileGrid.ItemsSource = _rows;
+            FileTree.ItemsSource = BuildTree();
             RefreshCount();
         }
 
@@ -37,9 +38,48 @@ namespace IntraBox.Modules.FileOrganize
             Title = "整理预览（" + _rows.Count + " 个文件，默认不勾选）";
         }
 
-        private void Check_Click(object sender, RoutedEventArgs e)
+        private List<PreviewNode> BuildTree()
         {
-            RefreshCount();
+            var leaves = new List<FilePathTree.Leaf>();
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                PreviewRow row = _rows[i];
+                string folder = row.Folder ?? "";
+                string name = string.IsNullOrEmpty(row.Name) ? "未命名" : row.Name;
+                string full = string.IsNullOrEmpty(folder) ? name : Path.Combine(folder, name);
+                leaves.Add(new FilePathTree.Leaf
+                {
+                    FullPath = full,
+                    Detail = row.FromPath,
+                    Payload = row
+                });
+            }
+            List<FilePathTree.Node> nodes = FilePathTree.Build("", leaves);
+            var list = new List<PreviewNode>();
+            for (int i = 0; i < nodes.Count; i++)
+                list.Add(Wrap(nodes[i]));
+            return list;
+        }
+
+        private static PreviewNode Wrap(FilePathTree.Node n)
+        {
+            var row = n.Payload as PreviewRow;
+            var node = new PreviewNode();
+            node.Name = n.Name;
+            node.Detail = n.IsFile ? ("来源 " + (n.Detail ?? "")) : "";
+            node.IsFile = n.IsFile;
+            node.Row = row;
+            node.Children = new List<PreviewNode>();
+            if (row != null)
+            {
+                row.PropertyChanged += delegate(object s, PropertyChangedEventArgs e)
+                {
+                    if (e.PropertyName == "Selected") node.RaiseSelected();
+                };
+            }
+            for (int i = 0; i < n.Children.Count; i++)
+                node.Children.Add(Wrap(n.Children[i]));
+            return node;
         }
 
         private void SelectAll_Click(object sender, RoutedEventArgs e)
@@ -124,6 +164,33 @@ namespace IntraBox.Modules.FileOrganize
                     if (PropertyChanged != null)
                         PropertyChanged(this, new PropertyChangedEventArgs("Selected"));
                 }
+            }
+
+            public event PropertyChangedEventHandler PropertyChanged;
+        }
+
+        public sealed class PreviewNode : INotifyPropertyChanged
+        {
+            public string Name { get; set; }
+            public string Detail { get; set; }
+            public bool IsFile { get; set; }
+            public PreviewRow Row { get; set; }
+            public List<PreviewNode> Children { get; set; }
+
+            public bool Selected
+            {
+                get { return Row != null && Row.Selected; }
+                set
+                {
+                    if (Row == null) return;
+                    Row.Selected = value;
+                }
+            }
+
+            public void RaiseSelected()
+            {
+                if (PropertyChanged != null)
+                    PropertyChanged(this, new PropertyChangedEventArgs("Selected"));
             }
 
             public event PropertyChangedEventHandler PropertyChanged;

@@ -54,6 +54,26 @@ namespace IntraBox.Controls
 
         public static void Show(FrameworkElement target, string text = null)
         {
+            Show(target, text, null, false);
+        }
+
+        /// <summary>带「取消」。点取消只调用 onCancel，由任务自己收尾并 Hide。</summary>
+        public static void Show(FrameworkElement target, string text, Action onCancel)
+        {
+            Show(target, text, onCancel, true);
+        }
+
+        /// <summary>只改已显示遮罩的文案，不重新计数。</summary>
+        public static void SetText(FrameworkElement target, string text)
+        {
+            if (target == null) return;
+            LoadingAdorner ad;
+            if (!_map.TryGetValue(target, out ad) || ad == null) return;
+            ad.Text = text;
+        }
+
+        private static void Show(FrameworkElement target, string text, Action onCancel, bool setCancel)
+        {
             if (target == null) return;
             UIElement key = target;
             EnsureUnloadedHook(target);
@@ -62,6 +82,7 @@ namespace IntraBox.Controls
             if (_map.TryGetValue(key, out ad) && ad != null)
             {
                 ad.Text = text;
+                if (setCancel) ad.SetCancel(onCancel);
                 return;
             }
             var layer = AdornerLayer.GetAdornerLayer(target);
@@ -74,11 +95,12 @@ namespace IntraBox.Controls
                     bool has = _gen.TryGetValue(key, out cur);
                     if (!IsCallbackCurrent(has, cur, gen)) return;
                     if (PresentationSource.FromVisual(target) == null) return;
-                    Show(target, text);
+                    Show(target, text, onCancel, setCancel);
                 }), DispatcherPriority.Loaded);
                 return;
             }
             ad = new LoadingAdorner(target) { Text = text };
+            if (setCancel) ad.SetCancel(onCancel);
             layer.Add(ad);
             _map[key] = ad;
         }
@@ -160,15 +182,34 @@ namespace IntraBox.Controls
         private readonly Pen _ringPen;
         private readonly Brush _overlay;
         private readonly Brush _textBrush;
+        private readonly Brush _accentBrush;
         private double _angle;
+        private string _text;
+        private Action _onCancel;
+        private Rect _cancelBounds;
 
-        public string Text { get; set; }
+        public string Text
+        {
+            get { return _text; }
+            set
+            {
+                _text = value;
+                InvalidateVisual();
+            }
+        }
+
+        public void SetCancel(Action onCancel)
+        {
+            _onCancel = onCancel;
+            InvalidateVisual();
+        }
 
         public LoadingAdorner(FrameworkElement adornedElement)
             : base(adornedElement)
         {
             IsHitTestVisible = true; // 遮罩拦截鼠标，避免加载中误操作
             var accent = TryBrush("AccentBrush") ?? Brushes.Orange;
+            _accentBrush = accent;
             var dim = TryBrush("WindowBgBrush") ?? new SolidColorBrush(Color.FromRgb(0x2B, 0x2B, 0x2B));
             _overlay = MakeSemi(dim, 0.55);
             _textBrush = TryBrush("TextPrimaryBrush") ?? Brushes.White;
@@ -201,19 +242,53 @@ namespace IntraBox.Controls
             dc.Pop();
             dc.Pop();
 
-            if (!string.IsNullOrEmpty(Text))
+            double ppd = WinCompatHelper.PixelsPerDip(this);
+            double textBottom = cy + Radius + 8;
+            if (!string.IsNullOrEmpty(_text))
             {
-                double ppd = WinCompatHelper.PixelsPerDip(this);
                 var ft = new FormattedText(
-                    Text,
+                    _text,
                     System.Globalization.CultureInfo.CurrentUICulture,
                     FlowDirection.LeftToRight,
                     new Typeface("Segoe UI"),
                     13,
                     _textBrush,
                     ppd);
-                dc.DrawText(ft, new Point(cx - ft.Width / 2, cy + Radius + 8));
+                dc.DrawText(ft, new Point(cx - ft.Width / 2, textBottom));
+                textBottom += ft.Height + 10;
             }
+            if (_onCancel != null)
+            {
+                var cancel = new FormattedText(
+                    "取消",
+                    System.Globalization.CultureInfo.CurrentUICulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface("Segoe UI"),
+                    13,
+                    _accentBrush,
+                    ppd);
+                double x = cx - cancel.Width / 2;
+                _cancelBounds = new Rect(x - 10, textBottom - 4, cancel.Width + 20, cancel.Height + 8);
+                dc.DrawText(cancel, new Point(x, textBottom));
+            }
+            else
+            {
+                _cancelBounds = Rect.Empty;
+            }
+        }
+
+        protected override void OnMouseLeftButtonUp(System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (_onCancel != null && _cancelBounds.Contains(e.GetPosition(this)))
+            {
+                e.Handled = true;
+                Action cb = _onCancel;
+                _onCancel = null;
+                InvalidateVisual();
+                if (cb != null) cb();
+                return;
+            }
+            base.OnMouseLeftButtonUp(e);
         }
 
         // 遮罩拦截输入：覆盖整个区域都视为命中本 adorner

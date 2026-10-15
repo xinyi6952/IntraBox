@@ -98,7 +98,7 @@ namespace IntraBox.Core
                     };
                 }
                 try { JobFlowStore.UpdateRunResult(job.Uid, result, true); }
-                catch { }
+                catch (Exception ex) { AppLog.Error("编排运行结果写回失败：" + (job.Name ?? job.Uid), ex); }
                 finally
                 {
                     End(job.Uid);

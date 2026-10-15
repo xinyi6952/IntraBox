@@ -94,6 +94,22 @@ namespace IntraBox.Core
         [DataMember]
         public string[] NavToolOrder { get; set; }
 
+        /// <summary>左侧导航收藏的模块 Key。null 或空 = 没有收藏。旧配置缺字段视为空。</summary>
+        [DataMember]
+        public string[] NavFavoriteKeys { get; set; }
+
+        /// <summary>任务提醒点「今日不再提醒」时是否再弹确认。默认否。旧配置缺字段视为否。</summary>
+        [DataMember]
+        public bool TodoMuteNeedsConfirm { get; set; }
+
+        /// <summary>Markdown/笔记预览的 Edge：0 打开时再问，1 使用并在首次解压，2 用 IE 不解压。旧配置缺字段为 0。</summary>
+        [DataMember]
+        public int WebView2PreviewChoice { get; set; }
+
+        /// <summary>用户拒绝升级的 CAB 版本。与当前 CAB 相同则不再询问。旧配置缺字段为空。</summary>
+        [DataMember]
+        public string WebView2DeclinedCabVersion { get; set; }
+
         /// <summary>上次关闭/藏到托盘前主窗口是否最大化。</summary>
         [DataMember]
         public bool WindowMaximized { get; set; }

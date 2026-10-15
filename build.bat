@@ -171,18 +171,47 @@ if %RC% GEQ 8 (
 echo Synced to %DEST%\ - mirrored from bin\Release.
 echo [OK] Synced to %DEST%.>> "%LOG%"
 
-if exist "redist\WebView2Runtime" (
-    echo Copying WebView2 Fixed Version from redist\WebView2Runtime...
-    if not exist "%DEST%\WebView2Runtime" mkdir "%DEST%\WebView2Runtime"
-    robocopy "redist\WebView2Runtime" "%DEST%\WebView2Runtime" /E /NFL /NDL /NJH /NP /R:1 /W:1 >> "%LOG%" 2>&1
+REM Prefer the CAB. Expanded WebView2Runtime is only a fallback when no CAB exists.
+set "WVCAB="
+for %%F in ("redist\Microsoft.WebView2.FixedVersionRuntime*.x64.cab") do if exist "%%~fF" set "WVCAB=%%~fF"
+if defined WVCAB goto :packcab
+if exist "redist\WebView2Runtime\msedgewebview2.exe" goto :packexpanded
+echo [WARNING] WebView2 CAB not in package. Win10/11 Markdown preview will use IE until you fetch and rebuild.
+echo [WARNING] Run tools\fetch-webview2-runtime.ps1 then rebuild.
+echo [WARNING] WebView2 CAB missing.>> "%LOG%"
+goto :packdone
+
+:packcab
+echo Copying WebView2 CAB into package...
+copy /Y "%WVCAB%" "%DEST%\WebView2Runtime.cab" >> "%LOG%" 2>&1
+if errorlevel 1 (
+    echo [WARNING] WebView2 CAB copy failed. Preview will use IE.
+    echo [WARNING] WebView2 CAB copy failed.>> "%LOG%"
+    goto :packdone
 )
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ver=$null; $n=[IO.Path]::GetFileName('%WVCAB%'); if ($n -match '(\d+\.\d+\.\d+\.\d+)') { $ver=$Matches[1] }; if (-not $ver -and (Test-Path 'redist\webview2-x64.url.txt')) { $u=[IO.File]::ReadAllText('redist\webview2-x64.url.txt'); if ($u -match 'FixedVersionRuntime\.(\d+\.\d+\.\d+\.\d+)') { $ver=$Matches[1] } }; if ($ver) { [IO.File]::WriteAllText('%DEST%\WebView2Runtime.cab.ver', $ver, [Text.Encoding]::ASCII) }"
+if exist "%DEST%\WebView2Runtime" rmdir /S /Q "%DEST%\WebView2Runtime"
+if exist "%DEST%\WebView2Runtime" (
+    echo [WARNING] Could not remove expanded WebView2Runtime. Close IntraBox and rebuild to shrink the package.
+    echo [WARNING] Expanded WebView2Runtime still in %DEST%.>> "%LOG%"
+) else (
+    echo [OK] WebView2 CAB packaged. Runtime extracts on first preview.
+    echo [OK] WebView2 CAB packaged.>> "%LOG%"
+)
+goto :packdone
+
+:packexpanded
+echo Copying expanded WebView2 Fixed Version from redist\WebView2Runtime...
+if not exist "%DEST%\WebView2Runtime" mkdir "%DEST%\WebView2Runtime"
+robocopy "redist\WebView2Runtime" "%DEST%\WebView2Runtime" /E /NFL /NDL /NJH /NP /R:1 /W:1 >> "%LOG%" 2>&1
 if exist "%DEST%\WebView2Runtime\msedgewebview2.exe" (
     echo [OK] WebView2Runtime packaged.>> "%LOG%"
 ) else (
-    echo [WARNING] WebView2Runtime not in package. Win10/11 Markdown preview will use IE until you fetch and rebuild.
-    echo [WARNING] Run tools\fetch-webview2-runtime.ps1 then rebuild to embed Fixed Version.
-    echo [WARNING] WebView2Runtime missing.>> "%LOG%"
+    echo [WARNING] WebView2Runtime copy failed.
+    echo [WARNING] WebView2Runtime copy failed.>> "%LOG%"
 )
+
+:packdone
 
 if /i not "%MODE%"=="test" goto :verify
 

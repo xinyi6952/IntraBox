@@ -37,16 +37,17 @@
             <Button Content="定位到文件夹" Click="Locate_Click" Margin="0,4,8,4"/>
             <controls:GridFilterBar x:Name="FilterBar" VerticalAlignment="Center" Margin="8,4,0,4"/>
         </WrapPanel>
-        <DataGrid x:Name="ResultGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True"
-                  CanUserAddRows="False" HeadersVisibility="Column" BorderThickness="1"
-                  MouseDoubleClick="ResultGrid_MouseDoubleClick">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="文件名" Binding="{Binding Name}" Width="180"/>
-                <DataGridTextColumn Header="路径" Binding="{Binding Directory}" Width="*"/>
-                <DataGridTextColumn Header="大小" Binding="{Binding SizeText}" Width="90"/>
-                <DataGridTextColumn Header="修改时间" Binding="{Binding ModifiedText}" Width="150"/>
-            </DataGrid.Columns>
-        </DataGrid>
+        <TreeView x:Name="ResultTree" Grid.Row="2" BorderThickness="1"
+                  MouseDoubleClick="ResultTree_MouseDoubleClick">
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Name}" Margin="0,0,12,0"/>
+                        <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
         <TextBlock x:Name="MsgText" Grid.Row="3" Margin="0,8,0,0" TextWrapping="Wrap"
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>

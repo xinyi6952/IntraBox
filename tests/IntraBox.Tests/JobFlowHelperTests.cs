@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using IntraBox.Core;
 
@@ -433,6 +435,65 @@ namespace IntraBox.Tests
         {
             Assert.AreEqual(0, JobRunLogHelper.Parse(null).Count);
             Assert.AreEqual(0, JobRunLogHelper.Parse("").Count);
+        }
+
+        [TestMethod]
+        public void ClipDisplay_未超过_原样返回()
+        {
+            Assert.AreEqual("abc", JobRunLogHelper.ClipDisplay("abc", 8000));
+            Assert.AreEqual("", JobRunLogHelper.ClipDisplay(null, 10));
+        }
+
+        [TestMethod]
+        public void ClipDisplay_超过_头部说明并保留末尾()
+        {
+            string text = new string('a', 50) + "TAIL";
+            string shown = JobRunLogHelper.ClipDisplay(text, 8);
+            StringAssert.StartsWith(shown, "（日志过长，仅显示最后 8 字符，完整内容见 runs.log）");
+            StringAssert.EndsWith(shown, "aaaaTAIL");
+        }
+
+        [TestMethod]
+        public void ReadTail_小于阈值_全文且不标记截断()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(path, "hello\r\nworld", Encoding.UTF8);
+                JobLogRead read = JobRunLogHelper.ReadTail(path);
+                Assert.IsNull(read.Error);
+                Assert.IsFalse(read.TruncatedFile);
+                Assert.AreEqual("hello\r\nworld", read.Text);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [TestMethod]
+        public void ReadTail_超过256KB_只保留尾部完整行()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                var sb = new StringBuilder();
+                sb.Append("HEAD-SHOULD-DROP");
+                while (sb.Length < JobRunLogHelper.LogTailBytes + 100)
+                    sb.Append("\nLINE");
+                sb.Append("\nTAIL-MARK");
+                File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
+                JobLogRead read = JobRunLogHelper.ReadTail(path);
+                Assert.IsNull(read.Error);
+                Assert.IsTrue(read.TruncatedFile);
+                StringAssert.Contains(read.Text, "TAIL-MARK");
+                Assert.IsFalse(read.Text.Contains("HEAD-SHOULD-DROP"));
+                Assert.IsTrue(read.Text.StartsWith("LINE"));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
         }
     }
 

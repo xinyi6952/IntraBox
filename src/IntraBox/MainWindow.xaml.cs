@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -6,6 +7,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using IntraBox.Controls;
 using IntraBox.Core;
 
 namespace IntraBox
@@ -22,6 +24,9 @@ namespace IntraBox
         private bool _settingsSelected;
         private ICollectionView _navView;
         private string _navFilter = "";
+        private int _openGen;
+        private bool _openQueued;
+        private string _openKey = "";
 
         public MainWindow()
         {
@@ -41,7 +46,12 @@ namespace IntraBox
         private void LoadNav()
         {
             string keepFilter = _navFilter;
-            var view = new CollectionViewSource { Source = ToolVisibility.NavTools() }.View;
+            var tools = ToolVisibility.NavTools();
+            string[] fav = NavFavoriteHelper.Normalize(ConfigManager.Instance.Settings.NavFavoriteKeys);
+            var rows = new List<NavRow>();
+            for (int i = 0; i < tools.Count; i++)
+                rows.Add(new NavRow(tools[i], NavFavoriteHelper.Contains(fav, tools[i].Key)));
+            var view = new CollectionViewSource { Source = rows }.View;
             view.GroupDescriptions.Add(new PropertyGroupDescription("Category"));
             view.Filter = NavFilter;
             _navView = view;
@@ -58,7 +68,8 @@ namespace IntraBox
 
         private bool NavFilter(object obj)
         {
-            var m = obj as ModuleInfo;
+            var row = obj as NavRow;
+            var m = row != null ? row.Info : obj as ModuleInfo;
             if (m == null) return false;
             if (string.IsNullOrWhiteSpace(_navFilter)) return true;
             return SearchTextHelper.Score(_navFilter, m.DisplayName, m.Category) > 0
@@ -127,18 +138,9 @@ namespace IntraBox
                 return;
             }
 
-            ModuleInfo found = null;
+            NavRow found = null;
             if (!string.IsNullOrEmpty(keep))
-            {
-                foreach (ModuleInfo m in NavList.Items)
-                {
-                    if (m.Key == keep)
-                    {
-                        found = m;
-                        break;
-                    }
-                }
-            }
+                found = FindRow(keep);
 
             if (found != null)
             {
@@ -155,19 +157,134 @@ namespace IntraBox
         private void NavList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_navSyncing) return;
-            if (NavList.SelectedItem is ModuleInfo info)
+            var info = ModuleOf(NavList.SelectedItem);
+            if (info == null) return;
+            ScheduleOpen(info);
+        }
+
+        /// <summary>
+        /// 先点亮菜单并在右侧工作区盖上「正在打开…」，下一拍再创建工具。
+        /// 连点时只完成最后一次；更早的排队创建直接放弃。
+        /// </summary>
+        private void ScheduleOpen(ModuleInfo info)
+        {
+            if (info == null) return;
+            if (_loader.CurrentInfo != null && _loader.CurrentInfo.Key == info.Key && !_openQueued)
+            {
+                ApplyOpenedChrome(info);
+                HideOpeningOverlay();
+                return;
+            }
+
+            _openGen++;
+            int gen = _openGen;
+            _openQueued = true;
+            _openKey = info.Key;
+            if (info.Key == ToolVisibility.SettingsKey)
+            {
+                _navSyncing = true;
+                NavList.SelectedItem = null;
+                _navSyncing = false;
+                SetSettingsSelected(true);
+            }
+            else
             {
                 SetSettingsSelected(false);
-                if (!_loader.Activate(info, WorkspaceHost))
-                {
-                    RestoreNavSelectionAfterLeaveCancel();
-                    return;
-                }
-                ModuleTitle.Text = info.DisplayName;
-                StatusText.Text = "当前工具：" + info.DisplayName;
-                PersistLastModule(info.Key);
-                AppLog.Info("打开工具：" + info.DisplayName + " (" + info.Key + ")");
             }
+            if (ModuleTitle != null) ModuleTitle.Text = info.DisplayName;
+            if (StatusText != null) StatusText.Text = "正在打开…";
+            ShowOpeningOverlay();
+            string key = info.Key;
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => FinishOpen(gen, key)));
+        }
+
+        private void FinishOpen(int gen, string key)
+        {
+            if (gen != _openGen)
+            {
+                DiscardPending(key);
+                return;
+            }
+            _openQueued = false;
+            var info = ToolVisibility.Find(key);
+            if (info == null)
+            {
+                HideOpeningOverlay();
+                DiscardPending(key);
+                return;
+            }
+            bool opened = false;
+            try
+            {
+                opened = _loader.Activate(info, WorkspaceHost);
+            }
+            catch
+            {
+                if (gen == _openGen) HideOpeningOverlay();
+                throw;
+            }
+            if (gen != _openGen)
+            {
+                DiscardPending(key);
+                return;
+            }
+            if (!opened)
+            {
+                HideOpeningOverlay();
+                RestoreNavSelectionAfterLeaveCancel();
+                ApplyOpenedChrome(_loader.CurrentInfo);
+                DiscardPending(key);
+                return;
+            }
+            ApplyOpenedChrome(info);
+            PersistLastModule(info.Key);
+            AppLog.Info("打开工具：" + info.DisplayName + " (" + info.Key + ")");
+            HideOpeningOverlay();
+        }
+
+        private void ShowOpeningOverlay()
+        {
+            if (WorkspaceHost == null) return;
+            LoadingOverlay.Show(WorkspaceHost, "正在打开…");
+        }
+
+        private void HideOpeningOverlay()
+        {
+            if (WorkspaceHost == null) return;
+            LoadingOverlay.Hide(WorkspaceHost);
+        }
+
+        private void ApplyOpenedChrome(ModuleInfo info)
+        {
+            if (info == null)
+            {
+                if (ModuleTitle != null) ModuleTitle.Text = "请从左侧选择一个工具";
+                if (StatusText != null) StatusText.Text = "就绪";
+                return;
+            }
+            SetSettingsSelected(info.Key == ToolVisibility.SettingsKey);
+            if (ModuleTitle != null) ModuleTitle.Text = info.DisplayName;
+            if (StatusText != null) StatusText.Text = "当前工具：" + info.DisplayName;
+        }
+
+        /// <summary>被放弃或离开确认取消时，清掉尚未消费的启动器跳转。</summary>
+        private void DiscardPending(string key)
+        {
+            if (key == "todo" && !PendingStillWanted("todo"))
+            {
+                IntraBox.Modules.Todo.TodoView.PendingOpenUid = null;
+                IntraBox.Modules.Todo.TodoView.PendingDueDate = null;
+            }
+            if (key == "notes" && !PendingStillWanted("notes"))
+                IntraBox.Modules.Notes.NotesView.PendingOpenUid = null;
+            if (key == "vault" && !PendingStillWanted("vault"))
+                IntraBox.Modules.Vault.VaultView.PendingOpenUid = null;
+        }
+
+        private bool PendingStillWanted(string key)
+        {
+            if (_loader.CurrentInfo != null && _loader.CurrentInfo.Key == key) return true;
+            return _openQueued && _openKey == key;
         }
 
         /// <summary>离开确认取消后恢复侧栏选中（设置不在列表里，需单独点亮底部设置项）。</summary>
@@ -182,7 +299,7 @@ namespace IntraBox
             }
             else
             {
-                NavList.SelectedItem = cur;
+                NavList.SelectedItem = FindRow(cur.Key);
                 SetSettingsSelected(false);
             }
             _navSyncing = false;
@@ -193,20 +310,41 @@ namespace IntraBox
             OpenSettings();
         }
 
+        private void NavStar_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            var btn = sender as FrameworkElement;
+            var row = btn != null ? btn.DataContext as NavRow : null;
+            if (row == null || row.Info == null) return;
+            var s = ConfigManager.Instance.Settings;
+            s.NavFavoriteKeys = NavFavoriteHelper.Toggle(s.NavFavoriteKeys, row.Info.Key);
+            ConfigManager.Instance.Save();
+            row.IsFavorite = NavFavoriteHelper.Contains(s.NavFavoriteKeys, row.Info.Key);
+        }
+
+        private static ModuleInfo ModuleOf(object item)
+        {
+            var row = item as NavRow;
+            if (row != null) return row.Info;
+            return item as ModuleInfo;
+        }
+
+        private NavRow FindRow(string key)
+        {
+            if (string.IsNullOrEmpty(key) || NavList == null) return null;
+            foreach (object item in NavList.Items)
+            {
+                var row = item as NavRow;
+                if (row != null && row.Info != null && row.Info.Key == key) return row;
+            }
+            return null;
+        }
+
         private void OpenSettings()
         {
             var info = ToolVisibility.Find(ToolVisibility.SettingsKey);
             if (info == null) return;
-            if (!_loader.Activate(info, WorkspaceHost)) return;
-
-            _navSyncing = true;
-            NavList.SelectedItem = null;
-            _navSyncing = false;
-            SetSettingsSelected(true);
-            ModuleTitle.Text = info.DisplayName;
-            StatusText.Text = "当前工具：" + info.DisplayName;
-            PersistLastModule(info.Key);
-            AppLog.Info("打开工具：设置");
+            ScheduleOpen(info);
         }
 
         /// <summary>提醒弹窗「打开任务」或启动器：切到任务计划并选中指定 uid。</summary>
@@ -218,7 +356,6 @@ namespace IntraBox
                 var view = _loader.CurrentView as IntraBox.Modules.Todo.TodoView;
                 if (view != null) view.OpenPending();
             });
-            ClearTodoPendingIfNotCurrent();
         }
 
         /// <summary>工作日历：按当天计划完成时间新建待办。</summary>
@@ -230,7 +367,6 @@ namespace IntraBox
                 var view = _loader.CurrentView as IntraBox.Modules.Todo.TodoView;
                 if (view != null) view.OpenPending();
             });
-            ClearTodoPendingIfNotCurrent();
         }
 
         /// <summary>启动器：切到笔记并打开指定篇。</summary>
@@ -242,8 +378,6 @@ namespace IntraBox
                 var view = _loader.CurrentView as IntraBox.Modules.Notes.NotesView;
                 if (view != null) view.OpenPending();
             });
-            if (_loader.CurrentInfo == null || _loader.CurrentInfo.Key != "notes")
-                IntraBox.Modules.Notes.NotesView.PendingOpenUid = null;
         }
 
         /// <summary>启动器：切到账号备忘并打开指定分类。</summary>
@@ -255,8 +389,6 @@ namespace IntraBox
                 var view = _loader.CurrentView as IntraBox.Modules.Vault.VaultView;
                 if (view != null) view.OpenPending();
             });
-            if (_loader.CurrentInfo == null || _loader.CurrentInfo.Key != "vault")
-                IntraBox.Modules.Vault.VaultView.PendingOpenUid = null;
         }
 
         /// <summary>启动器：切到指定工具（含设置）。</summary>
@@ -271,13 +403,6 @@ namespace IntraBox
             OpenModule(key, null);
         }
 
-        private void ClearTodoPendingIfNotCurrent()
-        {
-            if (_loader.CurrentInfo != null && _loader.CurrentInfo.Key == "todo") return;
-            IntraBox.Modules.Todo.TodoView.PendingOpenUid = null;
-            IntraBox.Modules.Todo.TodoView.PendingDueDate = null;
-        }
-
         private void OpenModule(string key, Action ifAlreadyCurrent)
         {
             WindowRestore.ShowAndRestore(this);
@@ -290,25 +415,14 @@ namespace IntraBox
             }
             if (!ToolVisibility.IsVisible(key))
             {
-                if (!_loader.Activate(info, WorkspaceHost)) return;
-                SetSettingsSelected(false);
                 _navSyncing = true;
                 NavList.SelectedItem = null;
                 _navSyncing = false;
-                ModuleTitle.Text = info.DisplayName;
-                StatusText.Text = "当前工具：" + info.DisplayName;
-                PersistLastModule(info.Key);
-                AppLog.Info("打开工具：" + info.DisplayName + " (" + info.Key + ")");
+                ScheduleOpen(info);
                 return;
             }
-            foreach (ModuleInfo m in NavList.Items)
-            {
-                if (m.Key == key)
-                {
-                    NavList.SelectedItem = m;
-                    break;
-                }
-            }
+            NavRow row = FindRow(key);
+            if (row != null) NavList.SelectedItem = row;
         }
 
         /// <summary>启动时恢复上次打开的工具；设置关闭或无记录则保持欢迎语。重工具推迟到 UI 空闲，先画出空壳。</summary>
@@ -329,9 +443,10 @@ namespace IntraBox
             RestoreLastModuleCore(key);
         }
 
-        /// <summary>托盘回来后工作区已空时立即恢复上次工具（不受启动开关影响）。</summary>
+        /// <summary>托盘回来后工作区已空时恢复上次工具（不受启动开关影响）。已有一次打开在排队则让路。</summary>
         public void RestoreLastModuleNow()
         {
+            if (_openQueued) return;
             RestoreLastModuleCore(ConfigManager.Instance.Settings.LastModuleKey);
         }
 
@@ -343,14 +458,8 @@ namespace IntraBox
                 OpenSettings();
                 return;
             }
-            foreach (ModuleInfo m in NavList.Items)
-            {
-                if (m.Key == key)
-                {
-                    NavList.SelectedItem = m;
-                    return;
-                }
-            }
+            NavRow row = FindRow(key);
+            if (row != null) NavList.SelectedItem = row;
         }
 
         public bool HasEmptyWorkspace()
@@ -366,8 +475,20 @@ namespace IntraBox
 
         public void UnparkCurrentResources()
         {
+            if (_openQueued) return;
             var p = _loader.CurrentView as IParkableResources;
-            if (p != null) p.UnparkHeavyResources();
+            if (p == null) return;
+            int seen = _openGen;
+            ShowOpeningOverlay();
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                if (seen != _openGen || _openQueued) return;
+                try { p.UnparkHeavyResources(); }
+                finally
+                {
+                    if (seen == _openGen && !_openQueued) HideOpeningOverlay();
+                }
+            }));
         }
 
         public bool TryUnloadCurrentSilent()
@@ -512,12 +633,9 @@ namespace IntraBox
             WindowRestore.PersistFrom(this);
             Hide();
             MemoryIdleGuard.NotifyParked();
-            // 空闲后再 GC + EmptyWorkingSet（降工作集，不降 IE 等专用内存）。超时后可静默卸载无未保存的当前工具。
-            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
-            {
-                GcHelper.CollectAndTrimNow("tray-hide");
-                UpdateMemoryText();
-            }));
+            // 刚进托盘只 GC，不 EmptyWorkingSet，避免马上再打开时整页换回卡住。
+            // 空闲超时仍由 MemoryIdleGuard 卸载并压工作集。
+            GcHelper.CollectSafely("tray-hide");
         }
 
         /// <summary>抽屉最大化时铺满导航右侧：隐藏模块标题并去掉工作区边距。</summary>
@@ -550,6 +668,44 @@ namespace IntraBox
             w.LoadFrom(tool);
             w.ShowDialog();
             UpdateMemoryText();
+        }
+
+        private sealed class NavRow : INotifyPropertyChanged
+        {
+            private bool _favorite;
+
+            public NavRow(ModuleInfo info, bool favorite)
+            {
+                Info = info;
+                _favorite = favorite;
+            }
+
+            public ModuleInfo Info { get; private set; }
+            public string Key { get { return Info != null ? Info.Key : ""; } }
+            public string DisplayName { get { return Info != null ? Info.DisplayName : ""; } }
+            public string Category { get { return Info != null ? Info.Category : ""; } }
+
+            public bool IsFavorite
+            {
+                get { return _favorite; }
+                set
+                {
+                    if (_favorite == value) return;
+                    _favorite = value;
+                    if (PropertyChanged != null)
+                    {
+                        PropertyChanged(this, new PropertyChangedEventArgs("IsFavorite"));
+                        PropertyChanged(this, new PropertyChangedEventArgs("StarTip"));
+                    }
+                }
+            }
+
+            public string StarTip
+            {
+                get { return _favorite ? "取消收藏" : "收藏"; }
+            }
+
+            public event PropertyChangedEventHandler PropertyChanged;
         }
     }
 }

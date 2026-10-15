@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using IntraBox.Core;
@@ -9,6 +10,9 @@ namespace IntraBox.Modules.RegBrowse
 {
     public partial class RegBrowseView : UserControl, IModuleView
     {
+        private readonly object _regLock = new object();
+        private int _selGen;
+
         public RegBrowseView() { InitializeComponent(); FilterBar.Attach(ValGrid); }
 
         public void OnActivated()
@@ -28,80 +32,117 @@ namespace IntraBox.Modules.RegBrowse
             KeyTree.Items.Add(item);
         }
 
-        private void Item_Expanded(object sender, RoutedEventArgs e)
+        private async void Item_Expanded(object sender, RoutedEventArgs e)
         {
             var item = sender as TreeViewItem;
             if (item == null) return;
             if (item.Items.Count != 1 || !(item.Items[0] is string)) return;
+            if ((item.Items[0] as string) == "正在读取…") return;
             item.Items.Clear();
+            item.Items.Add("正在读取…");
             var node = item.Tag as Node;
             if (node == null) return;
+            RegistryKey hive = node.Hive;
+            string path = node.Path;
+            string[] names = null;
+            string error = null;
             try
             {
-                RegistryKey k = string.IsNullOrEmpty(node.Path) ? node.Hive : node.Hive.OpenSubKey(node.Path, false);
-                if (k == null) return;
-                try
+                await Task.Run(() =>
                 {
-                    foreach (var name in k.GetSubKeyNames())
+                    lock (_regLock)
                     {
-                        string child = string.IsNullOrEmpty(node.Path) ? name : node.Path + "\\" + name;
-                        var sub = new TreeViewItem
+                        RegistryKey k = null;
+                        try
                         {
-                            Header = name,
-                            Tag = new Node { Hive = node.Hive, Path = child }
-                        };
-                        sub.Items.Add("...");
-                        sub.Expanded += Item_Expanded;
-                        item.Items.Add(sub);
+                            k = string.IsNullOrEmpty(path) ? hive : hive.OpenSubKey(path, false);
+                            if (k == null) { error = "无法打开该项"; return; }
+                            names = k.GetSubKeyNames();
+                        }
+                        catch (Exception ex) { error = ex.Message; }
+                        finally
+                        {
+                            if (k != null && !string.IsNullOrEmpty(path)) k.Close();
+                        }
                     }
-                }
-                finally
-                {
-                    if (!string.IsNullOrEmpty(node.Path) && k != null) k.Close();
-                }
+                });
             }
-            catch
+            catch (Exception ex) { error = ex.Message; }
+            item.Items.Clear();
+            if (!string.IsNullOrEmpty(error) || names == null)
             {
-                item.Items.Add("(无法读取)");
+                item.Items.Add("(无法读取" + (string.IsNullOrEmpty(error) ? ")" : "：" + error + ")"));
+                return;
+            }
+            for (int i = 0; i < names.Length; i++)
+            {
+                string name = names[i];
+                string child = string.IsNullOrEmpty(path) ? name : path + "\\" + name;
+                var sub = new TreeViewItem
+                {
+                    Header = name,
+                    Tag = new Node { Hive = hive, Path = child }
+                };
+                sub.Items.Add("...");
+                sub.Expanded += Item_Expanded;
+                item.Items.Add(sub);
             }
         }
 
-        private void KeyTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        private async void KeyTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             var item = KeyTree.SelectedItem as TreeViewItem;
             if (item == null) return;
             var node = item.Tag as Node;
             if (node == null) return;
-            string full = node.Hive.Name + (string.IsNullOrEmpty(node.Path) ? "" : "\\" + node.Path);
-            PathText.Text = full;
+            int gen = ++_selGen;
+            RegistryKey hive = node.Hive;
+            string path = node.Path;
+            string full = hive.Name + (string.IsNullOrEmpty(path) ? "" : "\\" + path);
+            PathText.Text = full + "  （正在读取…）";
+            ValGrid.ItemsSource = new List<ValRow>
+            {
+                new ValRow { Name = "正在读取…", Kind = "", Data = "" }
+            };
             var rows = new List<ValRow>();
+            string error = null;
             try
             {
-                RegistryKey k = string.IsNullOrEmpty(node.Path) ? node.Hive : node.Hive.OpenSubKey(node.Path, false);
-                if (k == null) return;
-                try
+                await Task.Run(() =>
                 {
-                    foreach (var name in k.GetValueNames())
+                    lock (_regLock)
                     {
-                        object v = k.GetValue(name);
-                        var kind = k.GetValueKind(name);
-                        rows.Add(new ValRow
+                        RegistryKey k = null;
+                        try
                         {
-                            Name = string.IsNullOrEmpty(name) ? "(默认)" : name,
-                            Kind = kind.ToString(),
-                            Data = Format(v, kind)
-                        });
+                            k = string.IsNullOrEmpty(path) ? hive : hive.OpenSubKey(path, false);
+                            if (k == null) { error = "无法打开该项"; return; }
+                            foreach (var name in k.GetValueNames())
+                            {
+                                object v = k.GetValue(name);
+                                var kind = k.GetValueKind(name);
+                                rows.Add(new ValRow
+                                {
+                                    Name = string.IsNullOrEmpty(name) ? "(默认)" : name,
+                                    Kind = kind.ToString(),
+                                    Data = Format(v, kind)
+                                });
+                            }
+                        }
+                        catch (Exception ex) { error = ex.Message; }
+                        finally
+                        {
+                            if (k != null && !string.IsNullOrEmpty(path)) k.Close();
+                        }
                     }
-                }
-                finally
-                {
-                    if (!string.IsNullOrEmpty(node.Path) && k != null) k.Close();
-                }
+                });
             }
-            catch (Exception ex)
-            {
-                PathText.Text = full + "  （" + ex.RootMessage() + "）";
-            }
+            catch (Exception ex) { error = ex.Message; }
+            if (gen != _selGen) return;
+            if (!string.IsNullOrEmpty(error))
+                PathText.Text = full + "  （" + error + "）";
+            else
+                PathText.Text = full;
             ValGrid.ItemsSource = rows;
             FilterBar.Apply();
         }

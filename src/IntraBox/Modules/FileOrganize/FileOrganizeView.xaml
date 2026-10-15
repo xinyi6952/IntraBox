@@ -39,7 +39,7 @@
                        Text="{}根目录已是当天日期，不必再写 {date}。例：目标填「图片」→ 源目录/2026-08-29/图片/a.jpg；填「{type}/{ext}」→ 源目录/2026-08-29/图片/jpg/a.jpg。选中日期规则后，在表格上方的日期框填写。"/>
             <TextBlock TextWrapping="Wrap"
                        Foreground="{DynamicResource WarningBrush}"
-                       Text="预览时文件默认全部不勾选。只有勾选的文件会被移动；未勾选的保持原位。"/>
+                       Text="预览按目标目录树展示，文件默认全部不勾选。只有勾选的文件会被移动；未勾选的保持原位。"/>
         </StackPanel>
         <WrapPanel x:Name="DateBar" Grid.Row="2" Margin="0,0,0,8" Visibility="Collapsed">
             <TextBlock Text="日期条件" VerticalAlignment="Center" Margin="0,4,8,4"

@@ -12,7 +12,7 @@
         </Grid.RowDefinitions>
         <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
                    Foreground="{DynamicResource TextSecondaryBrush}"
-                   Text="先看各盘占用，再选目录往下钻。只汇总体积与文件数，不删除。符号链接不跟随。"/>
+                   Text="先看各盘占用，再选目录分析。结果是目录树，展开文件夹继续往下看。只汇总体积与文件数，不删除。符号链接不跟随。"/>
         <DataGrid x:Name="DriveGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
                   CanUserAddRows="False" HeadersVisibility="Column" BorderThickness="1"
                   Height="132" Margin="0,0,0,8" MouseDoubleClick="DriveGrid_MouseDoubleClick">
@@ -38,18 +38,23 @@
             <Button Content="复制路径" Click="Copy_Click" Margin="0,4,8,4"/>
             <controls:GridFilterBar x:Name="FilterBar" VerticalAlignment="Center" Margin="8,4,0,4"/>
         </WrapPanel>
-        <DataGrid x:Name="ChildGrid" Grid.Row="3" AutoGenerateColumns="False" IsReadOnly="True"
-                  CanUserAddRows="False" HeadersVisibility="Column" BorderThickness="1"
-                  MouseDoubleClick="ChildGrid_MouseDoubleClick">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="220"/>
-                <DataGridTextColumn Header="类型" Binding="{Binding KindText}" Width="70"/>
-                <DataGridTextColumn Header="大小" Binding="{Binding SizeText}" Width="100"/>
-                <DataGridTextColumn Header="占比" Binding="{Binding PercentText}" Width="80"/>
-                <DataGridTextColumn Header="文件数" Binding="{Binding FileCountText}" Width="80"/>
-                <DataGridTextColumn Header="路径" Binding="{Binding FullPath}" Width="*"/>
-            </DataGrid.Columns>
-        </DataGrid>
+        <TreeView x:Name="ChildTree" Grid.Row="3" BorderThickness="1"
+                  TreeViewItem.Expanded="ChildTree_Expanded"
+                  MouseDoubleClick="ChildTree_MouseDoubleClick">
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Name}" Margin="0,0,10,0"/>
+                        <TextBlock Text="{Binding KindText}" Width="48" Margin="0,0,8,0"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="{Binding SizeText}" Width="88" Margin="0,0,8,0"/>
+                        <TextBlock Text="{Binding PercentText}" Width="56" Margin="0,0,8,0"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="{Binding FileCountText}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
         <TextBlock x:Name="MsgText" Grid.Row="4" Margin="0,8,0,0" TextWrapping="Wrap"
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>

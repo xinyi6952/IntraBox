@@ -96,9 +96,13 @@
                                             <ContentPresenter/>
                                         </Border>
                                         <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
+                                            <MultiTrigger>
+                                                <MultiTrigger.Conditions>
+                                                    <Condition Property="IsMouseOver" Value="True"/>
+                                                    <Condition Property="IsSelected" Value="False"/>
+                                                </MultiTrigger.Conditions>
                                                 <Setter TargetName="bd" Property="Background" Value="{DynamicResource NavHoverBrush}"/>
-                                            </Trigger>
+                                            </MultiTrigger>
                                             <Trigger Property="IsSelected" Value="True">
                                                 <Setter TargetName="bd" Property="Background" Value="{DynamicResource NavSelectedBrush}"/>
                                             </Trigger>
@@ -110,7 +114,32 @@
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding DisplayName}" FontSize="13"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding DisplayName}" FontSize="13" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Width="22" Height="22" Padding="0" Margin="4,0,0,0"
+                                        Background="Transparent" BorderThickness="0" Cursor="Hand" Focusable="False"
+                                        ToolTip="{Binding StarTip}"
+                                        PreviewMouseLeftButtonDown="NavStar_PreviewMouseDown">
+                                    <TextBlock FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="☆"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                        <Setter Property="Text" Value="★"/>
+                                                        <Setter Property="Foreground" Value="#E6B422"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Button>
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>

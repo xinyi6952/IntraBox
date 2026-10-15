@@ -46,6 +46,8 @@ namespace IntraBox.Modules.Todo
         public const int DefaultIntervalMin = 10;
         /// <summary>每次到点后允许弹出的宽限（分钟）。超时不补弹，等下一档。</summary>
         public const int FireWindowMin = 2;
+        /// <summary>提醒窗未被手动关闭时，多少秒后自动关掉。不算稍后，也不静音。</summary>
+        public const int AutoCloseSec = 60;
         public const int MaxTimes = 9;
         public const int MaxIntervalMin = 60;
 

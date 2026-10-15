@@ -24,6 +24,8 @@ namespace IntraBox.Modules.Diff
     public partial class DiffView : UserControl, IModuleView, ILeaveGuard
     {
         private long MaxFileBytes { get { return SizeLimits.MaxFileBytes; } }
+        /// <summary>左右合计达到该字符数时，比对加整页遮罩。更小的只改状态为「比对中…」。</summary>
+        private const int DiffOverlayChars = 200000;
 
         private readonly DiffBackgroundRenderer _leftRenderer;
         private readonly DiffBackgroundRenderer _rightRenderer;
@@ -158,6 +160,7 @@ namespace IntraBox.Modules.Diff
             if (leftFile != rightFile)
             {
                 CancelCompare();
+                LoadingOverlay.Hide(this);
                 SetStat("左右类型不一致：只允许「文本 ↔ 文本」或「文件 ↔ 文件」，请清空一侧或两侧都打开文件。", true);
                 ClearCurrentHighlight();
                 ClearHighlights();
@@ -177,6 +180,10 @@ namespace IntraBox.Modules.Diff
             var cts = new CancellationTokenSource();
             _cmpCts = cts;
             var token = cts.Token;
+            SetStat("比对中…", false);
+            bool heavy = leftText.Length + rightText.Length >= DiffOverlayChars;
+            if (heavy) LoadingOverlay.Show(this, "比对中…");
+            else LoadingOverlay.Hide(this);
 
             DiffResult result = null;
             try
@@ -189,6 +196,10 @@ namespace IntraBox.Modules.Diff
             {
                 if (version == _cmpVersion) SetStat("比对失败：" + ex.RootMessage(), true);
                 return;
+            }
+            finally
+            {
+                if (version == _cmpVersion) LoadingOverlay.Hide(this);
             }
 
             if (version != _cmpVersion) return; // 过期结果丢弃

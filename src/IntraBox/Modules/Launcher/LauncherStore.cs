@@ -450,7 +450,7 @@ namespace IntraBox.Modules.Launcher
                 var loaded = LauncherFile.TryLoad(json, MaxRecents);
                 if (!loaded.Ok)
                 {
-                    RecoverCorruptLocked(path);
+                    RecoverCorruptLocked(path, null);
                     return;
                 }
                 _nodes = loaded.Nodes ?? new List<LauncherNode>();
@@ -462,14 +462,15 @@ namespace IntraBox.Modules.Launcher
                     catch { }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                RecoverCorruptLocked(path);
+                RecoverCorruptLocked(path, ex);
             }
         }
 
-        private static void RecoverCorruptLocked(string path)
+        private static void RecoverCorruptLocked(string path, Exception ex)
         {
+            CompatDegrade.Once("launcher-index-corrupt", "启动器数据损坏，已尝试备份", ex);
             if (!DataFileGuard.TryQuarantine(path))
             {
                 _writeBlocked = true;

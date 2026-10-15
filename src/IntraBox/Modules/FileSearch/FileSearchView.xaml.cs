@@ -44,8 +44,7 @@ namespace IntraBox.Modules.FileSearch
         public FileSearchView()
         {
             InitializeComponent();
-            ResultGrid.ItemsSource = _hits;
-            FilterBar.Attach(ResultGrid);
+            FilterBar.FilterChanged += delegate { BindTree(); };
         }
 
         public void OnActivated()
@@ -59,7 +58,7 @@ namespace IntraBox.Modules.FileSearch
             }
             if (string.IsNullOrWhiteSpace(DirBox.Text))
                 DirBox.Text = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            FormHint.Apply(MsgText, "输入关键字或通配符后搜索。双击或点「定位到文件夹」打开资源管理器。");
+            FormHint.Apply(MsgText, "输入关键字或通配符后搜索。结果按目录树展示。双击文件或点「定位到文件夹」打开资源管理器。");
         }
 
         public void OnDeactivated()
@@ -92,7 +91,7 @@ namespace IntraBox.Modules.FileSearch
             {
                 _hits.Clear();
                 FormHint.Apply(MsgText, "目录不存在。");
-                ResultGrid.Items.Refresh();
+                BindTree();
                 return;
             }
 
@@ -127,7 +126,7 @@ namespace IntraBox.Modules.FileSearch
                 {
                     _hits.Clear();
                     FormHint.Apply(MsgText, "搜索失败：" + ex.RootMessage());
-                    ResultGrid.Items.Refresh();
+                    BindTree();
                     LoadingOverlay.Hide(this);
                 }
                 return;
@@ -139,7 +138,42 @@ namespace IntraBox.Modules.FileSearch
             _hits.AddRange(result.Hits);
             FormHint.Apply(MsgText, result.Message);
             LoadingOverlay.Hide(this);
-            FilterBar.Apply();
+            BindTree();
+        }
+
+        private void BindTree()
+        {
+            string kw = FilterBar != null ? (FilterBar.FilterText ?? "").Trim() : "";
+            var leaves = new List<FilePathTree.Leaf>();
+            for (int i = 0; i < _hits.Count; i++)
+            {
+                Hit h = _hits[i];
+                if (h == null) continue;
+                if (kw.Length > 0 && !HitMatches(h, kw)) continue;
+                leaves.Add(new FilePathTree.Leaf
+                {
+                    FullPath = h.FullPath,
+                    Detail = (h.SizeText ?? "") + "    " + (h.ModifiedText ?? ""),
+                    Payload = h
+                });
+            }
+            string root = DirBox != null ? DirBox.Text : "";
+            ResultTree.ItemsSource = FilePathTree.Build(root, leaves);
+        }
+
+        private static bool HitMatches(Hit h, string kw)
+        {
+            if (IndexOf(h.Name, kw)) return true;
+            if (IndexOf(h.Directory, kw)) return true;
+            if (IndexOf(h.FullPath, kw)) return true;
+            if (IndexOf(h.SizeText, kw)) return true;
+            if (IndexOf(h.ModifiedText, kw)) return true;
+            return false;
+        }
+
+        private static bool IndexOf(string text, string kw)
+        {
+            return text != null && text.IndexOf(kw, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static SearchResult DoSearch(string dir, Regex nameRx, long minB, long maxB, DateTime from, DateTime to, SearchOption option, CancellationToken token)
@@ -185,22 +219,23 @@ namespace IntraBox.Modules.FileSearch
             OpenSelected();
         }
 
-        private void ResultGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        private void ResultTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            OpenSelected();
+            var node = ResultTree.SelectedItem as FilePathTree.Node;
+            if (node != null && node.IsFile) OpenSelected();
         }
 
         private void OpenSelected()
         {
-            var hit = ResultGrid.SelectedItem as Hit;
-            if (hit == null || string.IsNullOrEmpty(hit.FullPath))
+            var node = ResultTree.SelectedItem as FilePathTree.Node;
+            if (node == null || !node.IsFile || string.IsNullOrEmpty(node.FullPath))
             {
-                FormHint.Apply(MsgText, "请先选中一条结果。");
+                FormHint.Apply(MsgText, "请先选中一个文件。");
                 return;
             }
             try
             {
-                Process.Start("explorer.exe", "/select,\"" + hit.FullPath + "\"");
+                Process.Start("explorer.exe", "/select,\"" + node.FullPath + "\"");
             }
             catch (Exception ex)
             {

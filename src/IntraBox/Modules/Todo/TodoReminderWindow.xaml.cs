@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Markup;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using IntraBox.Core;
 
 namespace IntraBox.Modules.Todo
@@ -14,6 +15,8 @@ namespace IntraBox.Modules.Todo
         private readonly bool _preview;
         private readonly bool _lastFire;
         private readonly int _snoozeMin;
+        private DispatcherTimer _autoClose;
+        private bool _muteConfirming;
 
         public TodoReminderWindow(TodoItem item, int remain)
             : this(item, remain, false, null)
@@ -70,12 +73,13 @@ namespace IntraBox.Modules.Todo
                     RemindText.Visibility = Visibility.Collapsed;
                 }
             }
+            string auto = "未操作则 1 分钟后自动关闭。";
             if (preview)
-                MoreText.Text = "这是提醒预览，不会记入已提醒记录。";
+                MoreText.Text = "这是提醒预览，不会记入已提醒记录。" + auto;
             else if (_lastFire)
-                MoreText.Text = "这是今天最后一次提醒，点右上角关闭后今天不再弹出。";
+                MoreText.Text = "这是今天最后一次提醒，点右上角关闭后今天不再弹出。" + auto;
             else
-                MoreText.Text = remain > 0 ? "还有 " + remain + " 条待提醒" : "";
+                MoreText.Text = (remain > 0 ? "还有 " + remain + " 条待提醒。" : "") + auto;
             if (_lastFire)
             {
                 if (StopBtn != null) StopBtn.Visibility = Visibility.Collapsed;
@@ -88,7 +92,32 @@ namespace IntraBox.Modules.Todo
         {
             PlaceAtTrayCorner();
             StartFlash();
+            StartAutoClose();
             IntraBox.Modules.EyeCare.EyeCareRestWindow.RepositionIfOpen();
+        }
+
+        private void StartAutoClose()
+        {
+            StopAutoClose();
+            _autoClose = new DispatcherTimer();
+            _autoClose.Interval = TimeSpan.FromSeconds(TodoRemindRepeat.AutoCloseSec);
+            _autoClose.Tick += AutoClose_Tick;
+            _autoClose.Start();
+        }
+
+        private void AutoClose_Tick(object sender, EventArgs e)
+        {
+            if (_muteConfirming) return;
+            StopAutoClose();
+            Close();
+        }
+
+        private void StopAutoClose()
+        {
+            if (_autoClose == null) return;
+            _autoClose.Stop();
+            _autoClose.Tick -= AutoClose_Tick;
+            _autoClose = null;
         }
 
         private void PlaceAtTrayCorner()
@@ -165,10 +194,22 @@ namespace IntraBox.Modules.Todo
                 Close();
                 return;
             }
-            if (!ConfirmHelper.WarnOverTopmost(this,
-                "今日内本任务将不再弹出提醒，明天起仍按原频次提醒。\n\n确定今日不再提醒？",
-                "今日不再提醒"))
-                return;
+            if (ConfigManager.Instance.Settings.TodoMuteNeedsConfirm)
+            {
+                _muteConfirming = true;
+                bool ok = false;
+                try
+                {
+                    ok = ConfirmHelper.WarnOverTopmost(this,
+                        "今日内本任务将不再弹出提醒，明天起仍按原频次提醒。\n\n确定今日不再提醒？",
+                        "今日不再提醒");
+                }
+                finally
+                {
+                    _muteConfirming = false;
+                }
+                if (!ok) return;
+            }
             if (!_preview)
                 TodoReminderService.MuteToday(_item.Uid);
             Close();
@@ -176,6 +217,7 @@ namespace IntraBox.Modules.Todo
 
         protected override void OnClosed(EventArgs e)
         {
+            StopAutoClose();
             StopFlash();
             IntraBox.Modules.EyeCare.EyeCareRestWindow.RepositionIfOpen();
             base.OnClosed(e);

@@ -9,7 +9,7 @@
         </Grid.RowDefinitions>
         <WrapPanel Margin="0,0,0,8">
             <Button Content="选择目录" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="Pick_Click"/>
-            <Button Content="开始查找" Margin="0,4,8,4" Click="Scan_Click"/>
+            <Button x:Name="ScanBtn" Content="开始查找" Margin="0,4,8,4" Click="Scan_Click"/>
             <Button Content="定位" Margin="0,4,8,4" Click="Locate_Click"/>
             <Button Content="删除选中" Margin="0,4,8,4" Click="Delete_Click"/>
             <CheckBox x:Name="SubCheck" Content="含子目录" IsChecked="True" Margin="8,4,8,4"/>
@@ -17,15 +17,15 @@
                        Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
         </WrapPanel>
         <ProgressBar x:Name="Bar" Grid.Row="1" Height="8" Margin="0,0,0,8" Minimum="0" Maximum="100"/>
-        <ListView x:Name="ResultList" Grid.Row="2">
-            <ListView.View>
-                <GridView>
-                    <GridViewColumn Header="组" Width="50" DisplayMemberBinding="{Binding Group}"/>
-                    <GridViewColumn Header="大小" Width="90" DisplayMemberBinding="{Binding SizeText}"/>
-                    <GridViewColumn Header="哈希(前16)" Width="140" DisplayMemberBinding="{Binding HashShort}"/>
-                    <GridViewColumn Header="路径" Width="480" DisplayMemberBinding="{Binding Path}"/>
-                </GridView>
-            </ListView.View>
-        </ListView>
+        <TreeView x:Name="ResultTree" Grid.Row="2" BorderThickness="1">
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Name}" Margin="0,0,12,0"/>
+                        <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
     </Grid>
 </UserControl>

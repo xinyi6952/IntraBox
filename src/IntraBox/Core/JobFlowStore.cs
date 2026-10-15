@@ -224,10 +224,10 @@ namespace IntraBox.Core
                     job.ManualSucceeded = true;
                 job.ModifiedAt = DateTime.Now;
                 try { WriteLocked(); }
-                catch { /* 运行结果写失败不打断 UI */ }
+                catch (Exception ex) { AppLog.Error("编排运行结果写回失败：" + uid, ex); }
             }
             try { AppendRunLog(uid, result); }
-            catch { }
+            catch (Exception ex) { AppLog.Error("编排运行日志写入失败：" + uid, ex); }
         }
 
         public static void RecordProbePass(string uid)
@@ -342,12 +342,13 @@ namespace IntraBox.Core
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
                 loadFailed = true;
                 _jobs = new List<JobItem>();
                 _sampleSeeded = false;
                 _sampleRev = 0;
+                CompatDegrade.Once("jobflow-index-corrupt", "任务编排索引损坏，已尝试备份", ex);
             }
             if (loadFailed)
             {

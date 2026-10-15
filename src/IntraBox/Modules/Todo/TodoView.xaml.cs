@@ -6,6 +6,8 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Threading;
 using IntraBox.Controls;
 using IntraBox.Core;
@@ -48,8 +50,11 @@ namespace IntraBox.Modules.Todo
 
         public void OnActivated()
         {
+            TodoStore.WriteRejected -= OnStoreWriteRejected;
+            TodoStore.WriteRejected += OnStoreWriteRejected;
             RefreshList();
             OpenPending();
+            ShowStoreNotice();
         }
 
         public void OnDeactivated()
@@ -58,6 +63,20 @@ namespace IntraBox.Modules.Todo
                 && DrawerEditor != null && DrawerEditor.AutoSaveEnabled)
                 DrawerEditor.FlushSilent();
             TodoStore.Flush();
+            TodoStore.WriteRejected -= OnStoreWriteRejected;
+        }
+
+        private void OnStoreWriteRejected(string msg)
+        {
+            if (string.IsNullOrEmpty(msg) || MsgText == null) return;
+            FormHint.Apply(MsgText, msg, true);
+        }
+
+        private void ShowStoreNotice()
+        {
+            string n = TodoStore.TakeCorruptNotice();
+            if (string.IsNullOrEmpty(n)) n = TodoStore.WriteBlockedNotice;
+            if (!string.IsNullOrEmpty(n)) FormHint.Apply(MsgText, n, true);
         }
 
         public bool CanLeave()
@@ -847,7 +866,7 @@ namespace IntraBox.Modules.Todo
             w.Show();
         }
 
-        private void ExportXlsx_Click(object sender, RoutedEventArgs e)
+        private async void ExportXlsx_Click(object sender, RoutedEventArgs e)
         {
             var pick = new TodoExportWindow();
             pick.Owner = Window.GetWindow(this);
@@ -866,8 +885,42 @@ namespace IntraBox.Modules.Todo
                 FileName = stamp + "-" + pick.FileLabel + ".xlsx"
             };
             if (dlg.ShowDialog() != true) return;
-            string err = TodoStore.ExportXlsx(dlg.FileName, items);
-            FormHint.Apply(MsgText, err == null ? "已导出 " + items.Count + " 条" : "导出失败：" + err);
+            string path = dlg.FileName;
+            int count = items.Count;
+            LoadingOverlay.Show(this, "正在导出…");
+            string err = null;
+            try
+            {
+                err = await Task.Run(() => ExportOnStaThread(path, items));
+            }
+            catch (Exception ex)
+            {
+                err = ex.Message;
+            }
+            finally
+            {
+                LoadingOverlay.Hide(this);
+            }
+            FormHint.Apply(MsgText, err == null ? "已导出 " + count + " 条到 " + path : "导出失败：" + err, err != null);
+        }
+
+        private static string ExportOnStaThread(string path, List<TodoItem> items)
+        {
+            string err = null;
+            Exception boom = null;
+            var done = new ManualResetEvent(false);
+            var th = new Thread(() =>
+            {
+                try { err = TodoStore.ExportXlsx(path, items); }
+                catch (Exception ex) { boom = ex; }
+                finally { done.Set(); }
+            });
+            th.IsBackground = true;
+            th.SetApartmentState(ApartmentState.STA);
+            th.Start();
+            done.WaitOne();
+            if (boom != null) return boom.Message;
+            return err;
         }
 
         private static List<TodoItem> ItemsForExport(int scope)
@@ -910,6 +963,7 @@ namespace IntraBox.Modules.Todo
             public static TodoRow From(TodoItem it)
             {
                 string plain = "";
+                bool detailFailed = false;
                 try
                 {
                     string path = DataPaths.TodoDetailsPath(it.Uid);
@@ -922,8 +976,12 @@ namespace IntraBox.Modules.Todo
                         }
                     }
                 }
-                catch { }
-                string title = TodoRichText.ExtractTitle(plain);
+                catch (Exception ex)
+                {
+                    AppLog.Error("待办详情读取失败：" + it.Uid, ex);
+                    detailFailed = true;
+                }
+                string title = detailFailed ? "（详情读取失败）" : TodoRichText.ExtractTitle(plain);
                 return new TodoRow
                 {
                     Uid = it.Uid,

@@ -26,6 +26,8 @@ namespace IntraBox.Modules.Notes
         private string _sortKey = "updated";
         private bool _sortAsc;
         private const double DrawerRatio = 0.90;
+        /// <summary>约 30 万字符。笔记导出超过该长度先出遮罩再在后台读写，与格式化遮罩同量级。</summary>
+        private const int NoteExportOverlayChars = 300000;
 
         private const string LockedMsg = "已锁定，只能查看。取消勾选「锁定」后才能编辑或删除。";
 
@@ -44,8 +46,11 @@ namespace IntraBox.Modules.Notes
 
         public void OnActivated()
         {
+            NoteStore.WriteRejected -= OnStoreWriteRejected;
+            NoteStore.WriteRejected += OnStoreWriteRejected;
             RefreshList();
             OpenPending();
+            ShowStoreNotice();
         }
 
         public void OpenPending()
@@ -63,6 +68,20 @@ namespace IntraBox.Modules.Notes
                 DrawerEditor.FlushNow();
             if (DrawerEditor != null) DrawerEditor.ReleaseMdPreview();
             NoteStore.Flush();
+            NoteStore.WriteRejected -= OnStoreWriteRejected;
+        }
+
+        private void OnStoreWriteRejected(string msg)
+        {
+            if (string.IsNullOrEmpty(msg) || MsgText == null) return;
+            FormHint.Apply(MsgText, msg, true);
+        }
+
+        private void ShowStoreNotice()
+        {
+            string n = NoteStore.TakeCorruptNotice();
+            if (string.IsNullOrEmpty(n)) n = NoteStore.WriteBlockedNotice;
+            if (!string.IsNullOrEmpty(n)) FormHint.Apply(MsgText, n, true);
         }
 
         public bool CanLeave()
@@ -523,7 +542,7 @@ namespace IntraBox.Modules.Notes
             FormHint.Apply(MsgText, "已复制");
         }
 
-        private void MenuExport_Click(object sender, RoutedEventArgs e)
+        private async void MenuExport_Click(object sender, RoutedEventArgs e)
         {
             var row = NoteList.SelectedItem as NoteRow;
             if (row == null) return;
@@ -542,26 +561,92 @@ namespace IntraBox.Modules.Notes
                 dlg.FileName = SafeName(it.Title) + ".txt";
             }
             if (dlg.ShowDialog() != true) return;
+            string dest = dlg.FileName;
+            string src = it.Kind == NoteKind.Markdown
+                ? DataPaths.NoteBodyMdPath(it.Uid)
+                : DataPaths.NoteBodyXamlPath(it.Uid);
+            bool heavy = false;
             try
             {
-                if (it.Kind == NoteKind.Markdown)
-                {
-                    string src = DataPaths.NoteBodyMdPath(it.Uid);
-                    string text = File.Exists(src) ? File.ReadAllText(src, Encoding.UTF8) : "";
-                    File.WriteAllText(dlg.FileName, text, Encoding.UTF8);
-                }
-                else
-                {
-                    var tmp = new RichTextBox();
-                    NoteRichText.LoadInto(tmp, it.Uid);
-                    File.WriteAllText(dlg.FileName, NoteRichText.ToPlain(tmp.Document), Encoding.UTF8);
-                }
-                FormHint.Apply(MsgText, "已导出");
+                heavy = File.Exists(src) && new FileInfo(src).Length > NoteExportOverlayChars;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("导出失败：" + ex.Message, "IntraBox", MessageBoxButton.OK, MessageBoxImage.Warning);
+                FormHint.Apply(MsgText, "导出失败：" + ex.Message, true);
+                return;
             }
+            if (!heavy)
+            {
+                try
+                {
+                    WriteNoteExport(it, dest);
+                    FormHint.Apply(MsgText, "已导出到 " + dest);
+                }
+                catch (Exception ex)
+                {
+                    FormHint.Apply(MsgText, "导出失败：" + ex.Message, true);
+                }
+                return;
+            }
+            LoadingOverlay.Show(this, "正在导出…");
+            string err = null;
+            try
+            {
+                var item = it;
+                err = await System.Threading.Tasks.Task.Run(() => WriteNoteExportOffUi(item, dest));
+            }
+            finally
+            {
+                LoadingOverlay.Hide(this);
+            }
+            FormHint.Apply(MsgText, err == null ? "已导出到 " + dest : "导出失败：" + err, err != null);
+        }
+
+        private static void WriteNoteExport(NoteItem it, string dest)
+        {
+            if (it.Kind == NoteKind.Markdown)
+            {
+                string src = DataPaths.NoteBodyMdPath(it.Uid);
+                string text = File.Exists(src) ? File.ReadAllText(src, Encoding.UTF8) : "";
+                File.WriteAllText(dest, text, Encoding.UTF8);
+                return;
+            }
+            var tmp = new RichTextBox();
+            string loadErr = NoteRichText.LoadInto(tmp, it.Uid);
+            if (loadErr != null)
+                throw new IOException("正文读取失败：" + loadErr);
+            File.WriteAllText(dest, NoteRichText.ToPlain(tmp.Document), Encoding.UTF8);
+        }
+
+        private static string WriteNoteExportOffUi(NoteItem it, string dest)
+        {
+            if (it.Kind == NoteKind.Markdown)
+            {
+                try
+                {
+                    WriteNoteExport(it, dest);
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    return ex.Message;
+                }
+            }
+            string err = null;
+            Exception boom = null;
+            var done = new System.Threading.ManualResetEvent(false);
+            var th = new System.Threading.Thread(() =>
+            {
+                try { WriteNoteExport(it, dest); }
+                catch (Exception ex) { boom = ex; }
+                finally { done.Set(); }
+            });
+            th.IsBackground = true;
+            th.SetApartmentState(System.Threading.ApartmentState.STA);
+            th.Start();
+            done.WaitOne();
+            if (boom != null) err = boom.Message;
+            return err;
         }
 
         private static string SafeName(string title)

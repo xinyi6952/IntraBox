@@ -29,9 +29,14 @@ namespace IntraBox.Controls
         /// <summary>当前筛选词。</summary>
         public string FilterText { get { return Box.Text ?? ""; } }
 
+        /// <summary>筛选词变化。树形结果不走 DataGrid 时用来自行重建。</summary>
+        public event EventHandler FilterChanged;
+
         private void Box_TextChanged(object sender, TextChangedEventArgs e)
         {
             Apply();
+            EventHandler h = FilterChanged;
+            if (h != null) h(this, EventArgs.Empty);
         }
 
         /// <summary>数据源刷新后（如重新赋值 ItemsSource）重新套用筛选。</summary>

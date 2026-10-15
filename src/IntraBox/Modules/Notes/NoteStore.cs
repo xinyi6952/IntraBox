@@ -21,6 +21,38 @@ namespace IntraBox.Modules.Notes
         private static bool _flushing;
         private static bool _loaded;
         private static bool _writeBlocked;
+        private static string _corruptNotice;
+        private static string _blockReason;
+
+        public static string TakeCorruptNotice()
+        {
+            lock (_sync)
+            {
+                string s = _corruptNotice;
+                _corruptNotice = null;
+                return s;
+            }
+        }
+
+        public static string WriteBlockedNotice
+        {
+            get
+            {
+                if (!_writeBlocked) return null;
+                return "当前无法写盘，本次修改不会保存：" + (string.IsNullOrEmpty(_blockReason) ? "数据文件损坏且无法备份" : _blockReason);
+            }
+        }
+
+        /// <summary>写盘被阻断时通知界面（状态栏，不弹窗）。回调在 UI 线程。</summary>
+        public static event Action<string> WriteRejected;
+
+        /// <summary>若已停止写盘，通知界面并返回提示；否则返回 null。</summary>
+        public static string BlockedMessage()
+        {
+            string msg = WriteBlockedNotice;
+            if (msg != null) RejectWrite();
+            return msg;
+        }
         private static bool _sampleSeeded;
         private static int _sampleRev;
         private const int CurrentSampleRev = 3;
@@ -134,7 +166,7 @@ namespace IntraBox.Modules.Notes
                         if (Directory.Exists(dir))
                             Directory.Delete(dir, true);
                     }
-                    catch { }
+                    catch (Exception ex) { AppLog.Error("删除笔记目录失败：" + ids[k], ex); }
                 }
                 SchedulePersistLocked();
             }
@@ -345,14 +377,22 @@ namespace IntraBox.Modules.Notes
             }
             if (loadFailed)
             {
-                if (!DataFileGuard.TryQuarantine(path))
+                string bak;
+                if (!DataFileGuard.TryQuarantine(path, out bak))
+                {
                     _writeBlocked = true;
+                    _blockReason = "无法把损坏文件改名为备份";
+                    _corruptNotice = "数据文件损坏，且无法备份，已停止写入";
+                }
                 else
                 {
+                    _corruptNotice = string.IsNullOrEmpty(bak)
+                        ? "数据文件损坏，已丢弃无法读取的内容"
+                        : "数据文件损坏，已备份为 " + Path.GetFileName(bak);
                     _sampleSeeded = true;
                     _sampleRev = CurrentSampleRev;
                     try { WriteLocked(); }
-                    catch { }
+                    catch (Exception ex) { AppLog.Error("笔记索引损坏后重写失败", ex); }
                 }
             }
             else if (!_sampleSeeded)
@@ -591,7 +631,11 @@ namespace IntraBox.Modules.Notes
 
         private static void WriteLocked()
         {
-            if (_writeBlocked) return;
+            if (_writeBlocked)
+            {
+                RejectWrite();
+                return;
+            }
             Directory.CreateDirectory(DataPaths.NotesDir);
             var file = new NoteIndexFile
             {
@@ -606,6 +650,23 @@ namespace IntraBox.Modules.Notes
             File.WriteAllText(tmp, json, Encoding.UTF8);
             File.Copy(tmp, path, true);
             try { File.Delete(tmp); } catch { }
+        }
+
+        private static void RejectWrite()
+        {
+            string msg = WriteBlockedNotice;
+            var handler = WriteRejected;
+            if (string.IsNullOrEmpty(msg) || handler == null) return;
+            Action fire = () =>
+            {
+                try { handler(msg); }
+                catch (Exception ex) { AppLog.Error("笔记写盘阻断通知失败", ex); }
+            };
+            var app = System.Windows.Application.Current;
+            if (app != null && app.Dispatcher != null)
+                app.Dispatcher.BeginInvoke(fire);
+            else
+                fire();
         }
 
         private static NoteItem FindLocked(string uid)

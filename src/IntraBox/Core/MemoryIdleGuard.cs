@@ -57,6 +57,18 @@ namespace IntraBox.Core
             IsParked = false;
             if (_timer != null) _timer.Stop();
             if (_host == null) return;
+            var disp = Application.Current != null ? Application.Current.Dispatcher : null;
+            if (disp == null)
+            {
+                ResumeHost();
+                return;
+            }
+            disp.BeginInvoke(DispatcherPriority.Background, new Action(ResumeHost));
+        }
+
+        private static void ResumeHost()
+        {
+            if (_host == null || IsParked) return;
             _host.UnparkCurrentResources();
             if (_host.HasEmptyWorkspace()) _host.RestoreLastModuleNow();
             _host.RefreshMemoryText();

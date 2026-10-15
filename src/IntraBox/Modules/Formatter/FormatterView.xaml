@@ -24,6 +24,15 @@
             </ComboBox>
             <CheckBox x:Name="CompressCheck" Content="压缩" Margin="0,4,16,4"
                       Checked="OnOptionChanged" Unchecked="OnOptionChanged"/>
+            <TextBlock Text="转义" VerticalAlignment="Center" Margin="0,4,8,4"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <ComboBox x:Name="EscapeCombo" MinWidth="88" Margin="0,4,16,4" SelectedIndex="0"
+                      SelectionChanged="OnOptionChanged"
+                      ToolTip="默认不处理。去转义会逐层解开 JSON/JS 的 \&quot; \\ \n \u、XML/HTML 实体（&amp;gt; &amp;nbsp; &amp;amp; 等）以及 %xx / %uXXXX / U+XXXX。转义按当前格式把特殊字符编回去，不再美化。">
+                <ComboBoxItem Content="不处理"/>
+                <ComboBoxItem Content="去转义"/>
+                <ComboBoxItem Content="转义"/>
+            </ComboBox>
             <Button Content="复制结果" Style="{StaticResource PrimaryButton}" Margin="0,4,8,4" Click="CopyBtn_Click"/>
             <TextBlock x:Name="ErrorText" VerticalAlignment="Center" Margin="8,4,0,4"
                        Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>

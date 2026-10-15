@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using IntraBox.Controls;
@@ -24,6 +25,7 @@ namespace IntraBox.Modules.EnvVars
         private bool _isNew;
         private bool _uiReady;
         private bool _suppress;
+        private int _reloadGen;
 
         public EnvVarsView()
         {
@@ -43,7 +45,6 @@ namespace IntraBox.Modules.EnvVars
                 SetScope((EnvVarHelper.Scope)scope, false);
             }
             Reload(true);
-            _uiReady = true;
         }
 
         public void OnDeactivated()
@@ -123,19 +124,39 @@ namespace IntraBox.Modules.EnvVars
             Reload(keepSelection ? (NameBox.Text ?? "").Trim() : null);
         }
 
-        private void Reload(string keepName)
+        private async void Reload(string keepName)
         {
+            int gen = ++_reloadGen;
+            if (ReloadBtn != null) ReloadBtn.IsEnabled = false;
+            FormHint.Apply(MsgText, "正在读取…");
+            List<EnvVarHelper.Item> user = null;
+            List<EnvVarHelper.Item> machine = null;
+            List<EnvVarHelper.Item> process = null;
+            string err = null;
             try
             {
-                _userItems = EnvVarHelper.List(EnvVarHelper.Scope.User);
-                _machineItems = EnvVarHelper.List(EnvVarHelper.Scope.Machine);
-                _processItems = EnvVarHelper.List(EnvVarHelper.Scope.Process);
+                await Task.Run(() =>
+                {
+                    user = EnvVarHelper.List(EnvVarHelper.Scope.User);
+                    machine = EnvVarHelper.List(EnvVarHelper.Scope.Machine);
+                    process = EnvVarHelper.List(EnvVarHelper.Scope.Process);
+                });
             }
             catch (Exception ex)
             {
-                FormHint.Apply(MsgText, "读取失败：" + ex.RootMessage());
+                err = ex.RootMessage();
+            }
+            if (gen != _reloadGen) return;
+            if (ReloadBtn != null) ReloadBtn.IsEnabled = true;
+            _uiReady = true;
+            if (err != null)
+            {
+                FormHint.Apply(MsgText, "读取失败：" + err, true);
                 return;
             }
+            _userItems = user ?? new List<EnvVarHelper.Item>();
+            _machineItems = machine ?? new List<EnvVarHelper.Item>();
+            _processItems = process ?? new List<EnvVarHelper.Item>();
 
             List<EnvVarHelper.Item> src = _userItems;
             if (_scope == EnvVarHelper.Scope.Machine) src = _machineItems;

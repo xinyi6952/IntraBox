@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using IntraBox.Controls;
 using IntraBox.Core;
 
 namespace IntraBox.Modules.JobFlow
@@ -23,24 +25,47 @@ namespace IntraBox.Modules.JobFlow
             Load();
         }
 
-        private void Load()
+        private async void Load()
         {
-            string text = "";
+            bool heavy = false;
             try
             {
-                if (File.Exists(_logPath))
-                    text = File.ReadAllText(_logPath, System.Text.Encoding.UTF8);
+                heavy = File.Exists(_logPath) && new FileInfo(_logPath).Length > JobRunLogHelper.LogTailBytes;
             }
             catch (Exception ex)
             {
-                FormHint.Apply(HintText, "读取失败：" + ex.RootMessage());
+                FormHint.Apply(HintText, "读取失败：" + ex.Message, true);
                 return;
             }
+            JobLogRead read;
+            if (heavy)
+            {
+                LoadingOverlay.Show(this, "正在读取运行日志…");
+                try
+                {
+                    read = await Task.Run(() => JobRunLogHelper.ReadTail(_logPath));
+                }
+                finally
+                {
+                    LoadingOverlay.Hide(this);
+                }
+            }
+            else
+                read = JobRunLogHelper.ReadTail(_logPath);
+            if (!string.IsNullOrEmpty(read.Error))
+            {
+                FormHint.Apply(HintText, "读取失败：" + read.Error, true);
+                return;
+            }
+            string text = read.Text ?? "";
             _entries = JobRunLogHelper.Parse(text);
             RunList.ItemsSource = _entries;
-            FormHint.Apply(HintText, _entries.Count == 0
+            string hint = _entries.Count == 0
                 ? "尚无执行记录"
-                : ("共 " + _entries.Count + " 次"));
+                : ("共 " + _entries.Count + " 次");
+            if (read.TruncatedFile)
+                hint += "。日志过长，仅读取末尾约 256 KB";
+            FormHint.Apply(HintText, hint);
             if (_entries.Count > 0)
                 RunList.SelectedIndex = 0;
             else

@@ -104,14 +104,15 @@ namespace IntraBox.Modules.Notes
                 XamlWriter.Save(doc, fs);
         }
 
-        public static void LoadInto(RichTextBox box, string uid)
+        /// <summary>成功返回 null。文件不存在视为新笔记，放入空文档。读或解析失败不改成可保存的空正文，返回原因。</summary>
+        public static string LoadInto(RichTextBox box, string uid)
         {
-            if (box == null) return;
+            if (box == null) return "编辑区不可用";
             string path = DataPaths.NoteBodyXamlPath(uid);
             if (!File.Exists(path))
             {
                 box.Document = CreateEmptyDocument();
-                return;
+                return null;
             }
             try
             {
@@ -119,17 +120,15 @@ namespace IntraBox.Modules.Notes
                 {
                     var doc = XamlReader.Load(fs) as FlowDocument;
                     if (doc == null)
-                    {
-                        box.Document = CreateEmptyDocument();
-                        return;
-                    }
+                        return "正文不是有效的笔记格式";
                     RestoreImages(doc, uid);
                     box.Document = doc;
+                    return null;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                box.Document = CreateEmptyDocument();
+                return ex.Message;
             }
         }
 

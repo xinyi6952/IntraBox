@@ -263,5 +263,53 @@ namespace IntraBox.Tests
             Assert.AreEqual(TxtColumnFormat.Text, next[1]);
             Assert.AreEqual(TxtColumnFormat.Text, next[2]);
         }
+
+        [TestMethod]
+        public void Parse_超过默认行数_只保留5000()
+        {
+            var sb = new StringBuilder();
+            for (int i = 0; i < 5002; i++)
+            {
+                if (i > 0) sb.Append('\n');
+                sb.Append('a');
+            }
+            var dt = TxtToExcelHelper.Parse(sb.ToString(), ',');
+            Assert.AreEqual(5000, dt.Rows.Count);
+        }
+
+        [TestMethod]
+        public void ParseLimited_按给定行数截断_空行不计数()
+        {
+            var opt = new TxtToExcelOptions();
+            opt.Separator = ",";
+            var info = TxtToExcelHelper.ParseLimited("a\n\nb\nc\nd", opt, 2);
+            Assert.AreEqual(4, info.TotalRows);
+            Assert.AreEqual(2, info.KeptRows);
+            Assert.IsTrue(info.Truncated);
+            Assert.AreEqual(2, info.Table.Rows.Count);
+            Assert.AreEqual("b", info.Table.Rows[1][0]);
+        }
+
+        [TestMethod]
+        public void RowLimit_非法回到5000_取消勾选用10万()
+        {
+            Assert.AreEqual(5000, TxtToExcelHelper.NormalizeRowLimit(0));
+            Assert.AreEqual(5000, TxtToExcelHelper.NormalizeRowLimit(100001));
+            Assert.AreEqual(100000, TxtToExcelHelper.NormalizeRowLimit(100000));
+            Assert.AreEqual(5000, TxtToExcelHelper.EffectiveRowLimit(true, 5000));
+            Assert.AreEqual(100000, TxtToExcelHelper.EffectiveRowLimit(false, 12));
+        }
+
+        [TestMethod]
+        public void TruncationMessage_用户限制与保护上限()
+        {
+            string user = TxtToExcelHelper.TruncationMessage(12000, 5000, false);
+            StringAssert.Contains(user, "共 12000 行");
+            StringAssert.Contains(user, "只处理前 5000 行");
+            StringAssert.Contains(user, "取消限制");
+            string safety = TxtToExcelHelper.TruncationMessage(180000, 100000, true);
+            StringAssert.Contains(safety, "保护上限");
+            Assert.AreEqual("", TxtToExcelHelper.TruncationMessage(3, 3, false));
+        }
     }
 }

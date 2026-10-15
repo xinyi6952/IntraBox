@@ -32,10 +32,13 @@ namespace IntraBox.Modules.Formatter
         private readonly DispatcherTimer _debounce = new DispatcherTimer();
         private bool _restoring;
 
+        // 超过 OverlayFormatChars（30 万字符）先出「格式化中…」再后台做。
+        // 更小的仍同步，避免连输时后台化丢结果。LargeFormatChars 保留为同一门槛。
+        private const int OverlayFormatChars = 300000;
         // 大文本后台格式化：取消 + 版本号丢弃过期结果。仅当输入超过 LargeFormatChars 时启用，
         // 小文本仍同步执行（毫秒级，避免后台化在快速连输时误丢有效结果）。
         private readonly AsyncTaskGate _gate = new AsyncTaskGate();
-        private const int LargeFormatChars = 1_000_000;
+        private const int LargeFormatChars = OverlayFormatChars;
 
         private void CancelPending()
         {
@@ -122,27 +125,68 @@ namespace IntraBox.Modules.Formatter
 
             bool compress = CompressCheck.IsChecked == true;
             string indent = GetIndent();
+            int escapeMode = EscapeMode();
 
-            // 小文本（<= 1M 字符）同步格式化：毫秒级，避免后台化在快速连输时误丢有效结果。
-            // 大文本走后台 + 遮罩 + 取消，避免 UI 长时间未响应。
+            // 不超过 30 万字符时同步格式化，避免后台化在快速连输时误丢有效结果。
+            // 超过则后台 + 遮罩「格式化中…」。
             if (input.Length <= LargeFormatChars)
             {
-                FormatSync(f, input, compress, indent);
+                FormatSync(f, input, compress, indent, escapeMode);
             }
             else
             {
-                FormatLarge(f, input, compress, indent);
+                FormatLarge(f, input, compress, indent, escapeMode);
             }
         }
 
-        private void FormatSync(ITextFormatter f, string input, bool compress, string indent)
+        /// <summary>0 不处理，1 去转义后再格式化，2 只转义。</summary>
+        private int EscapeMode()
+        {
+            if (EscapeCombo == null) return 0;
+            int mode = EscapeCombo.SelectedIndex;
+            if (mode < 0 || mode > 2) return 0;
+            return mode;
+        }
+
+        private static void Produce(ITextFormatter f, string input, bool compress, string indent, int escapeMode,
+            out string result, out string error)
+        {
+            result = null;
+            error = null;
+            string text = input ?? "";
+            var kind = TextEscapeHelper.KindForFormat(f.FormatName);
+            if (escapeMode == 2)
+            {
+                result = TextEscapeHelper.Escape(text, kind);
+                return;
+            }
+            if (escapeMode == 1)
+                text = TextEscapeHelper.Unescape(text, kind);
+
+            string fmtErr;
+            string formatted = compress ? f.Minify(text, out fmtErr) : f.Beautify(text, indent, out fmtErr);
+            if (fmtErr != null)
+            {
+                if (escapeMode == 1)
+                {
+                    result = text;
+                    error = "已去转义。按当前格式继续处理失败：" + fmtErr;
+                    return;
+                }
+                error = fmtErr;
+                return;
+            }
+            result = formatted;
+        }
+
+        private void FormatSync(ITextFormatter f, string input, bool compress, string indent, int escapeMode)
         {
             CancelPending();
             string error = null;
             string result;
             try
             {
-                result = compress ? f.Minify(input, out error) : f.Beautify(input, indent, out error);
+                Produce(f, input, compress, indent, escapeMode, out result, out error);
             }
             catch (OutOfMemoryException)
             {
@@ -159,7 +203,8 @@ namespace IntraBox.Modules.Formatter
 
             if (error != null)
             {
-                ShowError("错误：" + error);
+                ShowError(error.StartsWith("已去转义") ? error : "错误：" + error);
+                if (result != null) OutputBox.Text = result;
                 return;
             }
 
@@ -176,7 +221,7 @@ namespace IntraBox.Modules.Formatter
             }
         }
 
-        private async void FormatLarge(ITextFormatter f, string input, bool compress, string indent)
+        private async void FormatLarge(ITextFormatter f, string input, bool compress, string indent, int escapeMode)
         {
             CancelPending();
             int version = _gate.Bump();
@@ -193,7 +238,11 @@ namespace IntraBox.Modules.Formatter
                 result = await Task.Run(() =>
                 {
                     token.ThrowIfCancellationRequested();
-                    return compress ? f.Minify(input, out error) : f.Beautify(input, indent, out error);
+                    string produced;
+                    string producedError;
+                    Produce(f, input, compress, indent, escapeMode, out produced, out producedError);
+                    error = producedError;
+                    return produced;
                 }, token);
             }
             catch (OperationCanceledException) { return; }
@@ -222,7 +271,8 @@ namespace IntraBox.Modules.Formatter
 
             if (error != null)
             {
-                ShowError("错误：" + error);
+                ShowError(error.StartsWith("已去转义") ? error : "错误：" + error);
+                if (result != null) OutputBox.Text = result;
                 LoadingOverlay.Hide(this);
                 return;
             }
@@ -316,6 +366,7 @@ namespace IntraBox.Modules.Formatter
             SetComboIndex(FormatCombo, HistoryManager.GetInt(state, "format", 0));
             SetComboIndex(IndentCombo, HistoryManager.GetInt(state, "indent", 0));
             CompressCheck.IsChecked = HistoryManager.GetBool(state, "compress", false);
+            SetComboIndex(EscapeCombo, HistoryManager.GetInt(state, "escape", 0));
             InputBox.Text = HistoryManager.GetString(state, "input");
             _restoring = false;
             Run();
@@ -334,7 +385,8 @@ namespace IntraBox.Modules.Formatter
                 { "input", input },
                 { "format", FormatCombo.SelectedIndex },
                 { "indent", IndentCombo.SelectedIndex },
-                { "compress", CompressCheck.IsChecked == true }
+                { "compress", CompressCheck.IsChecked == true },
+                { "escape", EscapeMode() }
             });
         }
 

@@ -40,6 +40,8 @@ namespace IntraBox.Modules.Settings
         private bool _loadedRestoreLast;
         private bool _loadedTrayUnload;
         private bool _loadedSkipClipImgPark;
+        private bool _loadedTodoMuteConfirm;
+        private int _loadedWebView2Choice;
         private int _loadedTrayIdle;
         private int _loadedTrimHigh;
         private int _loadedTrimLow;
@@ -89,6 +91,10 @@ namespace IntraBox.Modules.Settings
             RestoreLastCheck.IsChecked = s.RestoreLastModuleOnStartup;
             TrayUnloadCheck.IsChecked = s.TrayIdleUnloadModule;
             SkipClipImgParkCheck.IsChecked = s.ClipboardSkipImagesWhenHidden;
+            if (TodoMuteConfirmCheck != null)
+                TodoMuteConfirmCheck.IsChecked = s.TodoMuteNeedsConfirm;
+            if (WebView2ChoiceCombo != null)
+                WebView2ChoiceCombo.SelectedIndex = WebView2Pack.NormalizeChoice(s.WebView2PreviewChoice);
             int idle = MemoryTrimPolicy.ClampIdleSec(s.TrayIdleReleaseSec);
             TrayIdleSlider.Value = idle;
             UpdateTrayIdleLabel(idle);
@@ -139,6 +145,12 @@ namespace IntraBox.Modules.Settings
             return sb.ToString();
         }
 
+        private int CurrentWebView2Choice()
+        {
+            if (WebView2ChoiceCombo == null) return WebView2Pack.ChoiceAsk;
+            return WebView2Pack.NormalizeChoice(WebView2ChoiceCombo.SelectedIndex);
+        }
+
         private void RememberClean()
         {
             _loadedMb = SizeLimits.ClampMb((int)SizeSlider.Value);
@@ -148,6 +160,8 @@ namespace IntraBox.Modules.Settings
             _loadedRestoreLast = RestoreLastCheck != null && RestoreLastCheck.IsChecked == true;
             _loadedTrayUnload = TrayUnloadCheck != null && TrayUnloadCheck.IsChecked == true;
             _loadedSkipClipImgPark = SkipClipImgParkCheck != null && SkipClipImgParkCheck.IsChecked == true;
+            _loadedTodoMuteConfirm = TodoMuteConfirmCheck != null && TodoMuteConfirmCheck.IsChecked == true;
+            _loadedWebView2Choice = CurrentWebView2Choice();
             _loadedTrayIdle = MemoryTrimPolicy.ClampIdleSec((int)TrayIdleSlider.Value);
             _loadedTrimHigh = MemoryTrimPolicy.ClampHighMb((int)TrimHighSlider.Value);
             _loadedTrimLow = MemoryTrimPolicy.ClampLowMb((int)TrimLowSlider.Value, _loadedTrimHigh);
@@ -166,12 +180,16 @@ namespace IntraBox.Modules.Settings
             bool restoreLast = RestoreLastCheck != null && RestoreLastCheck.IsChecked == true;
             bool trayUnload = TrayUnloadCheck != null && TrayUnloadCheck.IsChecked == true;
             bool skipImg = SkipClipImgParkCheck != null && SkipClipImgParkCheck.IsChecked == true;
+            bool muteConfirm = TodoMuteConfirmCheck != null && TodoMuteConfirmCheck.IsChecked == true;
+            int webViewChoice = CurrentWebView2Choice();
             int idle = MemoryTrimPolicy.ClampIdleSec((int)TrayIdleSlider.Value);
             int high = MemoryTrimPolicy.ClampHighMb((int)TrimHighSlider.Value);
             int low = MemoryTrimPolicy.ClampLowMb((int)TrimLowSlider.Value, high);
             return mb != _loadedMb || clip != _loadedClip || clipImg != _loadedClipImages || delay != _loadedHistoryDelay
                 || vaultClip != _loadedVaultClip
                 || restoreLast != _loadedRestoreLast || trayUnload != _loadedTrayUnload || skipImg != _loadedSkipClipImgPark
+                || muteConfirm != _loadedTodoMuteConfirm
+                || webViewChoice != _loadedWebView2Choice
                 || idle != _loadedTrayIdle || high != _loadedTrimHigh || low != _loadedTrimLow
                 || CurrentVisKey() != _loadedVis || CurrentSortKey() != _loadedSort;
         }
@@ -897,6 +915,8 @@ namespace IntraBox.Modules.Settings
             ConfigManager.Instance.Settings.RestoreLastModuleOnStartup = RestoreLastCheck != null && RestoreLastCheck.IsChecked == true;
             ConfigManager.Instance.Settings.TrayIdleUnloadModule = TrayUnloadCheck != null && TrayUnloadCheck.IsChecked == true;
             ConfigManager.Instance.Settings.ClipboardSkipImagesWhenHidden = SkipClipImgParkCheck != null && SkipClipImgParkCheck.IsChecked == true;
+            ConfigManager.Instance.Settings.TodoMuteNeedsConfirm = TodoMuteConfirmCheck != null && TodoMuteConfirmCheck.IsChecked == true;
+            ConfigManager.Instance.Settings.WebView2PreviewChoice = CurrentWebView2Choice();
             int idle = MemoryTrimPolicy.ClampIdleSec((int)TrayIdleSlider.Value);
             int high = MemoryTrimPolicy.ClampHighMb((int)TrimHighSlider.Value);
             SyncTrimLowSliderMax(high);

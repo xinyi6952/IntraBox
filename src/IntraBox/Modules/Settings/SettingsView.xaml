@@ -94,7 +94,7 @@
                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
                            Foreground="{DynamicResource TextSecondaryBrush}"
-                           Text="藏到托盘时立即压缩工作集。空闲超时后，无未保存内容则卸载当前工具（再打开从状态记忆恢复）；有未保存则只压工作集、卸预览文档。工作集达到高水位且已在托盘时再回收，落到低水位则停止。不会弹内存告警。切换轻工具不压工作集，避免导航抖动。"/>
+                           Text="刚藏到托盘不立刻清空工作集。空闲超时后压缩工作集；无未保存内容则卸载当前工具（再打开先出界面，再从状态记忆恢复）；有未保存则只压工作集、卸预览文档。工作集达到高水位且已在托盘时再回收，落到低水位则停止。不会弹内存告警。切换轻工具不压工作集，避免导航抖动。"/>
                 <CheckBox x:Name="RestoreLastCheck" Margin="0,0,0,8"
                           Content="启动时打开上次使用的工具"
                           Checked="MemOpt_Changed" Unchecked="MemOpt_Changed"/>
@@ -134,6 +134,26 @@
                     <TextBlock x:Name="TrimLowLabel" Margin="12,0,0,0" VerticalAlignment="Center"
                                FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
                 </StackPanel>
+
+                <TextBlock Text="任务计划" FontWeight="SemiBold" Margin="0,0,0,6"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <CheckBox x:Name="TodoMuteConfirmCheck" Margin="0,0,0,6"
+                          Content="「今日不再提醒」需要二次确认"/>
+                <TextBlock TextWrapping="Wrap" Margin="0,0,0,20"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="默认不勾选：点提醒窗上的「今日不再提醒」后当天直接不再弹。勾选后会再问一次，避免误点。"/>
+
+                <TextBlock Text="Markdown / 笔记预览" FontWeight="SemiBold" Margin="0,0,0,6"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <ComboBox x:Name="WebView2ChoiceCombo" Width="280" HorizontalAlignment="Left"
+                          Margin="0,0,0,6">
+                    <ComboBoxItem Content="打开预览时再问"/>
+                    <ComboBoxItem Content="使用随包 Edge（首次解压）"/>
+                    <ComboBoxItem Content="使用 IE，不解压"/>
+                </ComboBox>
+                <TextBlock TextWrapping="Wrap" Margin="0,0,0,20"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="只影响预览画面。选 Edge 时，第一次真正打开预览才解压到程序目录（约 670 MB），压缩包仍保留；已经解压过的不会重来。选 IE 则不占这部分空间。Windows 7 始终用 IE。笔记、待办和历史数据不动。"/>
 
                 <TextBlock Text="截屏快捷键" FontWeight="SemiBold" Margin="0,0,0,6"
                            Foreground="{DynamicResource TextPrimaryBrush}"/>

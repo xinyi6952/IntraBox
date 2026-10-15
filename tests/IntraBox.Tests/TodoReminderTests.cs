@@ -294,6 +294,12 @@ namespace IntraBox.Tests
         }
 
         [TestMethod]
+        public void AutoCloseSec_未操作一分钟后关窗()
+        {
+            Assert.AreEqual(60, TodoRemindRepeat.AutoCloseSec);
+        }
+
+        [TestMethod]
         public void RegisterFire_三次后用尽_稍后也不弹_次日再弹()
         {
             var at = new DateTime(2026, 9, 6, 17, 35, 0);

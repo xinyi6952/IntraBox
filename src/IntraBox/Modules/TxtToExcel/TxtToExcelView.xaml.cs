@@ -30,6 +30,7 @@ namespace IntraBox.Modules.TxtToExcel
         private readonly DispatcherTimer _debounce = new DispatcherTimer();
         private bool _restoring;
         private bool _previewMax;
+        private int _rowLimit = TxtToExcelHelper.DefaultRowLimit;
 
         private void CancelPending()
         {
@@ -122,6 +123,7 @@ namespace IntraBox.Modules.TxtToExcel
                 _table = null;
                 PreviewGrid.ItemsSource = null;
                 PreviewGrid.Columns.Clear();
+                SetMsg("", false);
                 return;
             }
 
@@ -133,6 +135,8 @@ namespace IntraBox.Modules.TxtToExcel
             }
 
             var options = BuildOptions(text);
+            int rowLimit = CurrentRowLimit();
+            bool safety = rowLimit >= TxtToExcelHelper.SafetyRowCap;
 
             CancelPending();
             int version = _gate.Bump();
@@ -140,17 +144,55 @@ namespace IntraBox.Modules.TxtToExcel
             _gate.Current = cts;
             var token = cts.Token;
 
-            DataTable table;
+            TxtParseResult parsed;
             try
             {
-                table = await Task.Run(() => TxtToExcelHelper.Parse(text, options), token);
+                parsed = await Task.Run(() => TxtToExcelHelper.ParseLimited(text, options, rowLimit), token);
             }
             catch (OperationCanceledException) { return; }
             catch (Exception ex) { if (version == _gate.Version) SetMsg("解析失败：" + ex.RootMessage(), true); return; }
 
-            if (version != _gate.Version) return;
-            _table = table;
-            BindPreview(table);
+            if (version != _gate.Version || parsed == null) return;
+            _table = parsed.Table;
+            BindPreview(parsed.Table);
+            string note = TxtToExcelHelper.TruncationMessage(parsed.TotalRows, parsed.KeptRows, safety && parsed.Truncated);
+            SetMsg(note, false);
+        }
+
+        private int CurrentRowLimit()
+        {
+            bool on = RowLimitCheck == null || RowLimitCheck.IsChecked == true;
+            return TxtToExcelHelper.EffectiveRowLimit(on, _rowLimit);
+        }
+
+        private void RowLimit_Changed(object sender, RoutedEventArgs e)
+        {
+            ApplyRowLimitUi();
+            if (_restoring || RowLimitCheck == null) return;
+            ParsePreview();
+        }
+
+        private void RowLimitBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_restoring || RowLimitBox == null) return;
+            int n;
+            string raw = (RowLimitBox.Text ?? "").Trim();
+            if (int.TryParse(raw, out n) && n >= TxtToExcelHelper.MinRowLimit && n <= TxtToExcelHelper.MaxRowLimit)
+            {
+                RowLimitBox.Text = n.ToString();
+                if (n == _rowLimit) return;
+                _rowLimit = n;
+                if (RowLimitCheck != null && RowLimitCheck.IsChecked == true)
+                    ParsePreview();
+                return;
+            }
+            RowLimitBox.Text = _rowLimit.ToString();
+        }
+
+        private void ApplyRowLimitUi()
+        {
+            if (RowLimitBox == null) return;
+            RowLimitBox.IsEnabled = RowLimitCheck == null || RowLimitCheck.IsChecked == true;
         }
 
         private TxtToExcelOptions BuildOptions(string text)
@@ -268,15 +310,41 @@ namespace IntraBox.Modules.TxtToExcel
             menu.Items.Add(item);
         }
 
-        private void Copy_Click(object sender, RoutedEventArgs e)
+        private async void Copy_Click(object sender, RoutedEventArgs e)
         {
             if (_table == null || _table.Rows.Count == 0)
             {
                 SetMsg("没有可复制的数据", true);
                 return;
             }
-            string tsv = TxtToExcelHelper.ToTsv(_table, _formats);
-            string html = TxtToExcelHelper.ToClipboardHtml(_table, _formats);
+            var table = _table;
+            var formats = _formats;
+            string tsv;
+            string html;
+            if (table.Rows.Count > TxtToExcelHelper.DefaultRowLimit)
+            {
+                SetBusy("正在复制…");
+                try
+                {
+                    var built = await Task.Run(() => new ClipboardPayload
+                    {
+                        Tsv = TxtToExcelHelper.ToTsv(table, formats),
+                        Html = TxtToExcelHelper.ToClipboardHtml(table, formats)
+                    });
+                    tsv = built.Tsv;
+                    html = built.Html;
+                }
+                catch (Exception ex)
+                {
+                    SetMsg("复制失败：" + ex.RootMessage(), true);
+                    return;
+                }
+            }
+            else
+            {
+                tsv = TxtToExcelHelper.ToTsv(table, formats);
+                html = TxtToExcelHelper.ToClipboardHtml(table, formats);
+            }
             if (string.IsNullOrEmpty(tsv))
             {
                 SetMsg("没有可复制的列（均已设为不导入）", true);
@@ -411,6 +479,10 @@ namespace IntraBox.Modules.TxtToExcel
             ConsecutiveCheck.IsChecked = HistoryManager.GetBool(state, "consecutive", false);
             KeywordBox.Text = HistoryManager.GetString(state, "keyword");
             WidthBox.Text = HistoryManager.GetString(state, "widths");
+            RowLimitCheck.IsChecked = HistoryManager.GetBool(state, "rowLimitOn", true);
+            _rowLimit = TxtToExcelHelper.NormalizeRowLimit(HistoryManager.GetInt(state, "rowLimit", TxtToExcelHelper.DefaultRowLimit));
+            RowLimitBox.Text = _rowLimit.ToString();
+            ApplyRowLimitUi();
             _pendingFormats = HistoryManager.GetString(state, "formats");
             InputBox.Text = HistoryManager.GetString(state, "input");
             UpdateOptionVisibility();
@@ -431,8 +503,16 @@ namespace IntraBox.Modules.TxtToExcel
                 { "consecutive", ConsecutiveCheck.IsChecked == true },
                 { "keyword", KeywordBox.Text ?? "" },
                 { "widths", WidthBox.Text ?? "" },
+                { "rowLimitOn", RowLimitCheck.IsChecked == true },
+                { "rowLimit", _rowLimit },
                 { "formats", TxtToExcelHelper.FormatsToString(_formats) }
             });
+        }
+
+        private sealed class ClipboardPayload
+        {
+            public string Tsv;
+            public string Html;
         }
 
         private static void SetComboIndex(ComboBox combo, int index)

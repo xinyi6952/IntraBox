@@ -19,6 +19,38 @@ namespace IntraBox.Modules.Vault
         private static int _inflight;
         private static bool _loaded;
         private static bool _writeBlocked;
+        private static string _corruptNotice;
+        private static string _blockReason;
+
+        public static string TakeCorruptNotice()
+        {
+            lock (_sync)
+            {
+                string s = _corruptNotice;
+                _corruptNotice = null;
+                return s;
+            }
+        }
+
+        public static string WriteBlockedNotice
+        {
+            get
+            {
+                if (!_writeBlocked) return null;
+                return "当前无法写盘，本次修改不会保存：" + (string.IsNullOrEmpty(_blockReason) ? "数据文件损坏且无法备份" : _blockReason);
+            }
+        }
+
+        /// <summary>写盘被阻断时通知界面（状态栏，不弹窗）。回调在 UI 线程。</summary>
+        public static event Action<string> WriteRejected;
+
+        /// <summary>若已停止写盘，通知界面并返回提示；否则返回 null。</summary>
+        public static string BlockedMessage()
+        {
+            string msg = WriteBlockedNotice;
+            if (msg != null) RejectWrite();
+            return msg;
+        }
         private static bool _sampleSeeded;
 
         public static void Reload()
@@ -175,6 +207,8 @@ namespace IntraBox.Modules.Vault
                 if (existing != null && existing.ReadOnly)
                     return "已锁定，不能保存";
             }
+            string blocked = BlockedMessage();
+            if (!string.IsNullOrEmpty(blocked)) return blocked;
             if (body == null) body = NewEmptyBody();
             var kept = new List<VaultEntry>();
             if (body.Entries != null)
@@ -351,13 +385,21 @@ namespace IntraBox.Modules.Vault
             {
                 _items = new List<VaultItem>();
                 _sampleSeeded = false;
-                if (!DataFileGuard.TryQuarantine(path))
+                string bak;
+                if (!DataFileGuard.TryQuarantine(path, out bak))
+                {
                     _writeBlocked = true;
+                    _blockReason = "无法把损坏文件改名为备份";
+                    _corruptNotice = "数据文件损坏，且无法备份，已停止写入";
+                }
                 else
                 {
+                    _corruptNotice = string.IsNullOrEmpty(bak)
+                        ? "数据文件损坏，已丢弃无法读取的内容"
+                        : "数据文件损坏，已备份为 " + Path.GetFileName(bak);
                     _sampleSeeded = true;
                     try { WriteLocked(); }
-                    catch { }
+                    catch (Exception ex) { AppLog.Error("密码库索引损坏后重写失败", ex); }
                 }
             }
             else if (!_sampleSeeded)
@@ -483,7 +525,11 @@ namespace IntraBox.Modules.Vault
 
         private static void WriteLocked()
         {
-            if (_writeBlocked) return;
+            if (_writeBlocked)
+            {
+                RejectWrite();
+                return;
+            }
             Directory.CreateDirectory(DataPaths.VaultDir);
             var file = new VaultIndexFile
             {
@@ -497,6 +543,23 @@ namespace IntraBox.Modules.Vault
             File.WriteAllText(tmp, json, Encoding.UTF8);
             File.Copy(tmp, path, true);
             try { File.Delete(tmp); } catch { }
+        }
+
+        private static void RejectWrite()
+        {
+            string msg = WriteBlockedNotice;
+            var handler = WriteRejected;
+            if (string.IsNullOrEmpty(msg) || handler == null) return;
+            Action fire = () =>
+            {
+                try { handler(msg); }
+                catch (Exception ex) { AppLog.Error("密码库写盘阻断通知失败", ex); }
+            };
+            var app = System.Windows.Application.Current;
+            if (app != null && app.Dispatcher != null)
+                app.Dispatcher.BeginInvoke(fire);
+            else
+                fire();
         }
 
         private static VaultBody ReadBodyFileLocked(string uid)

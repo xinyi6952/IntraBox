@@ -40,8 +40,11 @@ namespace IntraBox.Modules.Vault
 
         public void OnActivated()
         {
+            VaultStore.WriteRejected -= OnStoreWriteRejected;
+            VaultStore.WriteRejected += OnStoreWriteRejected;
             RefreshList();
             OpenPending();
+            ShowStoreNotice();
         }
 
         public void OpenPending()
@@ -58,7 +61,21 @@ namespace IntraBox.Modules.Vault
                 && DrawerEditor != null && DrawerEditor.AutoSaveEnabled)
                 DrawerEditor.FlushSilent();
             VaultStore.Flush();
-            DrawerEditor.ForgetSession();
+            if (DrawerEditor != null) DrawerEditor.ForgetSession();
+            VaultStore.WriteRejected -= OnStoreWriteRejected;
+        }
+
+        private void OnStoreWriteRejected(string msg)
+        {
+            if (string.IsNullOrEmpty(msg) || MsgText == null) return;
+            FormHint.Apply(MsgText, msg, true);
+        }
+
+        private void ShowStoreNotice()
+        {
+            string n = VaultStore.TakeCorruptNotice();
+            if (string.IsNullOrEmpty(n)) n = VaultStore.WriteBlockedNotice;
+            if (!string.IsNullOrEmpty(n)) FormHint.Apply(MsgText, n, true);
         }
 
         public bool CanLeave()

@@ -64,7 +64,7 @@
                     <Border.ToolTip>
                         <ToolTip>
                             <TextBlock Style="{StaticResource MetricHelpTip}"
-                                       Text="此刻还在物理内存里的页，和任务管理器「内存」、状态栏「内存 n MB」同一口径。点「回收内存」或把窗口藏到托盘，主要压的就是它：把空闲页交还系统，数字会下降；随后再用到还会涨回来。"/>
+                                       Text="此刻还在物理内存里的页，和任务管理器「内存」、状态栏「内存 n MB」同一口径。点「回收内存」，或在托盘里空闲超时后，主要压的就是它：把空闲页交还系统，数字会下降；随后再用到还会涨回来。"/>
                         </ToolTip>
                     </Border.ToolTip>
                     <TextBlock Style="{StaticResource MetricHelpMark}"/>
@@ -78,7 +78,7 @@
                     <Border.ToolTip>
                         <ToolTip>
                             <TextBlock Style="{StaticResource MetricHelpTip}"
-                                       Text="进程向系统提交、尚未释放的私有虚拟内存，不是任务管理器那一列「内存」。可以大部分被换出：挂到托盘并回收后，占不算物理 RAM 的是工作集；专用数字高只说明曾经用过网页控件或图片缓冲，不等于一直占着那么多物理内存。Markdown 预览等用到的网页控件（IE）会占一大块，不进下面的托管堆；首次打开 Markdown 预览后，IE 引擎会常驻两三百 MB 提交，直到退出程序。点「回收内存」或藏到托盘一般降不下这个数字。"/>
+                                       Text="进程向系统提交、尚未释放的私有虚拟内存，不是任务管理器那一列「内存」。可以大部分被换出：托盘空闲回收后，占不算物理 RAM 的是工作集；专用数字高只说明曾经用过网页控件或图片缓冲，不等于一直占着那么多物理内存。Markdown 预览等用到的网页控件（IE）会占一大块，不进下面的托管堆；首次打开 Markdown 预览后，IE 引擎会常驻两三百 MB 提交，直到退出程序。点「回收内存」或藏到托盘一般降不下这个数字。"/>
                         </ToolTip>
                     </Border.ToolTip>
                     <TextBlock Style="{StaticResource MetricHelpMark}"/>
@@ -120,7 +120,7 @@
                 <Button.ToolTip>
                     <ToolTip>
                         <TextBlock Style="{StaticResource MetricHelpTip}"
-                                   Text="强制回收 .NET 对象，并把空闲页从工作集交还系统（任务管理器「内存」会下降）。不会拆掉网页控件、剪贴板原图等已经提交的专用内存，所以专用内存往往几乎不变。藏到托盘时也会做同样的回收。"/>
+                                   Text="强制回收 .NET 对象，并把空闲页从工作集交还系统（任务管理器「内存」会下降）。不会拆掉网页控件、剪贴板原图等已经提交的专用内存，所以专用内存往往几乎不变。托盘里空闲超时后也会做同样的回收。"/>
                     </ToolTip>
                 </Button.ToolTip>
             </Button>

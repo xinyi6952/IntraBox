@@ -249,6 +249,8 @@ namespace IntraBox.Core
             return snap;
         }
 
+        private static int _writeFails;
+
         private static void WriteFile(Dictionary<string, Dictionary<string, object>> snap)
         {
             if (snap == null) return;
@@ -256,8 +258,13 @@ namespace IntraBox.Core
             {
                 var json = JsonConvert.SerializeObject(snap);
                 File.WriteAllText(FilePath, json);
+                _writeFails = 0;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _writeFails++;
+                AppLog.Error("历史状态写入失败（连续 " + _writeFails + " 次）", ex);
+            }
         }
 
         private static void CancelTimerLocked()

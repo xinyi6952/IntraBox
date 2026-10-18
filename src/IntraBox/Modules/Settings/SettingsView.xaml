@@ -147,13 +147,12 @@
                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <ComboBox x:Name="WebView2ChoiceCombo" Width="280" HorizontalAlignment="Left"
                           Margin="0,0,0,6">
-                    <ComboBoxItem Content="打开预览时再问"/>
-                    <ComboBoxItem Content="使用随包 Edge（首次解压）"/>
-                    <ComboBoxItem Content="使用 IE，不解压"/>
+                    <ComboBoxItem Content="程序目录有 Edge 内核时使用"/>
+                    <ComboBoxItem Content="始终使用 IE"/>
                 </ComboBox>
                 <TextBlock TextWrapping="Wrap" Margin="0,0,0,20"
                            Foreground="{DynamicResource TextSecondaryBrush}"
-                           Text="只影响预览画面。选 Edge 时，第一次真正打开预览才解压到程序目录（约 670 MB），压缩包仍保留；已经解压过的不会重来。选 IE 则不占这部分空间。Windows 7 始终用 IE。笔记、待办和历史数据不动。"/>
+                           Text="安装包不含 Edge。把含 msedgewebview2.exe 的文件夹放到 IntraBox.exe 旁边，并命名为 WebView2Runtime，再打开预览就会用 Edge。没有该目录则用 IE。选「始终使用 IE」时即使放了内核也不加载。Windows 7 始终用 IE。笔记、待办和历史数据不动。"/>
 
                 <TextBlock Text="截屏快捷键" FontWeight="SemiBold" Margin="0,0,0,6"
                            Foreground="{DynamicResource TextPrimaryBrush}"/>

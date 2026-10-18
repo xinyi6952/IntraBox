@@ -40,6 +40,8 @@ namespace IntraBox.Modules.FileSearch
         }
 
         private readonly List<Hit> _hits = new List<Hit>();
+        private List<FilePathTree.Node> _nodes = new List<FilePathTree.Node>();
+        private readonly HashSet<string> _collapsed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public FileSearchView()
         {
@@ -58,7 +60,7 @@ namespace IntraBox.Modules.FileSearch
             }
             if (string.IsNullOrWhiteSpace(DirBox.Text))
                 DirBox.Text = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            FormHint.Apply(MsgText, "输入关键字或通配符后搜索。结果按目录树展示。双击文件或点「定位到文件夹」打开资源管理器。");
+            FormHint.Apply(MsgText, "输入关键字或通配符后搜索。结果按树形表格展示。双击文件或点「定位到文件夹」打开资源管理器。");
         }
 
         public void OnDeactivated()
@@ -136,6 +138,7 @@ namespace IntraBox.Modules.FileSearch
 
             _hits.Clear();
             _hits.AddRange(result.Hits);
+            _collapsed.Clear();
             FormHint.Apply(MsgText, result.Message);
             LoadingOverlay.Hide(this);
             BindTree();
@@ -153,12 +156,28 @@ namespace IntraBox.Modules.FileSearch
                 leaves.Add(new FilePathTree.Leaf
                 {
                     FullPath = h.FullPath,
-                    Detail = (h.SizeText ?? "") + "    " + (h.ModifiedText ?? ""),
+                    Detail = h.SizeText ?? "",
+                    Extra = h.ModifiedText ?? "",
                     Payload = h
                 });
             }
             string root = DirBox != null ? DirBox.Text : "";
-            ResultTree.ItemsSource = FilePathTree.Build(root, leaves);
+            _nodes = FilePathTree.Build(root, leaves);
+            List<FilePathTree.FlatRow> flat = FilePathTree.Flatten(_nodes, _collapsed);
+            var rows = new List<SearchRow>();
+            for (int i = 0; i < flat.Count; i++)
+                rows.Add(SearchRow.From(flat[i]));
+            ResultGrid.ItemsSource = rows;
+        }
+
+        private void Expand_Click(object sender, MouseButtonEventArgs e)
+        {
+            var host = sender as FrameworkElement;
+            var row = host != null ? host.DataContext as SearchRow : null;
+            if (row == null || string.IsNullOrEmpty(row.Key) || !row.HasChildren) return;
+            if (!_collapsed.Add(row.Key)) _collapsed.Remove(row.Key);
+            BindTree();
+            e.Handled = true;
         }
 
         private static bool HitMatches(Hit h, string kw)
@@ -219,15 +238,16 @@ namespace IntraBox.Modules.FileSearch
             OpenSelected();
         }
 
-        private void ResultTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        private void ResultGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            var node = ResultTree.SelectedItem as FilePathTree.Node;
-            if (node != null && node.IsFile) OpenSelected();
+            var row = ResultGrid.SelectedItem as SearchRow;
+            if (row != null && row.Node != null && row.Node.IsFile) OpenSelected();
         }
 
         private void OpenSelected()
         {
-            var node = ResultTree.SelectedItem as FilePathTree.Node;
+            var row = ResultGrid.SelectedItem as SearchRow;
+            var node = row != null ? row.Node : null;
             if (node == null || !node.IsFile || string.IsNullOrEmpty(node.FullPath))
             {
                 FormHint.Apply(MsgText, "请先选中一个文件。");
@@ -270,6 +290,39 @@ namespace IntraBox.Modules.FileSearch
             public string FullPath { get; set; }
             public string SizeText { get; set; }
             public string ModifiedText { get; set; }
+        }
+
+        private sealed class SearchRow
+        {
+            public FilePathTree.Node Node { get; set; }
+            public string Key { get; set; }
+            public bool HasChildren { get; set; }
+            public string Name { get; set; }
+            public string SizeText { get; set; }
+            public string ModifiedText { get; set; }
+            public string PathText { get; set; }
+            public Thickness Indent { get; set; }
+            public Visibility ExpanderVisibility { get; set; }
+            public string ExpanderGlyph { get; set; }
+
+            public static SearchRow From(FilePathTree.FlatRow flat)
+            {
+                FilePathTree.Node node = flat.Node;
+                bool file = node != null && node.IsFile;
+                return new SearchRow
+                {
+                    Node = node,
+                    Key = flat.Key,
+                    HasChildren = flat.HasChildren,
+                    Name = node != null ? node.Name : "",
+                    SizeText = file ? (node.Detail ?? "") : "",
+                    ModifiedText = file ? (node.Extra ?? "") : "",
+                    PathText = node != null ? (node.FullPath ?? "") : "",
+                    Indent = new Thickness(flat.Depth * 16, 0, 0, 0),
+                    ExpanderVisibility = flat.HasChildren ? Visibility.Visible : Visibility.Collapsed,
+                    ExpanderGlyph = flat.Expanded ? "−" : "+"
+                };
+            }
         }
     }
 }

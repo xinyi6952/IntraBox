@@ -94,7 +94,10 @@ namespace IntraBox.Modules.Settings
             if (TodoMuteConfirmCheck != null)
                 TodoMuteConfirmCheck.IsChecked = s.TodoMuteNeedsConfirm;
             if (WebView2ChoiceCombo != null)
-                WebView2ChoiceCombo.SelectedIndex = WebView2Pack.NormalizeChoice(s.WebView2PreviewChoice);
+            {
+                int choice = WebView2Pack.NormalizeChoice(s.WebView2PreviewChoice);
+                WebView2ChoiceCombo.SelectedIndex = choice == WebView2Pack.ChoiceSkip ? 1 : 0;
+            }
             int idle = MemoryTrimPolicy.ClampIdleSec(s.TrayIdleReleaseSec);
             TrayIdleSlider.Value = idle;
             UpdateTrayIdleLabel(idle);
@@ -148,7 +151,8 @@ namespace IntraBox.Modules.Settings
         private int CurrentWebView2Choice()
         {
             if (WebView2ChoiceCombo == null) return WebView2Pack.ChoiceAsk;
-            return WebView2Pack.NormalizeChoice(WebView2ChoiceCombo.SelectedIndex);
+            if (WebView2ChoiceCombo.SelectedIndex == 1) return WebView2Pack.ChoiceSkip;
+            return WebView2Pack.ChoiceAsk;
         }
 
         private void RememberClean()

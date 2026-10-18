@@ -49,5 +49,45 @@ namespace IntraBox.Tests
             Assert.AreEqual(0, FilePathTree.Build(@"D:\work", null).Count);
             Assert.AreEqual(0, FilePathTree.Build(@"D:\work", new List<FilePathTree.Leaf>()).Count);
         }
+
+        [TestMethod]
+        public void Flatten_默认全部展开_子节点带深度()
+        {
+            List<FilePathTree.Node> top = Sample();
+            List<FilePathTree.FlatRow> rows = FilePathTree.Flatten(top, null);
+            Assert.AreEqual(4, rows.Count);
+            Assert.AreEqual("d:a", rows[0].Key);
+            Assert.AreEqual(0, rows[0].Depth);
+            Assert.IsTrue(rows[0].Expanded);
+            Assert.AreEqual("1.txt", rows[1].Node.Name);
+            Assert.AreEqual(1, rows[1].Depth);
+            Assert.AreEqual("size", rows[1].Node.Detail);
+            Assert.AreEqual("time", rows[1].Node.Extra);
+            Assert.AreEqual("b.txt", rows[3].Node.Name);
+        }
+
+        [TestMethod]
+        public void Flatten_折叠目录_不列出其子节点()
+        {
+            List<FilePathTree.Node> top = Sample();
+            var collapsed = new HashSet<string>();
+            collapsed.Add("d:a");
+            List<FilePathTree.FlatRow> rows = FilePathTree.Flatten(top, collapsed);
+            Assert.AreEqual(2, rows.Count);
+            Assert.AreEqual("a", rows[0].Node.Name);
+            Assert.IsFalse(rows[0].Expanded);
+            Assert.AreEqual("b.txt", rows[1].Node.Name);
+        }
+
+        private static List<FilePathTree.Node> Sample()
+        {
+            var leaves = new List<FilePathTree.Leaf>
+            {
+                new FilePathTree.Leaf { FullPath = @"D:\work\a\1.txt", Detail = "size", Extra = "time" },
+                new FilePathTree.Leaf { FullPath = @"D:\work\a\2.txt" },
+                new FilePathTree.Leaf { FullPath = @"D:\work\b.txt" }
+            };
+            return FilePathTree.Build(@"D:\work", leaves);
+        }
     }
 }

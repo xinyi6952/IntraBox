@@ -13,6 +13,7 @@ namespace IntraBox.Core
         {
             public string FullPath { get; set; }
             public string Detail { get; set; }
+            public string Extra { get; set; }
             public object Payload { get; set; }
         }
 
@@ -26,9 +27,20 @@ namespace IntraBox.Core
             public string Name { get; set; }
             public string FullPath { get; set; }
             public string Detail { get; set; }
+            public string Extra { get; set; }
             public bool IsFile { get; set; }
             public object Payload { get; set; }
             public List<Node> Children { get; private set; }
+        }
+
+        /// <summary>树形表格的一行。Key 在同一次 Build 结果里稳定，用来折叠。</summary>
+        public sealed class FlatRow
+        {
+            public Node Node { get; set; }
+            public int Depth { get; set; }
+            public bool HasChildren { get; set; }
+            public bool Expanded { get; set; }
+            public string Key { get; set; }
         }
 
         public static List<Node> Build(string root, IList<Leaf> leaves)
@@ -61,6 +73,7 @@ namespace IntraBox.Core
                     node.IsFile = file;
                     node.FullPath = file ? full : Combine(rootFull, acc);
                     node.Detail = file ? (leaf.Detail ?? "") : "";
+                    node.Extra = file ? (leaf.Extra ?? "") : "";
                     node.Payload = file ? leaf.Payload : null;
                     level.Add(node);
                     if (!file) level = node.Children;
@@ -68,6 +81,44 @@ namespace IntraBox.Core
             }
             SortRecursive(top);
             return top;
+        }
+
+        /// <summary>
+        /// 按深度先序展开。collapsed 里有该行 Key 时不展开其子节点。null 表示全部展开。
+        /// </summary>
+        public static List<FlatRow> Flatten(IList<Node> roots, ICollection<string> collapsed)
+        {
+            var list = new List<FlatRow>();
+            if (roots == null) return list;
+            Walk(roots, "", 0, collapsed, list);
+            return list;
+        }
+
+        private static void Walk(IList<Node> nodes, string parentKey, int depth, ICollection<string> collapsed, List<FlatRow> list)
+        {
+            if (nodes == null) return;
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                Node node = nodes[i];
+                if (node == null) continue;
+                string key = parentKey.Length == 0 ? Segment(node) : parentKey + "/" + Segment(node);
+                bool has = node.Children != null && node.Children.Count > 0;
+                bool expanded = has && (collapsed == null || !collapsed.Contains(key));
+                list.Add(new FlatRow
+                {
+                    Node = node,
+                    Depth = depth,
+                    HasChildren = has,
+                    Expanded = expanded,
+                    Key = key
+                });
+                if (expanded) Walk(node.Children, key, depth + 1, collapsed, list);
+            }
+        }
+
+        private static string Segment(Node node)
+        {
+            return (node.IsFile ? "f:" : "d:") + (node.Name ?? "");
         }
 
         private static bool TryFind(List<Node> level, string name, bool file, out Node found)

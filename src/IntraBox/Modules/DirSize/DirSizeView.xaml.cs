@@ -22,6 +22,7 @@ namespace IntraBox.Modules.DirSize
     {
         private readonly AsyncTaskGate _gate = new AsyncTaskGate();
         private readonly ObservableCollection<SizeNode> _roots = new ObservableCollection<SizeNode>();
+        private readonly HashSet<string> _collapsed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<DirSizeHelper.Entry> _level = new List<DirSizeHelper.Entry>();
         private readonly List<DirSizeHelper.DriveRow> _drives = new List<DirSizeHelper.DriveRow>();
         private CancellationTokenSource _expandCts;
@@ -40,7 +41,6 @@ namespace IntraBox.Modules.DirSize
         {
             InitializeComponent();
             DriveGrid.ItemsSource = _drives;
-            ChildTree.ItemsSource = _roots;
             FilterBar.FilterChanged += delegate { ShowLevel(); };
         }
 
@@ -214,6 +214,29 @@ namespace IntraBox.Modules.DirSize
                 if (kw.Length > 0 && !EntryMatches(entry, kw)) continue;
                 _roots.Add(MakeNode(entry));
             }
+            RebuildRows();
+        }
+
+        private void RebuildRows()
+        {
+            var rows = new List<SizeRow>();
+            AppendRows(_roots, 0, rows);
+            ResultGrid.ItemsSource = rows;
+        }
+
+        private void AppendRows(IList<SizeNode> nodes, int depth, List<SizeRow> rows)
+        {
+            if (nodes == null) return;
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                SizeNode node = nodes[i];
+                if (node == null || node.IsPlaceholder) continue;
+                bool dir = node.Entry != null && node.Entry.IsDirectory;
+                string key = node.Entry != null ? (node.Entry.FullPath ?? "") : "";
+                bool expanded = dir && node.Loaded && (key.Length == 0 || !_collapsed.Contains(key));
+                rows.Add(SizeRow.From(node, depth, dir, expanded));
+                if (expanded) AppendRows(node.Children, depth + 1, rows);
+            }
         }
 
         private static bool EntryMatches(DirSizeHelper.Entry entry, string kw)
@@ -233,19 +256,26 @@ namespace IntraBox.Modules.DirSize
             var node = new SizeNode();
             node.Entry = entry;
             node.Children = new ObservableCollection<SizeNode>();
-            if (entry != null && entry.IsDirectory)
-                node.Children.Add(SizeNode.Placeholder());
             return node;
         }
 
-        private async void ChildTree_Expanded(object sender, RoutedEventArgs e)
+        private async void Expand_Click(object sender, MouseButtonEventArgs e)
         {
-            var item = e.OriginalSource as TreeViewItem;
-            if (item == null) return;
-            var node = item.DataContext as SizeNode;
-            if (node == null || node.IsPlaceholder || node.Loaded || node.Entry == null || !node.Entry.IsDirectory)
+            var host = sender as FrameworkElement;
+            var row = host != null ? host.DataContext as SizeRow : null;
+            var node = row != null ? row.Node : null;
+            if (node == null || node.IsPlaceholder || node.Entry == null || !node.Entry.IsDirectory)
                 return;
-            node.Loaded = true;
+            e.Handled = true;
+            string key = node.Entry.FullPath ?? "";
+            if (node.Loaded)
+            {
+                if (key.Length > 0 && !_collapsed.Add(key)) _collapsed.Remove(key);
+                RebuildRows();
+                return;
+            }
+            if (node.Loading) return;
+            node.Loading = true;
             string path = node.Entry.FullPath;
             string folderName = node.Entry.Name ?? path;
             if (_expandCts != null) _expandCts.Cancel();
@@ -253,6 +283,7 @@ namespace IntraBox.Modules.DirSize
             _expandCts = cts;
             var token = cts.Token;
             node.SetWait("正在汇总 " + folderName + "…");
+            RebuildRows();
             FormHint.Apply(MsgText, "正在汇总 " + folderName + "…");
             DirSizeHelper.ScanResult result = null;
             try
@@ -261,14 +292,18 @@ namespace IntraBox.Modules.DirSize
             }
             catch (OperationCanceledException)
             {
+                node.Loading = false;
                 node.Loaded = false;
                 node.SetWait(null);
+                RebuildRows();
                 return;
             }
             catch (Exception ex)
             {
+                node.Loading = false;
                 node.Loaded = false;
                 node.SetWait(null);
+                RebuildRows();
                 FormHint.Apply(MsgText, "汇总失败：" + ex.RootMessage());
                 return;
             }
@@ -279,31 +314,43 @@ namespace IntraBox.Modules.DirSize
             }
             if (token.IsCancellationRequested)
             {
+                node.Loading = false;
                 node.Loaded = false;
                 node.SetWait(null);
+                RebuildRows();
                 return;
             }
+            node.Loading = false;
+            node.Loaded = true;
             node.SetWait(null);
+            if (key.Length > 0) _collapsed.Remove(key);
             node.Children.Clear();
             if (result.Children != null)
             {
                 for (int i = 0; i < result.Children.Count; i++)
                     node.Children.Add(MakeNode(result.Children[i]));
             }
+            RebuildRows();
             FormHint.Apply(MsgText, DirSizeHelper.Summarize(result));
         }
 
-        private void ChildTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        private void ResultGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            var node = ChildTree.SelectedItem as SizeNode;
+            var node = SelectedNode();
             if (node == null || node.IsPlaceholder || node.Entry == null || node.Entry.IsDirectory) return;
             OpenPath(node.Entry.FullPath, true);
             e.Handled = true;
         }
 
+        private SizeNode SelectedNode()
+        {
+            var row = ResultGrid.SelectedItem as SizeRow;
+            return row != null ? row.Node : null;
+        }
+
         private void Locate_Click(object sender, RoutedEventArgs e)
         {
-            var node = ChildTree.SelectedItem as SizeNode;
+            var node = SelectedNode();
             if (node != null && !node.IsPlaceholder && node.Entry != null && !string.IsNullOrEmpty(node.Entry.FullPath))
             {
                 OpenPath(node.Entry.FullPath, true);
@@ -318,7 +365,7 @@ namespace IntraBox.Modules.DirSize
 
         private void Copy_Click(object sender, RoutedEventArgs e)
         {
-            var node = ChildTree.SelectedItem as SizeNode;
+            var node = SelectedNode();
             string path = node != null && !node.IsPlaceholder && node.Entry != null
                 ? node.Entry.FullPath
                 : (DirBox.Text ?? "").Trim();
@@ -352,6 +399,7 @@ namespace IntraBox.Modules.DirSize
             public DirSizeHelper.Entry Entry { get; set; }
             public bool IsPlaceholder { get; set; }
             public bool Loaded { get; set; }
+            public bool Loading { get; set; }
             public ObservableCollection<SizeNode> Children { get; set; }
 
             public void SetWait(string text)
@@ -381,6 +429,35 @@ namespace IntraBox.Modules.DirSize
                 {
                     IsPlaceholder = true,
                     Children = new ObservableCollection<SizeNode>()
+                };
+            }
+        }
+
+        private sealed class SizeRow
+        {
+            public SizeNode Node { get; set; }
+            public string Name { get; set; }
+            public string KindText { get; set; }
+            public string SizeText { get; set; }
+            public string PercentText { get; set; }
+            public string FileCountText { get; set; }
+            public Thickness Indent { get; set; }
+            public Visibility ExpanderVisibility { get; set; }
+            public string ExpanderGlyph { get; set; }
+
+            public static SizeRow From(SizeNode node, int depth, bool directory, bool expanded)
+            {
+                return new SizeRow
+                {
+                    Node = node,
+                    Name = node != null ? node.Name : "",
+                    KindText = node != null ? node.KindText : "",
+                    SizeText = node != null ? node.SizeText : "",
+                    PercentText = node != null ? node.PercentText : "",
+                    FileCountText = node != null ? node.FileCountText : "",
+                    Indent = new Thickness(depth * 16, 0, 0, 0),
+                    ExpanderVisibility = directory ? Visibility.Visible : Visibility.Collapsed,
+                    ExpanderGlyph = expanded ? "−" : "+"
                 };
             }
         }

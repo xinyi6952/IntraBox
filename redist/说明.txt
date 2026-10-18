@@ -1,0 +1,49 @@
+﻿IntraBox redist 说明
+====================
+
+本目录是本机备用的离线安装包和 Edge 内核，不是源码。
+除本文件外都不纳入 Git。build.bat 不会把这里的文件打进 dist\IntraBox。
+
+1. NDP48-x86-x64-AllOS-ENU.exe（约 116 MB）
+   作用：.NET Framework 4.8 离线安装包。Win10 1903 及以后一般已经有 4.8；Win7 SP1 没有就需要装。
+   用法：在要运行 IntraBox 的电脑上双击安装，装完再打开程序。不要拷进发布目录。
+   来源：https://dotnet.microsoft.com/download/dotnet-framework/net48
+   核对：checksums.txt 里该文件名对应的 SHA256。
+
+2. vc_redist.x64.exe（约 24 MB）
+   作用：Visual C++ 2015-2022 64 位运行库。截图里的 OCR 识别依赖它。程序本体不包含这份安装包。
+   用法：OCR 提示缺少运行库时，在本机安装这一份。IntraBox 是 64 位程序，优先装它。
+   来源：https://aka.ms/vs/17/release/vc_redist.x64.exe
+   核对：checksums.txt。
+
+3. vc_redist.x86.exe（约 13 MB）
+   作用：同一套运行库的 32 位版。Win7 上若还缺 32 位组件，再另装这一份。平时可以不装。
+   用法：在目标电脑上双击安装。不要拷进发布目录。
+   来源：https://aka.ms/vs/17/release/vc_redist.x86.exe
+   核对：checksums.txt。
+
+4. Microsoft.WebView2.FixedVersionRuntime*.x64.cab（约 294 MB）
+   作用：Edge 固定版本内核的压缩包，只给 Markdown / 笔记预览用。安装包不再附带它。
+   用法：不要把 CAB 直接放到 IntraBox.exe 旁边，程序不会自动解压。
+         在仓库根目录执行：
+         powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch-webview2-runtime.ps1
+         脚本会下载（或使用这里已有的 CAB）并解压到本目录的 WebView2Runtime。
+         下载地址写在 webview2-x64.url.txt，脚本也可以自己生成这个地址文件。
+
+5. WebView2Runtime\（解开后约 670 MB，内含 msedgewebview2.exe）
+   作用：可直接使用的 Edge 预览内核。
+   用法：把整个 WebView2Runtime 文件夹复制到 IntraBox.exe 所在目录，目录名必须仍是 WebView2Runtime。
+         再打开 Markdown 预览或笔记的预览/分栏，标题会是「预览（Edge）」。
+         没有这个目录时预览使用 IE，编辑和保存不受影响。
+         Windows 7 始终用 IE，放了内核也不会用。
+         设置里选「始终使用 IE」时，即使放了内核也不加载。
+         build.bat 不会复制这个目录，也不会删掉已经放在发布目录里的这一份。
+
+6. webview2-x64.url.txt
+   作用：fetch-webview2-runtime.ps1 使用的 Edge CAB 下载地址。丢失后重新运行脚本会再写一份。
+
+7. checksums.txt
+   作用：上面第 1 到第 3 个安装包的 SHA256。一行一个，格式为「哈希 *文件名」。
+   用法：在本目录执行
+         certutil -hashfile 文件名 SHA256
+         与该行哈希对比。不一致就不要安装。

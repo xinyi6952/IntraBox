@@ -8,7 +8,7 @@
     <DockPanel Margin="16">
         <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"
                    Foreground="{DynamicResource WarningBrush}"
-                   Text="按目标目录树展示。默认全部不勾选。只有勾选的文件会被移动；未勾选的文件保持原位，不会改动磁盘。"/>
+                   Text="按目标目录的树形表格展示。默认全部不勾选。只有勾选的文件会被移动；未勾选的文件保持原位，不会改动磁盘。"/>
         <TextBlock x:Name="CountHint" DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"
                    Foreground="{DynamicResource TextSecondaryBrush}"
                    Text="已勾选 0 个文件。请先勾选要整理的目标，再点确认。"/>
@@ -18,30 +18,47 @@
             <Button Content="取消" MinWidth="88" Margin="0,0,8,0" IsCancel="True"/>
             <Button Content="确认整理勾选的文件" MinWidth="160" Style="{StaticResource PrimaryButton}" Click="Ok_Click"/>
         </StackPanel>
-        <TreeView x:Name="FileTree" BorderThickness="1">
-            <TreeView.ItemTemplate>
-                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                    <StackPanel Orientation="Horizontal">
-                        <CheckBox Margin="0,0,6,0" VerticalAlignment="Center"
-                                  IsChecked="{Binding Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                            <CheckBox.Style>
-                                <Style TargetType="CheckBox">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsFile}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </CheckBox.Style>
-                        </CheckBox>
-                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <TextBlock Text="{Binding Detail}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   ToolTip="{Binding Detail}"/>
-                    </StackPanel>
-                </HierarchicalDataTemplate>
-            </TreeView.ItemTemplate>
-        </TreeView>
+        <DataGrid x:Name="ResultGrid" AutoGenerateColumns="False" CanUserAddRows="False"
+                  HeadersVisibility="Column" GridLinesVisibility="All"
+                  SelectionMode="Single" SelectionUnit="FullRow" BorderThickness="1">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="勾选" Width="56">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Visibility="{Binding CheckVisibility}"
+                                      IsChecked="{Binding Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="名称" Width="240">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid Margin="{Binding Indent}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="18"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Width="18" Height="18" MinWidth="18" MinHeight="18" Padding="0"
+                                        FontSize="11" PreviewMouseLeftButtonDown="Expand_Click"
+                                        Visibility="{Binding ExpanderVisibility}"
+                                        Content="{Binding ExpanderGlyph}" ToolTip="展开/折叠"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="4,0,0,0"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Name}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="来源" Binding="{Binding Detail}" Width="*" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                            <Setter Property="ToolTip" Value="{Binding Detail}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
     </DockPanel>
 </Window>

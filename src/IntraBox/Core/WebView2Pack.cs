@@ -5,8 +5,8 @@ using System.IO;
 namespace IntraBox.Core
 {
     /// <summary>
-    /// 随包 Edge 以内核 CAB 形式放在程序目录，用到预览时再解压。
-    /// 解压结果仍是 exe 旁的 WebView2Runtime，Win7 不走这里。
+    /// 程序目录旁的 Edge 内核（WebView2Runtime）。安装包不附带。
+    /// 解压辅助仍保留，供本机把 CAB 展开到该目录；预览本身发现目录就用，没有就走 IE。
     /// </summary>
     public static class WebView2Pack
     {

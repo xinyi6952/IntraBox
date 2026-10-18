@@ -6,20 +6,38 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using IntraBox.Core;
 using WinForms = System.Windows.Forms;
 
 namespace IntraBox.Modules.DupFiles
 {
-    public partial class DupFilesView : UserControl, IModuleView
+    public partial class DupFilesView : UserControl, IModuleView, IBusyTool
     {
         private string _dir;
         private Thread _th;
         private volatile bool _cancel;
         private volatile bool _scanning;
+        private List<FilePathTree.Node> _nodes = new List<FilePathTree.Node>();
+        private readonly HashSet<string> _collapsed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        public bool IsBusy
+        {
+            get { return _scanning; }
+        }
+
+        public string BusyMessage
+        {
+            get { return "重复文件查找仍在进行，离开将停止当前查找。确定离开？"; }
+        }
 
         public DupFilesView() { InitializeComponent(); }
-        public void OnActivated() { }
+
+        public void OnActivated()
+        {
+            FormHint.Apply(MsgText, "先选择目录，再开始查找。查找完成会弹出结果。");
+        }
+
         public void OnDeactivated() { _cancel = true; }
 
         private void Pick_Click(object sender, RoutedEventArgs e)
@@ -27,10 +45,12 @@ namespace IntraBox.Modules.DupFiles
             using (var dlg = new WinForms.FolderBrowserDialog())
             {
                 dlg.Description = "选择要扫描的目录";
+                if (!string.IsNullOrEmpty(_dir)) dlg.SelectedPath = _dir;
                 if (dlg.ShowDialog() == WinForms.DialogResult.OK)
                 {
                     _dir = dlg.SelectedPath;
-                    FormHint.Apply(MsgText, _dir);
+                    DirBox.Text = _dir;
+                    FormHint.Apply(MsgText, "已选择目录，点「开始查找」。");
                 }
             }
         }
@@ -203,14 +223,29 @@ namespace IntraBox.Modules.DupFiles
                         g++;
                     }
                 }
+                int groups = g - 1;
+                int dupCount = dups.Count;
+                int skipped = unreadable;
                 Ui(() =>
                 {
-                    ResultTree.ItemsSource = BuildDupTree(dir, dups);
-                    Bar.IsIndeterminate = false;
-                    Bar.Value = 100;
-                    string done = "完成，重复组 " + (g - 1) + "，文件 " + dups.Count + "。结果按目录树展示。";
-                    if (unreadable > 0) done += "跳过 " + unreadable + " 个无法读取的文件。";
+                    if (_cancel || !IsLoaded) return;
+                    EndScan();
+                    _collapsed.Clear();
+                    _nodes = BuildDupTree(dir, dups);
+                    BindGrid();
+                    if (Bar != null)
+                    {
+                        Bar.IsIndeterminate = false;
+                        Bar.Value = 100;
+                    }
+                    string done = "查找完成。目录 " + dir + "。重复组 " + groups + "，文件 " + dupCount + "。";
+                    if (skipped > 0) done += "跳过 " + skipped + " 个无法读取的文件。";
                     FormHint.Apply(MsgText, done);
+                    var owner = Window.GetWindow(this);
+                    if (owner != null)
+                        MessageBox.Show(owner, done, "重复文件查找", MessageBoxButton.OK, MessageBoxImage.Information);
+                    else
+                        MessageBox.Show(done, "重复文件查找", MessageBoxButton.OK, MessageBoxImage.Information);
                 });
             }
             catch (Exception ex)
@@ -242,23 +277,26 @@ namespace IntraBox.Modules.DupFiles
             {
                 int group = dups[i].Group;
                 var leaves = new List<FilePathTree.Leaf>();
-                string detail = "";
+                string size = "";
+                string hash = "";
                 while (i < dups.Count && dups[i].Group == group)
                 {
                     DupRow row = dups[i];
-                    if (detail.Length == 0)
-                        detail = (row.SizeText ?? "") + "    " + (row.HashShort ?? "");
+                    if (size.Length == 0) size = row.SizeText ?? "";
+                    if (hash.Length == 0) hash = row.HashShort ?? "";
                     leaves.Add(new FilePathTree.Leaf
                     {
                         FullPath = row.Path,
                         Detail = row.SizeText,
+                        Extra = row.HashShort,
                         Payload = row
                     });
                     i++;
                 }
                 var header = new FilePathTree.Node();
                 header.Name = "重复组 " + group;
-                header.Detail = detail;
+                header.Detail = size;
+                header.Extra = hash;
                 header.IsFile = false;
                 List<FilePathTree.Node> children = FilePathTree.Build(root, leaves);
                 for (int c = 0; c < children.Count; c++)
@@ -268,14 +306,34 @@ namespace IntraBox.Modules.DupFiles
             return roots;
         }
 
-        private FilePathTree.Node SelectedNode()
+        private void BindGrid()
         {
-            return ResultTree.SelectedItem as FilePathTree.Node;
+            List<FilePathTree.FlatRow> flat = FilePathTree.Flatten(_nodes, _collapsed);
+            var rows = new List<DupGridRow>();
+            for (int i = 0; i < flat.Count; i++)
+                rows.Add(DupGridRow.From(flat[i]));
+            ResultGrid.ItemsSource = rows;
+        }
+
+        private void Expand_Click(object sender, MouseButtonEventArgs e)
+        {
+            var host = sender as FrameworkElement;
+            var row = host != null ? host.DataContext as DupGridRow : null;
+            if (row == null || string.IsNullOrEmpty(row.Key) || !row.HasChildren) return;
+            if (!_collapsed.Add(row.Key)) _collapsed.Remove(row.Key);
+            BindGrid();
+            e.Handled = true;
+        }
+
+        private DupGridRow SelectedRow()
+        {
+            return ResultGrid.SelectedItem as DupGridRow;
         }
 
         private void Locate_Click(object sender, RoutedEventArgs e)
         {
-            var node = SelectedNode();
+            var row = SelectedRow();
+            var node = row != null ? row.Node : null;
             if (node == null || string.IsNullOrEmpty(node.FullPath))
             {
                 FormHint.Apply(MsgText, "请先选中一个文件或目录。");
@@ -293,17 +351,18 @@ namespace IntraBox.Modules.DupFiles
 
         private void Delete_Click(object sender, RoutedEventArgs e)
         {
-            var node = SelectedNode();
-            var row = node != null ? node.Payload as DupRow : null;
-            if (row == null || string.IsNullOrEmpty(row.Path))
+            var row = SelectedRow();
+            var node = row != null ? row.Node : null;
+            var dup = node != null ? node.Payload as DupRow : null;
+            if (dup == null || string.IsNullOrEmpty(dup.Path))
             {
                 FormHint.Apply(MsgText, "请先选中一个文件。");
                 return;
             }
-            if (!ConfirmHelper.Delete(row.Path)) return;
+            if (!ConfirmHelper.Delete(dup.Path)) return;
             try
             {
-                File.Delete(row.Path);
+                File.Delete(dup.Path);
                 FormHint.Apply(MsgText, "已删除");
             }
             catch (Exception ex) { FormHint.Apply(MsgText, "删除失败：" + ex.RootMessage()); }
@@ -315,6 +374,38 @@ namespace IntraBox.Modules.DupFiles
             public string Path { get; set; }
             public string SizeText { get; set; }
             public string HashShort { get; set; }
+        }
+
+        private sealed class DupGridRow
+        {
+            public FilePathTree.Node Node { get; set; }
+            public string Key { get; set; }
+            public bool HasChildren { get; set; }
+            public string Name { get; set; }
+            public string SizeText { get; set; }
+            public string HashText { get; set; }
+            public string PathText { get; set; }
+            public Thickness Indent { get; set; }
+            public Visibility ExpanderVisibility { get; set; }
+            public string ExpanderGlyph { get; set; }
+
+            public static DupGridRow From(FilePathTree.FlatRow flat)
+            {
+                FilePathTree.Node node = flat.Node;
+                return new DupGridRow
+                {
+                    Node = node,
+                    Key = flat.Key,
+                    HasChildren = flat.HasChildren,
+                    Name = node != null ? node.Name : "",
+                    SizeText = node != null ? (node.Detail ?? "") : "",
+                    HashText = node != null ? (node.Extra ?? "") : "",
+                    PathText = node != null ? (node.FullPath ?? "") : "",
+                    Indent = new Thickness(flat.Depth * 16, 0, 0, 0),
+                    ExpanderVisibility = flat.HasChildren ? Visibility.Visible : Visibility.Collapsed,
+                    ExpanderGlyph = flat.Expanded ? "−" : "+"
+                };
+            }
         }
     }
 }

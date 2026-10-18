@@ -1,21 +1,26 @@
-﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using IntraBox.Core;
 
 namespace IntraBox.Modules.FileOrganize
 {
     public partial class OrganizePreviewWindow : Window
     {
-        private readonly ObservableCollection<PreviewRow> _rows = new ObservableCollection<PreviewRow>();
+        private readonly List<PreviewRow> _rows = new List<PreviewRow>();
+        private List<FilePathTree.Node> _nodes = new List<FilePathTree.Node>();
+        private readonly HashSet<string> _collapsed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public OrganizePreviewWindow(IList<OrganizePlanItem> plan)
         {
             InitializeComponent();
             BuildRows(plan);
-            FileTree.ItemsSource = BuildTree();
+            _nodes = BuildTree();
+            BindGrid();
             RefreshCount();
         }
 
@@ -38,7 +43,7 @@ namespace IntraBox.Modules.FileOrganize
             Title = "整理预览（" + _rows.Count + " 个文件，默认不勾选）";
         }
 
-        private List<PreviewNode> BuildTree()
+        private List<FilePathTree.Node> BuildTree()
         {
             var leaves = new List<FilePathTree.Leaf>();
             for (int i = 0; i < _rows.Count; i++)
@@ -54,32 +59,26 @@ namespace IntraBox.Modules.FileOrganize
                     Payload = row
                 });
             }
-            List<FilePathTree.Node> nodes = FilePathTree.Build("", leaves);
-            var list = new List<PreviewNode>();
-            for (int i = 0; i < nodes.Count; i++)
-                list.Add(Wrap(nodes[i]));
-            return list;
+            return FilePathTree.Build("", leaves);
         }
 
-        private static PreviewNode Wrap(FilePathTree.Node n)
+        private void BindGrid()
         {
-            var row = n.Payload as PreviewRow;
-            var node = new PreviewNode();
-            node.Name = n.Name;
-            node.Detail = n.IsFile ? ("来源 " + (n.Detail ?? "")) : "";
-            node.IsFile = n.IsFile;
-            node.Row = row;
-            node.Children = new List<PreviewNode>();
-            if (row != null)
-            {
-                row.PropertyChanged += delegate(object s, PropertyChangedEventArgs e)
-                {
-                    if (e.PropertyName == "Selected") node.RaiseSelected();
-                };
-            }
-            for (int i = 0; i < n.Children.Count; i++)
-                node.Children.Add(Wrap(n.Children[i]));
-            return node;
+            List<FilePathTree.FlatRow> flat = FilePathTree.Flatten(_nodes, _collapsed);
+            var rows = new List<GridRow>();
+            for (int i = 0; i < flat.Count; i++)
+                rows.Add(GridRow.From(flat[i]));
+            ResultGrid.ItemsSource = rows;
+        }
+
+        private void Expand_Click(object sender, MouseButtonEventArgs e)
+        {
+            var host = sender as FrameworkElement;
+            var row = host != null ? host.DataContext as GridRow : null;
+            if (row == null || string.IsNullOrEmpty(row.Key) || !row.HasChildren) return;
+            if (!_collapsed.Add(row.Key)) _collapsed.Remove(row.Key);
+            BindGrid();
+            e.Handled = true;
         }
 
         private void SelectAll_Click(object sender, RoutedEventArgs e)
@@ -96,6 +95,7 @@ namespace IntraBox.Modules.FileOrganize
         {
             for (int i = 0; i < _rows.Count; i++)
                 _rows[i].Selected = on;
+            BindGrid();
             RefreshCount();
         }
 
@@ -169,31 +169,50 @@ namespace IntraBox.Modules.FileOrganize
             public event PropertyChangedEventHandler PropertyChanged;
         }
 
-        public sealed class PreviewNode : INotifyPropertyChanged
+        private sealed class GridRow
         {
+            private readonly PreviewRow _row;
+
+            private GridRow(PreviewRow row)
+            {
+                _row = row;
+            }
+
+            public string Key { get; set; }
+            public bool HasChildren { get; set; }
             public string Name { get; set; }
             public string Detail { get; set; }
-            public bool IsFile { get; set; }
-            public PreviewRow Row { get; set; }
-            public List<PreviewNode> Children { get; set; }
+            public Thickness Indent { get; set; }
+            public Visibility ExpanderVisibility { get; set; }
+            public string ExpanderGlyph { get; set; }
+            public Visibility CheckVisibility { get; set; }
 
             public bool Selected
             {
-                get { return Row != null && Row.Selected; }
+                get { return _row != null && _row.Selected; }
                 set
                 {
-                    if (Row == null) return;
-                    Row.Selected = value;
+                    if (_row != null) _row.Selected = value;
                 }
             }
 
-            public void RaiseSelected()
+            public static GridRow From(FilePathTree.FlatRow flat)
             {
-                if (PropertyChanged != null)
-                    PropertyChanged(this, new PropertyChangedEventArgs("Selected"));
+                FilePathTree.Node node = flat.Node;
+                bool file = node != null && node.IsFile;
+                var row = node != null ? node.Payload as PreviewRow : null;
+                return new GridRow(file ? row : null)
+                {
+                    Key = flat.Key,
+                    HasChildren = flat.HasChildren,
+                    Name = node != null ? node.Name : "",
+                    Detail = file ? (node.Detail ?? "") : "",
+                    Indent = new Thickness(flat.Depth * 16, 0, 0, 0),
+                    ExpanderVisibility = flat.HasChildren ? Visibility.Visible : Visibility.Collapsed,
+                    ExpanderGlyph = flat.Expanded ? "−" : "+",
+                    CheckVisibility = file ? Visibility.Visible : Visibility.Collapsed
+                };
             }
-
-            public event PropertyChangedEventHandler PropertyChanged;
         }
     }
 }

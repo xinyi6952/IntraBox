@@ -50,7 +50,7 @@ IntraBox/
 ├── tests/IntraBox.Tests/        单元测试项目（MSTest）
 ├── dist/IntraBox/               绿色发布目录（主程序 + 依赖 + 文档）
 ├── dist/IntraBox.test/          纯净测试包（build.bat test 生成，不入库）
-├── redist/                      离线包（.NET 4.8、VC++；WebView2Runtime 由脚本解压，不入库）
+├── redist/                      离线包（不入库，用法见 redist/说明.txt）
 ├── docs/                        产品设计、测试用例、评审/提交规范、开源仓库说明
 └── tools/                       开发辅助脚本（含 fetch-webview2-runtime.ps1、BOM 检查）
 ```
@@ -65,7 +65,7 @@ IntraBox/
 
 > 运行环境：Win10 1903+ 已预装 .NET Framework 4.8；Win7 SP1 需先装 [.NET Framework 4.8](https://dotnet.microsoft.com/download/dotnet-framework/net48) 与 VC++ 运行库。
 >
-> Win10/11 的 Markdown / 笔记预览用程序目录 `WebView2Runtime`（Edge 内核 Fixed Version）。开发机先跑 `tools\fetch-webview2-runtime.ps1` 再 `build.bat` 打进包内。Win7 用 IE，不是降级。
+> Win10/11 的 Markdown / 笔记预览：把 `WebView2Runtime`（内含 `msedgewebview2.exe`）放到 `IntraBox.exe` 旁边即用 Edge，安装包不附带。没有该目录则用 IE。Win7 用 IE，不是降级。用法见 `redist/说明.txt`。
 
 ## 测试
 
@@ -73,7 +73,7 @@ IntraBox/
 
 ## 发布
 
-- **Win10 / Win11**：只给 `dist/IntraBox/`（须含 `WebView2Runtime`，否则 Markdown 预览会退 IE 并提示）。
+- **Win10 / Win11**：只给 `dist/IntraBox/`。默认用 IE 预览 Markdown。需要 Edge 时，另把 `WebView2Runtime` 文件夹放到 `IntraBox.exe` 旁边。
 - **Win7 内网机**：需额外安装 .NET Framework 4.8 与 VC++ 运行库（微软官方下载）：
   - [.NET Framework 4.8 离线安装包](https://dotnet.microsoft.com/download/dotnet-framework/net48)
   - [VC++ 2015-2022 运行库（x64）](https://aka.ms/vs/17/release/vc_redist.x64.exe) / [x86](https://aka.ms/vs/17/release/vc_redist.x86.exe)

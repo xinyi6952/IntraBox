@@ -37,17 +37,42 @@
             <Button Content="定位到文件夹" Click="Locate_Click" Margin="0,4,8,4"/>
             <controls:GridFilterBar x:Name="FilterBar" VerticalAlignment="Center" Margin="8,4,0,4"/>
         </WrapPanel>
-        <TreeView x:Name="ResultTree" Grid.Row="2" BorderThickness="1"
-                  MouseDoubleClick="ResultTree_MouseDoubleClick">
-            <TreeView.ItemTemplate>
-                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding Name}" Margin="0,0,12,0"/>
-                        <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    </StackPanel>
-                </HierarchicalDataTemplate>
-            </TreeView.ItemTemplate>
-        </TreeView>
+        <DataGrid x:Name="ResultGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="All"
+                  SelectionMode="Single" SelectionUnit="FullRow" BorderThickness="1"
+                  MouseDoubleClick="ResultGrid_MouseDoubleClick">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="名称" Width="240">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid Margin="{Binding Indent}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="18"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Width="18" Height="18" MinWidth="18" MinHeight="18" Padding="0"
+                                        FontSize="11" PreviewMouseLeftButtonDown="Expand_Click"
+                                        Visibility="{Binding ExpanderVisibility}"
+                                        Content="{Binding ExpanderGlyph}" ToolTip="展开/折叠"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="4,0,0,0"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Name}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="大小" Binding="{Binding SizeText}" Width="100"/>
+                <DataGridTextColumn Header="修改时间" Binding="{Binding ModifiedText}" Width="140"/>
+                <DataGridTextColumn Header="路径" Binding="{Binding PathText}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                            <Setter Property="ToolTip" Value="{Binding PathText}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
         <TextBlock x:Name="MsgText" Grid.Row="3" Margin="0,8,0,0" TextWrapping="Wrap"
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>

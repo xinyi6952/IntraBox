@@ -1,6 +1,7 @@
 # Requires -Version 5.1
 # 下载 WebView2 Fixed Version（x64 CAB）并解压到 redist\WebView2Runtime。
-# UTF-8 BOM。不入库：redist/ 已在 .gitignore。
+# UTF-8 BOM。安装包不附带这份内核。要用 Edge 预览时，把解压出的 WebView2Runtime
+# 整个复制到 IntraBox.exe 旁边（目录名保持 WebView2Runtime）。没有该目录则预览用 IE。
 # 用法：powershell -NoProfile -ExecutionPolicy Bypass -File tools/fetch-webview2-runtime.ps1
 # 也可先把完整 CAB 放到 redist\ 再运行本脚本（仅解压）。
 

@@ -102,7 +102,7 @@ namespace IntraBox.Core
         [DataMember]
         public bool TodoMuteNeedsConfirm { get; set; }
 
-        /// <summary>Markdown/笔记预览的 Edge：0 打开时再问，1 使用并在首次解压，2 用 IE 不解压。旧配置缺字段为 0。</summary>
+        /// <summary>Markdown/笔记预览：0 或 1 表示程序目录有 WebView2Runtime 就用 Edge，否则 IE；2 始终用 IE。旧配置缺字段为 0。不升 ConfigVersion。</summary>
         [DataMember]
         public int WebView2PreviewChoice { get; set; }
 

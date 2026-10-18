@@ -9,7 +9,9 @@ TestResults/
 
 # ===== 发布与运行时（二进制走 GitHub Releases，不进源码仓库）=====
 dist/
-redist/
+# 离线安装包与 Edge 内核不入库；只保留用法说明。
+redist/*
+!redist/说明.txt
 
 # ===== AI 助手 / 编辑器本地配置（含个人路径，勿提交）=====
 .claude/
